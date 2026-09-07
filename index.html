@@ -8525,7 +8525,7 @@ function _cloudInitUI(){
     _cloudCfg={owner:'xhsu1023', repo:(repo.value||'pulse-sync').trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,''), token:(tok.value||'').trim(), lastT:0};
     _cloudCfgStore(); _cloudSha=null;
     _cloudStatusText('连接中…');
-    _cloudPull(true).then(()=>{ if(st){ st.textContent=_cloudCfg.lastT?('已连接 · 最近云端数据已同步 '+new Date().toLocaleTimeString()):'已连接 · 云端为空或读取失败'; } });
+    _cloudPull(true).then(()=>{ if(st){ st.textContent=_cloudCfg.lastT?('已连接 · 云端数据已同步 '+new Date(_cloudCfg.lastT).toLocaleTimeString()):'已连接 · 云端暂无有效数据，本机修改后自动上传'; } });
   });
   document.getElementById('cloudSyncBtn').addEventListener('click',()=>{
     _cloudStatusText('同步中…');
