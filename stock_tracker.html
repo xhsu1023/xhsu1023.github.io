@@ -7714,6 +7714,21 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     const c15_buynow = firstUpAfterDown && crossAbove5 && holdAbove5 && redBar
                     && (!isLatestBar15 || mainInflow15)
                     && (r==null||(r>=30&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
+    /* ——C16「强势突破·放量主升」（用户规则 2026-09-07 补充 C15 强势股分支）——
+       与 C15 连跌反转互补的强势股场景：主升/加速途中(近5日≥2根≥5%大阳背景)，
+       今日放量(≥前3日均量)大阳/涨停(≥7%)收盘突破前20日收盘高点、MA5>MA10>MA20
+       多头排列、收盘站上5日线、MACD dif>dea>0、距20线≤60%(允许追高但设顶)、
+       RSI6≤92/J≤120(强势股允许多数超买) → 加速主升日买入。
+       覆盖金健米业2026-08-25：6日直拉+44%（6.46→9.31）dev20=40.5%、RSI6=86、
+       C15连跌分支无连跌、C4需5/10首度金叉+dev20≤30 → 均漏检。 */
+    let big5=0;
+    for(let j=Math.max(1,i-5);j<i;j++){ const pj=closes[j-1]; if(pj!=null&&closes[j]>pj&&((closes[j]/pj-1)*100)>=5) big5++; }
+    const maBull=ma5i!=null&&ma10i!=null&&ma20i!=null&&ma5i>ma10i&&ma10i>ma20i;
+    const c16_strong = big5>=2 && chgNow>=7 && upBar && volOk && hitHigh
+                    && maBull && closes[i]!=null&&ma5i!=null&&closes[i]>ma5i
+                    && dif!=null&&dea!=null&&dif>dea&&dif>0
+                    && dev20Pct<=60 && notAdrift
+                    && (r==null||r<=92) && (kd.j[i]==null||kd.j[i]<=120);
     /* ——C14「回踩10日线·K线上穿5日线·温和放量」（用户规则）——
        回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
        量能较昨日温和放大(1~4倍)、MACD dif>dea → 回踩10线后放量上攻日买入。 */
@@ -7747,6 +7762,7 @@ addB(priceTriCross,3.0,'三线突破');              // C12：K线同时上穿5/
 addB(cPriceAbove10_5,3.0,'回踩20上穿5/10');       // C13：回踩20日线后K线穿5/10日线+温量，单键可触发
 addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K线上穿5日线+温量，单键可触发
     addB(c15_buynow,3.0,'连跌首阳穿5');             // C15：连续下跌后首次上穿5日线+站稳红柱+主力流入，单因子可触发
+    addB(c16_strong,3.0,'强势突破');                 // C16：强势股放量主升突破前高，单因子可触发
     addB(f.triple_cross,3.2,'三金叉');
     addB(lowDead?false:f.lowbase_launch,3.0,'低位启动');
     addB(f.macd_cross&&(f.deep_oversold||(rP!=null&&r6[i]!=null&&rP<=30&&r6[i]>rP)),3.0,'超跌金叉');
@@ -7762,7 +7778,7 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     const pat=kmCandles(d, i);
     const patConfB=pat.b.length>0&&Math.max.apply(null,pat.b.map(x=>x.w))>=2.6;
     const bKeySet=bKeys.length;
-    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
+    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
     /* ——AI四因子 末根置信加成—— 模型存在时，仅对"最后一根K线"(实时决策)按 AI4 买/卖分加减：
        与规则共振(买分≥60 或 卖分≥60)时，把 buyOk/sellOk 判定所需强度放宽 0.5；强反向则收紧。 */
     let ai4b=0, ai4s=0;
@@ -7773,11 +7789,15 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     const c6Rebuy=bKeys.includes('回踩再攻');
     const c8Reentry=bKeys.includes('平台突破涨停');
     const c9Reentry=bKeys.includes('V型回封');
+    const c16Reentry=bKeys.includes('强势突破');   // C16 强势突破视为强趋势再入场：买入冷却放宽至5日、卖出冷却放宽至2日
     const c12Reentry=bKeys.includes('三线突破');   // 三线共振突破视为全新入场，卖出冷却放宽至1根(非同日即可)
     // 突破/回踩上穿类买点（C12/C13/C14）同享买入冷却 12→5 日（强势重进，避免12日硬冷却漏点）
     const fastBuyReentry=c12Reentry||bKeys.includes('回踩20上穿5/10')||bKeys.includes('回踩10上穿5');
     let sS=0; const sKeys=[];   // 提前声明：买点捕获 lastSig 时制售侧未计分（保持其合法引用）
-    if(buyOk && notAdrift && upBar && (c9Reentry?i-lastSell>=3:(c12Reentry?i-lastSell>=1:i-lastSell>=4)) && ((c6Rebuy||c8Reentry||fastBuyReentry)?i-lastBuy>=5:i-lastBuy>=12)){ buys.push(i); lastBuy=i; if(i===n-1) lastSig={buy:true,sell:false,buyKeys:bKeys.slice(),sellKeys:sKeys.slice(),bS:+bS.toFixed(1),sS:+sS.toFixed(1),date:_kmDt(d[i]),ai4:(ai4&&ai4.w&&sym)?{buy:ai4b,sell:ai4s}:null,pat:pat.names.length?pat.names.join('、'):null}; continue; }
+    // 卖出冷却取"触发再入场因子中最小者"（最宽松）：多因子(如C9+C16)同现时避免被较严分支覆盖
+    const sellCd = c9Reentry?3:(c16Reentry?2:(c12Reentry?1:4));
+    const sellCdEff = c16Reentry&&c9Reentry ? Math.min(2,3) : sellCd;
+    if(buyOk && notAdrift && upBar && i-lastSell>=sellCdEff && ((c6Rebuy||c8Reentry||c16Reentry||fastBuyReentry)?i-lastBuy>=5:i-lastBuy>=12)){ buys.push(i); lastBuy=i; if(i===n-1) lastSig={buy:true,sell:false,buyKeys:bKeys.slice(),sellKeys:sKeys.slice(),bS:+bS.toFixed(1),sS:+sS.toFixed(1),date:_kmDt(d[i]),ai4:(ai4&&ai4.w&&sym)?{buy:ai4b,sell:ai4s}:null,pat:pat.names.length?pat.names.join('、'):null}; continue; }
     /* ---- 卖点：趋势反转/超买回落/冲高破位 两条件共振 ----
        S1 MACD高位死叉 / S2 RSI超买回落 / S3 死叉配合超买 / S4 KDJ高位死叉 /
        S5 跌破5日线(动量确认) / 破位10日线 + S6 冲高破位组(冲高回落/爆量长阴/阴线破5日/KDJ中位死叉)
