@@ -2034,6 +2034,7 @@ function _renderKmBars(box, t, rows, label){
     const ch=_kmNewChart(el); if(!ch) return;
     if(d1Mode) ch._noSync=true;
     const hist=ch.addHistogramSeries({priceScaleId:'fund',priceFormat:{type:'volume'}});
+    ch._primarySeries=hist;
     hist.setData(times.map((tm,i)=>({time:tm, value:vals[i], color: vals[i]==null?'transparent':(vals[i]>=0?'rgba(255,51,85,0.75)':'rgba(0,255,136,0.6)')})));
     const last=sorted[sorted.length-1];
     if(t && last && Number.isFinite(last.xl)){ try{ t.innerHTML=(d1Mode?'日级·':'')+_kmFundStatus(last); }catch(e){} }
@@ -6861,6 +6862,7 @@ function _kmNewChart(el){
   kmNoSyncUntil=performance.now()+250;
   const ch=window.LightweightCharts.createChart(el, Object.assign({},_KM_LC_CFG,{width:w,height:h}));
   el._chart=ch;
+  ch._primarySeries=null;
   kmLinkTimeRange(ch);
   kmLinkCrosshair(ch);
   return ch;
@@ -6883,28 +6885,20 @@ function kmLinkCrosshair(ch){
     if(performance.now()<kmNoSyncUntil) return;
     const targets=kmCharts().filter(c=>c!==ch && !c._noSync);
     for(const t of targets){
-      if(typeof t.setCrosshairPosition==='function'){
+      const tgtSeries=t._primarySeries;
+      if(typeof t.setCrosshairPosition==='function' && tgtSeries && param.time!=null){
+        try{ t.setCrosshairPosition(tgtSeries, param.time); }catch(e){}
+      } else {
+        /* fallback: 通过 pointer 事件模拟 hover */
         try{
-          if(param.time!=null && param.seriesData){
-            const entry=[...param.seriesData.entries()].next().value;
-            if(entry){ const series=entry[0]; t.setCrosshairPosition(entry[1].value, param.time, series); }
-          }
-        }catch(e){}
-      } else if(param.time!=null){
-        try{
-          const srcTS=ch.timeScale(), tgtTS=t.timeScale();
-          const srcW=srcTS.width(), tgtW=tgtTS.width();
+          const srcW=ch.timeScale().width(), tgtW=t.timeScale().width();
           if(!(srcW>0 && tgtW>0)) continue;
-          const lr=srcTS.getVisibleLogicalRange();
-          if(!lr) continue;
           const lPos=(param.point&&param.point.x!=null)? param.point.x/srcW : 0.5;
           const tgtX=lPos*tgtW;
-          const tgtCanvas=t.element&&t.element.querySelector&&t.element.querySelector('canvas');
-          const tgtH=tgtCanvas?tgtCanvas.height:100;
           const tgtEl=t.element||t.parentElement;
           if(tgtEl){
             tgtEl.dispatchEvent(new PointerEvent('pointerenter',{clientX:0,clientY:0,bubbles:false}));
-            tgtEl.dispatchEvent(new PointerEvent('pointermove',{clientX:tgtX,clientY:tgtH/2,bubbles:false}));
+            tgtEl.dispatchEvent(new PointerEvent('pointermove',{clientX:tgtX,clientY:50,bubbles:false}));
           }
         }catch(e){}
       }
@@ -7014,6 +7008,7 @@ function renderKmVol(){
         const ch=_kmNewChart(el); if(!ch) return;
         ch.applyOptions({timeScale:Object.assign({},_KM_LC_CFG.timeScale,{barSpacing:8,rightOffset:2})});
         const hist=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},priceScale:{scaleMargins:{top:0.1,bottom:0}}});
+        ch._primarySeries=hist;
         hist.setData(pts.map(p=>({time:p.ts, value:p.vol, color:p.auc?'rgba(255,191,71,0.85)':(p.up?'rgba(255,51,85,0.65)':'rgba(0,255,136,0.55)')})));
         try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false,tickMarkFormatter:(tt)=>{ const d2=new Date(tt*1000); const hh=String(d2.getHours()).padStart(2,'0'), mm=String(d2.getMinutes()).padStart(2,'0'); return (hh==='11'&&mm==='30')?'11:30/13:00':hh+':'+mm; }}); }catch(e){}
         try{ ch.timeScale().fitContent(); }catch(e){}
@@ -7044,6 +7039,7 @@ function renderKmVol(){
     const vm5=volMa(5), vm10=volMa(10);
     const ch=_kmNewChart(el2); if(!ch) return;
     const hist=ch.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'}});
+    ch._primarySeries=hist;
     hist.setData(d2.map((k,i)=>({time:times[i], value:vols[i], color: k.c>=k.o?'rgba(255,51,85,0.65)':'rgba(0,255,136,0.55)'})));
     const addMa=(color,arr2)=>{
       const ls2=ch.addLineSeries({color:color,lineWidth:1,priceScaleId:'vol',lastValueVisible:false,priceLineVisible:false});
@@ -7125,6 +7121,7 @@ function renderKmTech(){
     const ls=(name,arr2,color,w)=>{
       const s2=ch.addLineSeries({color:color,lineWidth:w||1,lastValueVisible:false,priceLineVisible:false});
       s2.setData(arr2.map((v,i)=>({time:times[i], value:v})));
+      if(!ch._primarySeries) ch._primarySeries=s2;
       return s2;
     };
     let title=null;
@@ -7141,6 +7138,7 @@ function renderKmTech(){
       const m=macd(closes,12,26,9);
       const bar=ch.addHistogramSeries({priceScaleId:'macd'});
       bar.setData(d2.map((_,i)=>({time:times[i], value:m.macd[i], color: m.macd[i]>=0?'rgba(255,51,85,0.55)':'rgba(0,255,136,0.45)'})));
+      ch._primarySeries=bar;
       ls('DIF',m.dif,'#00f0ff',1.2); ls('DEA',m.dea,'#f7c948',1.2);
       title=`MACD · DIF:${m.dif[li]!=null?m.dif[li].toFixed(3):'--'} · DEA:${m.dea[li]!=null?m.dea[li].toFixed(3):'--'} · MACD:${m.macd[li]!=null?m.macd[li].toFixed(3):'--'}`;
     } else { // RSI
@@ -7896,7 +7894,7 @@ function kmRenderChart(data, sym){
       if(aucPts.length){ const acS=ch.addLineSeries({color:'#9aa0b5',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}}); acS.setData(aucPts.map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }
       const avgS=ch.addLineSeries({color:'#f7c948',lineWidth:1,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
       avgS.setData(pts.map(p=>({time:p.ts, value:+p.avg.toFixed(2)})));
-      el._pS=priceS; el._avgS=avgS; el._preClose=preClose;
+      el._pS=priceS; el._avgS=avgS; el._preClose=preClose; ch._primarySeries=priceS;
       if(preClose!=null){ const pc=ch.addLineSeries({color:'#6b7280',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false}); pc.setData(pts.map(p=>({time:p.ts, value:preClose}))); }
       try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false,tickMarkFormatter:(t)=>{ const d2=new Date(t*1000); const hh=String(d2.getHours()).padStart(2,'0'), mm=String(d2.getMinutes()).padStart(2,'0'); return (hh==='11'&&mm==='30')?'11:30/13:00':hh+':'+mm; }}); }catch(e){}
       try{ ch.timeScale().fitContent(); }catch(e){}
@@ -7928,7 +7926,7 @@ function kmRenderChart(data, sym){
     wickUpColor:'#ff3355', wickDownColor:'#00ff88'
   });
   candle.setData(d.map((x,i)=>({time:times[i], open:x.o, high:x.h, low:x.l, close:x.c})));
-  el._candS=candle;
+  el._candS=candle; ch._primarySeries=candle;
   try{
     if(ch && typeof ch.subscribeClick==='function'){
       ch.subscribeClick(param=>{
