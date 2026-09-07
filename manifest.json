@@ -1,0 +1,20 @@
+{
+  "name": "STOCK PULSE · 热门趋势追踪与买卖点预测",
+  "short_name": "STOCK PULSE",
+  "description": "A股热门趋势追踪、K线弹窗、分时、买卖点预测、实时行情与提醒",
+  "start_url": "./stock_tracker.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icons/icon-152.png", "sizes": "152x152", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-167.png", "sizes": "167x167", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

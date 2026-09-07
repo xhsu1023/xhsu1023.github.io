@@ -1,0 +1,17 @@
+{
+  "name": "隔夜美股 → A股映射 · 核心个股",
+  "short_name": "美股映射",
+  "description": "隔夜美股上涨板块 TOP3 与对应 A股核心个股、主力净流入与推荐关注",
+  "start_url": "./us_sector_page.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0e14",
+  "theme_color": "#0b0e14",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

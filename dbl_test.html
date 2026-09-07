@@ -1,0 +1,16 @@
+<!doctype html><html lang="zh"><head><meta charset="utf-8"><title>双击诊断</title></head>
+<body style="font-family:monospace;background:#111;color:#0f0;padding:20px;font-size:14px">
+<h3>双击诊断工具</h3>
+<p>操作：同时打开本页和 <b>G:\excel_testcase\stock_tracker.html</b>，在股票列表行上双击。本页会自动记录你双击那个页面时浏览器收没收到事件。</p>
+<p>试试：直接在本页下面的<b>测试按钮</b>双击，看颜色变化（验证浏览器双击本身是否正常）。</p>
+<button id="bt" style="font-size:24px;padding:20px;background:#333;color:#fff;border:1px solid #0f0">在此双击测试 →</button>
+<div id="log"></div>
+<script>
+let cnt=0;
+document.getElementById('bt').addEventListener('click',()=>{});
+document.getElementById('bt').addEventListener('dblclick',()=>{ cnt++; document.getElementById('log').textContent='本页 dblclick 触发次数='+cnt+'（若变大说明浏览器双击正常）'; document.getElementById('bt').style.background='#0a0'; });
+window.__manual='请把下面这句复制给 AI';
+document.addEventListener('dblclick',e=>{ document.getElementById('log').textContent+=(' 【全局dblclick目标=》'+((e.target&&e.target.tagName)||'')+'】'); });
+// 监听任何 fetch 失败（可选）
+</script>
+</body></html>

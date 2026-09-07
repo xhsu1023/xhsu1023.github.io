@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>复盘系统 · 市场情绪量化</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0b0e;--bg-card:#11131a;--bg-card2:#161a28;--border:#1e2238;--border-glow:#00f0ff;--gold:#f7c948;--cyan:#00f0ff;--pink:#ff2d77;--green:#00ff88;--red:#ff3355;--orange:#ff8800;--purple:#a855f7;--blue:#38bdf8;--text:#8a92b0;--text-bright:#e0e4f0;--font-mono:'JetBrains Mono',monospace;--font-display:'Orbitron',sans-serif}
+html{font-size:13px}
+body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;background-image:radial-gradient(ellipse 70% 50% at 20% 20%,rgba(0,240,255,0.025) 0%,transparent 70%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(247,201,72,0.015) 0%,transparent 70%)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,0.006) 2px,rgba(0,240,255,0.006) 4px)}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.container{max-width:1440px;margin:0 auto;padding:10px}
+.header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:10px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;position:relative;overflow:hidden}
+.header::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,240,255,0.03),transparent);animation:hdSweep 4s ease-in-out infinite}
+@keyframes hdSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.header .hl{display:flex;align-items:center;gap:12px;position:relative;z-index:1}
+.header h1{font-family:var(--font-display);font-size:1.1rem;font-weight:700;letter-spacing:2px;background:linear-gradient(90deg,#f7c948,#f0a030,#f7c948);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gp 3s ease-in-out infinite}
+@keyframes gp{0%,100%{filter:drop-shadow(0 0 6px rgba(247,201,72,0.3));background-position:0% center}50%{filter:drop-shadow(0 0 16px rgba(247,201,72,0.5));background-position:100% center}}
+.header .hs{font-size:0.6rem;letter-spacing:2px;color:var(--text)}
+.header .hr{display:flex;gap:12px;position:relative;z-index:1;font-size:0.65rem;flex-wrap:wrap}
+.header .hr span{display:flex;align-items:center;gap:4px}
+.header .hr .lbl{color:var(--text);font-size:0.55rem;text-transform:uppercase;letter-spacing:1px}
+.header .hr .val{font-weight:600}
+.gold{color:var(--gold)}.cyan{color:var(--cyan)}.green{color:var(--green)}.red{color:var(--red)}.pink{color:var(--pink)}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+@media(max-width:1100px){.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;transition:border-color 0.3s,box-shadow 0.3s}
+.card:hover{border-color:var(--border-glow);box-shadow:0 0 20px rgba(0,240,255,0.05),inset 0 0 30px rgba(0,240,255,0.012)}
+.card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid rgba(30,34,56,0.5)}
+.card-title h2{font-family:var(--font-display);font-size:0.65rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;background:linear-gradient(90deg,#f7c948,#d4a020);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.card-title .badge{font-size:0.5rem;padding:1px 7px;border-radius:10px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.15);color:var(--cyan);letter-spacing:1px}
+.span2{grid-column:span 2}
+.span3{grid-column:span 3}
+@media(max-width:1100px){.span2,.span3{grid-column:1/-1}}
+
+/* Market Overview */
+.mo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
+.mo-item{background:rgba(14,16,24,0.6);border:1px solid rgba(30,34,56,0.4);border-radius:6px;padding:8px 10px;text-align:center}
+.mo-item .l{font-size:0.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
+.mo-item .v{font-size:1.1rem;font-weight:700;font-family:var(--font-mono);line-height:1.3;margin-top:2px}
+.mo-item .s{font-size:0.65rem;font-weight:600;margin-top:1px}
+
+/* Tables */
+.tw{overflow-x:auto;max-height:260px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:0.64rem}
+th{text-align:left;padding:4px 7px;font-size:0.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--text);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-card);z-index:1}
+td{padding:4px 7px;border-bottom:1px solid rgba(30,34,56,0.25);white-space:nowrap}
+tr:hover td{background:rgba(0,240,255,0.025)}
+.tg{padding:1px 5px;border-radius:3px;font-size:0.5rem;font-weight:600}
+.tg-up{background:rgba(255,51,85,0.15);color:var(--red)}
+.tg-dn{background:rgba(0,255,136,0.12);color:var(--green)}
+.tg-b{background:rgba(0,240,255,0.1);color:var(--cyan)}
+.tg-g{background:rgba(247,201,72,0.1);color:var(--gold)}
+.tg-p{background:rgba(168,85,247,0.1);color:var(--purple)}
+.tg-o{background:rgba(255,136,0,0.1);color:var(--orange)}
+
+/* Form Panel */
+.fp{display:flex;flex-wrap:wrap;gap:6px;align-items:end;margin-bottom:8px}
+.fg{display:flex;flex-direction:column;gap:2px}
+.fg label{font-size:0.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
+.fg input,.fg select{background:rgba(14,16,24,0.8);border:1px solid var(--border);border-radius:4px;padding:4px 7px;color:var(--text-bright);font-family:var(--font-mono);font-size:0.7rem;outline:none;transition:border-color 0.2s;max-width:120px}
+.fg input:focus,.fg select:focus{border-color:var(--cyan);box-shadow:0 0 8px rgba(0,240,255,0.08)}
+.btn{background:transparent;border:1px solid var(--gold);color:var(--gold);padding:5px 14px;border-radius:4px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all 0.3s}
+.btn:hover{background:rgba(247,201,72,0.08);box-shadow:0 0 12px rgba(247,201,72,0.12)}
+.btn-cyan{border-color:var(--cyan);color:var(--cyan)}
+.btn-cyan:hover{background:rgba(0,240,255,0.08);box-shadow:0 0 12px rgba(0,240,255,0.12)}
+.btn-sm{padding:3px 10px;font-size:0.5rem}
+.btn-red{border-color:var(--red);color:var(--red)}
+.btn-red:hover{background:rgba(255,51,85,0.08);box-shadow:0 0 12px rgba(255,51,85,0.12)}
+.emptys{text-align:center;padding:20px;opacity:0.35;font-family:var(--font-display);font-size:0.6rem;letter-spacing:2px}
+.emptys .ei{font-size:1.4rem;margin-bottom:4px}
+.tabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.tab{padding:4px 12px;border:1px solid var(--border);border-radius:4px;font-size:0.55rem;font-family:var(--font-display);letter-spacing:1px;cursor:pointer;transition:all 0.2s;background:transparent;color:var(--text)}
+.tab:hover{border-color:rgba(0,240,255,0.3)}
+.tab.act{border-color:var(--gold);color:var(--gold);background:rgba(247,201,72,0.06)}
+@media(max-width:600px){.fg input,.fg select{max-width:100px;font-size:0.65rem}.mo-grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <div class="hl">
+      <div><h1>⬡ 复盘系统</h1><div class="hs">市场情绪量化 · 数据驱动</div></div>
+    </div>
+    <div class="hr">
+      <span><span class="lbl">数据日期</span><span class="val gold" id="hDate">--</span></span>
+      <span><span class="lbl">涨停</span><span class="val red" id="hZt">0</span></span>
+      <span><span class="lbl">跌停</span><span class="val green" id="hDt">0</span></span>
+      <span><span class="lbl">上涨</span><span class="val red" id="hUp">0</span></span>
+      <span><span class="lbl">下跌</span><span class="val green" id="hDn">0</span></span>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ============ 模块1: 大盘总览 ============ -->
+    <div class="card span3">
+      <div class="card-title"><h2>⬡ 大盘总览</h2><span class="badge">MARKET</span></div>
+      <div class="fp" id="moForm">
+        <div class="fg"><label>日期</label><input type="date" id="moDate"></div>
+        <div class="fg"><label>全市场成交额</label><input type="text" id="moTotalVol" placeholder="2.21万亿"></div>
+        <div class="fg"><label>沪市</label><input type="text" id="moSh" placeholder="3876.78 +0.25%"></div>
+        <div class="fg"><label>深市</label><input type="text" id="moSz" placeholder="14123 +0.44%"></div>
+        <div class="fg"><label>北交所</label><input type="text" id="moBj" placeholder="1066 +2.0%"></div>
+        <div class="fg"><label>上涨家数</label><input type="number" id="moUp" placeholder="4200"></div>
+        <div class="fg"><label>下跌家数</label><input type="number" id="moDn" placeholder="890"></div>
+        <div class="fg"><label>涨停</label><input type="number" id="moZt" placeholder="108"></div>
+        <div class="fg"><label>跌停</label><input type="number" id="moDt" placeholder="9"></div>
+        <button class="btn btn-cyan btn-sm" id="moSave">保存</button>
+        <button class="btn btn-sm" id="moSample">加载示例</button>
+      </div>
+      <div class="mo-grid" id="moDisplay"></div>
+    </div>
+
+    <!-- ============ 模块2: 连板梯队 ============ -->
+    <div class="card">
+      <div class="card-title"><h2>⬡ 连板梯队</h2><span class="badge">BOARDS</span></div>
+      <div class="fp">
+        <div class="fg"><label>代码</label><input type="text" id="lbCode" placeholder="002156"></div>
+        <div class="fg"><label>名称</label><input type="text" id="lbName" placeholder="通富微电"></div>
+        <div class="fg"><label>连板数</label><input type="number" id="lbN" placeholder="3" style="max-width:60px"></div>
+        <div class="fg"><label>涨停板</label><input type="text" id="lbBoard" placeholder="首板/2连板/..." style="max-width:80px"></div>
+        <div class="fg"><label>封单额</label><input type="text" id="lbAmt" placeholder="5.2亿" style="max-width:70px"></div>
+        <button class="btn btn-cyan btn-sm" id="lbAdd">+</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>代码</th><th>名称</th><th>连板</th><th>板</th><th>封单</th><th></th></tr></thead><tbody id="lbBody"></tbody></table></div>
+    </div>
+
+    <!-- ============ 模块3: 首板梯队 ============ -->
+    <div class="card">
+      <div class="card-title"><h2>⬡ 首板梯队</h2><span class="badge">FIRST</span></div>
+      <div class="fp">
+        <div class="fg"><label>代码</label><input type="text" id="sbCode" placeholder="002156"></div>
+        <div class="fg"><label>名称</label><input type="text" id="sbName" placeholder="通富微电"></div>
+        <div class="fg"><label>封单额</label><input type="text" id="sbAmt" placeholder="3.8亿" style="max-width:70px"></div>
+        <div class="fg"><label>题材</label><input type="text" id="sbTheme" placeholder="芯片" style="max-width:80px"></div>
+        <button class="btn btn-cyan btn-sm" id="sbAdd">+</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>代码</th><th>名称</th><th>封单</th><th>题材</th><th></th></tr></thead><tbody id="sbBody"></tbody></table></div>
+    </div>
+
+    <!-- ============ 模块4: 放量突破 ============ -->
+    <div class="card">
+      <div class="card-title"><h2>⬡ 放量突破</h2><span class="badge">VOL</span></div>
+      <div class="fp">
+        <div class="fg"><label>代码</label><input type="text" id="flCode" placeholder="002156"></div>
+        <div class="fg"><label>名称</label><input type="text" id="flName" placeholder="通富微电"></div>
+        <div class="fg"><label>涨幅%</label><input type="text" id="flChg" placeholder="+9.98" style="max-width:55px"></div>
+        <div class="fg"><label>倍量</label><input type="text" id="flVol" placeholder="2.5x" style="max-width:50px"></div>
+        <button class="btn btn-cyan btn-sm" id="flAdd">+</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>代码</th><th>名称</th><th>涨幅</th><th>倍量</th><th></th></tr></thead><tbody id="flBody"></tbody></table></div>
+    </div>
+
+    <!-- ============ 模块5: 突破前高 ============ -->
+    <div class="card">
+      <div class="card-title"><h2>⬡ 突破前高</h2><span class="badge">新高</span></div>
+      <div class="fp">
+        <div class="fg"><label>代码</label><input type="text" id="pgCode" placeholder="002156"></div>
+        <div class="fg"><label>名称</label><input type="text" id="pgName" placeholder="通富微电"></div>
+        <div class="fg"><label>前高日</label><input type="text" id="pgDate" placeholder="7/15" style="max-width:55px"></div>
+        <button class="btn btn-cyan btn-sm" id="pgAdd">+</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>代码</th><th>名称</th><th>前高日</th><th></th></tr></thead><tbody id="pgBody"></tbody></table></div>
+    </div>
+
+    <!-- ============ 模块6: 低位放量 ============ -->
+    <div class="card">
+      <div class="card-title"><h2>⬡ 低位放量</h2><span class="badge">BOTTOM</span></div>
+      <div class="fp">
+        <div class="fg"><label>代码</label><input type="text" id="dwCode" placeholder="002156"></div>
+        <div class="fg"><label>名称</label><input type="text" id="dwName" placeholder="通富微电"></div>
+        <div class="fg"><label>倍量</label><input type="text" id="dwVol" placeholder="3x" style="max-width:50px"></div>
+        <button class="btn btn-cyan btn-sm" id="dwAdd">+</button>
+      </div>
+      <div class="tw"><table><thead><tr><th>代码</th><th>名称</th><th>倍量</th><th></th></tr></thead><tbody id="dwBody"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STK = 'review_system_data_v2';
+
+function loadState(){
+  try{const r=localStorage.getItem(STK);return r?JSON.parse(r):null}catch(e){return null}
+}
+function saveState(d){localStorage.setItem(STK,JSON.stringify(d))}
+
+let DATA = loadState() || {
+  date: (new Date()).toISOString().slice(0,10),
+  totalVol:'', sh:'', sz:'', bj:'', up:0, dn:0, zt:0, dt:0,
+  lb:[], sb:[], fl:[], pg:[], dw:[]
+};
+
+function fmtNum(n){if(typeof n==='number')return n;const v=parseFloat(n);return isNaN(v)?0:v}
+
+// ====== 大盘总览 ======
+function renderMo(){
+  const h=document.getElementById('hDate');h.textContent=DATA.date||'--';
+  document.getElementById('hZt').textContent=DATA.zt||0;
+  document.getElementById('hDt').textContent=DATA.dt||0;
+  document.getElementById('hUp').textContent=DATA.up||0;
+  document.getElementById('hDn').textContent=DATA.dn||0;
+  const d=document.getElementById('moDisplay');
+  const items=[
+    {l:'全市场成交额',v:DATA.totalVol||'--',c:'gold'},
+    {l:'沪市',v:DATA.sh||'--',c:'cyan'},
+    {l:'深市',v:DATA.sz||'--',c:'cyan'},
+    {l:'北交所',v:DATA.bj||'--',c:'cyan'},
+    {l:'上涨家数',v:DATA.up||0,c:'red'},
+    {l:'下跌家数',v:DATA.dn||0,c:'green'},
+    {l:'涨停',v:DATA.zt||0,c:'red'},
+    {l:'跌停',v:DATA.dt||0,c:'green'},
+  ];
+  d.innerHTML=items.map(i=>'<div class="mo-item"><div class="l">'+i.l+'</div><div class="v '+i.c+'">'+i.v+'</div></div>').join('');
+}
+function saveMo(){
+  DATA.date=document.getElementById('moDate').value||DATA.date;
+  DATA.totalVol=document.getElementById('moTotalVol').value;
+  DATA.sh=document.getElementById('moSh').value;
+  DATA.sz=document.getElementById('moSz').value;
+  DATA.bj=document.getElementById('moBj').value;
+  DATA.up=fmtNum(document.getElementById('moUp').value);
+  DATA.dn=fmtNum(document.getElementById('moDn').value);
+  DATA.zt=fmtNum(document.getElementById('moZt').value);
+  DATA.dt=fmtNum(document.getElementById('moDt').value);
+  saveState(DATA);renderMo();
+}
+function loadSampleMo(){
+  DATA.date='2026-07-29';
+  DATA.totalVol='2.21万亿';
+  DATA.sh='3876.78 +0.25%';
+  DATA.sz='14123.31 +0.44%';
+  DATA.bj='1066.32 +2.00%';
+  DATA.up=4200;DATA.dn=890;DATA.zt=108;DATA.dt=9;
+  document.getElementById('moDate').value=DATA.date;
+  document.getElementById('moTotalVol').value=DATA.totalVol;
+  document.getElementById('moSh').value=DATA.sh;
+  document.getElementById('moSz').value=DATA.sz;
+  document.getElementById('moBj').value=DATA.bj;
+  document.getElementById('moUp').value=DATA.up;
+  document.getElementById('moDn').value=DATA.dn;
+  document.getElementById('moZt').value=DATA.zt;
+  document.getElementById('moDt').value=DATA.dt;
+  saveState(DATA);renderMo();
+}
+
+// ====== 通用表格渲染 ======
+function renderTable(key,bodyId){
+  const data=DATA[key]||[];
+  const tbody=document.getElementById(bodyId);
+  const emptys=document.querySelector('.tw');
+  tbody.innerHTML=data.map((d,i)=>{
+    if(key==='lb'){
+      return '<tr><td style="font-weight:600;color:var(--text-bright)">'+d.code+'</td><td>'+d.name+'</td><td style="color:var(--gold);font-weight:700">'+d.n+'</td><td><span class="tg tg-g">'+d.board+'</span></td><td>'+d.amt+'</td><td><button class="btn btn-red btn-sm del-btn" data-key="'+key+'" data-idx="'+i+'" style="padding:1px 6px;font-size:0.45rem">X</button></td></tr>';
+    }else if(key==='sb'){
+      return '<tr><td style="font-weight:600;color:var(--text-bright)">'+d.code+'</td><td>'+d.name+'</td><td>'+d.amt+'</td><td><span class="tg tg-b">'+d.theme+'</span></td><td><button class="btn btn-red btn-sm del-btn" data-key="'+key+'" data-idx="'+i+'" style="padding:1px 6px;font-size:0.45rem">X</button></td></tr>';
+    }else if(key==='fl'){
+      const isUp=(d.chg||'').startsWith('+');
+      return '<tr><td style="font-weight:600;color:var(--text-bright)">'+d.code+'</td><td>'+d.name+'</td><td class="'+(isUp?'red':'green')+'" style="font-weight:600">'+d.chg+'%</td><td><span class="tg tg-o">'+d.vol+'</span></td><td><button class="btn btn-red btn-sm del-btn" data-key="'+key+'" data-idx="'+i+'" style="padding:1px 6px;font-size:0.45rem">X</button></td></tr>';
+    }else if(key==='pg'){
+      return '<tr><td style="font-weight:600;color:var(--text-bright)">'+d.code+'</td><td>'+d.name+'</td><td style="font-size:0.6rem">'+d.date+'</td><td><button class="btn btn-red btn-sm del-btn" data-key="'+key+'" data-idx="'+i+'" style="padding:1px 6px;font-size:0.45rem">X</button></td></tr>';
+    }else if(key==='dw'){
+      return '<tr><td style="font-weight:600;color:var(--text-bright)">'+d.code+'</td><td>'+d.name+'</td><td><span class="tg tg-p">'+d.vol+'</span></td><td><button class="btn btn-red btn-sm del-btn" data-key="'+key+'" data-idx="'+i+'" style="padding:1px 6px;font-size:0.45rem">X</button></td></tr>';
+    }
+    return '';
+  }).join('');
+  // Re-bind delete
+  tbody.querySelectorAll('.del-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const k=b.dataset.key;const idx=parseInt(b.dataset.idx);
+      if(DATA[k])DATA[k].splice(idx,1);
+      saveState(DATA);renderAll();
+    });
+  });
+}
+
+// ====== Add handlers ======
+function addLb(){
+  const code=document.getElementById('lbCode').value.trim();
+  const name=document.getElementById('lbName').value.trim();
+  const n=parseInt(document.getElementById('lbN').value)||0;
+  const board=document.getElementById('lbBoard').value.trim();
+  const amt=document.getElementById('lbAmt').value.trim();
+  if(!code||!name||!n)return;
+  if(!DATA.lb)DATA.lb=[];
+  DATA.lb.push({code,name,n,board,amt});
+  saveState(DATA);renderAll();
+  document.getElementById('lbCode').value='';document.getElementById('lbName').value='';
+  document.getElementById('lbN').value='';document.getElementById('lbBoard').value='';
+  document.getElementById('lbAmt').value='';
+}
+function addSb(){
+  const code=document.getElementById('sbCode').value.trim();
+  const name=document.getElementById('sbName').value.trim();
+  const amt=document.getElementById('sbAmt').value.trim();
+  const theme=document.getElementById('sbTheme').value.trim();
+  if(!code||!name)return;
+  if(!DATA.sb)DATA.sb=[];
+  DATA.sb.push({code,name,amt,theme});
+  saveState(DATA);renderAll();
+  document.getElementById('sbCode').value='';document.getElementById('sbName').value='';
+  document.getElementById('sbAmt').value='';document.getElementById('sbTheme').value='';
+}
+function addFl(){
+  const code=document.getElementById('flCode').value.trim();
+  const name=document.getElementById('flName').value.trim();
+  const chg=document.getElementById('flChg').value.trim();
+  const vol=document.getElementById('flVol').value.trim();
+  if(!code||!name)return;
+  if(!DATA.fl)DATA.fl=[];
+  DATA.fl.push({code,name,chg,vol});
+  saveState(DATA);renderAll();
+  document.getElementById('flCode').value='';document.getElementById('flName').value='';
+  document.getElementById('flChg').value='';document.getElementById('flVol').value='';
+}
+function addPg(){
+  const code=document.getElementById('pgCode').value.trim();
+  const name=document.getElementById('pgName').value.trim();
+  const date=document.getElementById('pgDate').value.trim();
+  if(!code||!name)return;
+  if(!DATA.pg)DATA.pg=[];
+  DATA.pg.push({code,name,date});
+  saveState(DATA);renderAll();
+  document.getElementById('pgCode').value='';document.getElementById('pgName').value='';
+  document.getElementById('pgDate').value='';
+}
+function addDw(){
+  const code=document.getElementById('dwCode').value.trim();
+  const name=document.getElementById('dwName').value.trim();
+  const vol=document.getElementById('dwVol').value.trim();
+  if(!code||!name)return;
+  if(!DATA.dw)DATA.dw=[];
+  DATA.dw.push({code,name,vol});
+  saveState(DATA);renderAll();
+  document.getElementById('dwCode').value='';document.getElementById('dwName').value='';
+  document.getElementById('dwVol').value='';
+}
+
+function renderAll(){
+  renderMo();
+  renderTable('lb','lbBody');
+  renderTable('sb','sbBody');
+  renderTable('fl','flBody');
+  renderTable('pg','pgBody');
+  renderTable('dw','dwBody');
+}
+
+// ====== Init ======
+document.addEventListener('DOMContentLoaded',()=>{
+  // Populate form
+  document.getElementById('moDate').value=DATA.date||'';
+  document.getElementById('moTotalVol').value=DATA.totalVol||'';
+  document.getElementById('moSh').value=DATA.sh||'';
+  document.getElementById('moSz').value=DATA.sz||'';
+  document.getElementById('moBj').value=DATA.bj||'';
+  document.getElementById('moUp').value=DATA.up||'';
+  document.getElementById('moDn').value=DATA.dn||'';
+  document.getElementById('moZt').value=DATA.zt||'';
+  document.getElementById('moDt').value=DATA.dt||'';
+  
+  renderAll();
+  
+  // Events
+  document.getElementById('moSave').addEventListener('click',saveMo);
+  document.getElementById('moSample').addEventListener('click',loadSampleMo);
+  document.getElementById('lbAdd').addEventListener('click',addLb);
+  document.getElementById('sbAdd').addEventListener('click',addSb);
+  document.getElementById('flAdd').addEventListener('click',addFl);
+  document.getElementById('pgAdd').addEventListener('click',addPg);
+  document.getElementById('dwAdd').addEventListener('click',addDw);
+});
+</script>
+</body>
+</html>

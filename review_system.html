@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>内观复盘系统 · 野人哥交易哲学</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+  --bg:#0a0b0e; --bg-card:#11131a; --bg-card-hover:#171a24;
+  --border:#1e2238; --border-glow:#00f0ff;
+  --gold:#f7c948; --cyan:#00f0ff; --pink:#ff2d77; --green:#00ff88; --red:#ff3355;
+  --text:#a0a8c4; --text-bright:#e0e4f0;
+  --font-mono:'JetBrains Mono',monospace;
+  --font-display:'Orbitron',sans-serif;
+}
+html{font-size:14px}
+body{
+  font-family:var(--font-mono);background:var(--bg);color:var(--text);
+  min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse 70% 50% at 20% 20%,rgba(0,240,255,0.03) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 80%,rgba(247,201,72,0.02) 0%,transparent 70%);
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,240,255,0.008) 2px,rgba(0,240,255,0.008) 4px);
+}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.container{max-width:1360px;margin:0 auto;padding:12px}
+
+/* HEADER */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 18px;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:8px;margin-bottom:12px;position:relative;overflow:hidden;
+}
+.header::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(0,240,255,0.03),transparent);
+  animation:hdrSweep 4s ease-in-out infinite;
+}
+@keyframes hdrSweep{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.header-left{display:flex;align-items:center;gap:14px;position:relative;z-index:1}
+.header-left h1{
+  font-family:var(--font-display);font-size:1.15rem;font-weight:700;letter-spacing:2px;
+  background:linear-gradient(90deg,#f7c948,#f0a030,#f7c948);background-size:200% auto;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:goldPulse 3s ease-in-out infinite;
+}
+@keyframes goldPulse{
+  0%,100%{filter:drop-shadow(0 0 6px rgba(247,201,72,0.3));background-position:0% center}
+  50%{filter:drop-shadow(0 0 18px rgba(247,201,72,0.6));background-position:100% center}
+}
+.header-sub{font-size:0.6rem;letter-spacing:2px;color:var(--text)}
+.header-stats{display:flex;gap:16px;position:relative;z-index:1;font-size:0.7rem}
+.header-stats .hs-item{display:flex;align-items:center;gap:5px}
+.header-stats .hs-l{color:var(--text);font-size:0.6rem;text-transform:uppercase;letter-spacing:1px}
+.header-stats .hs-v{font-weight:600}
+.positive{color:var(--green)}.negative{color:var(--red)}.gold{color:var(--gold)}.cyan{color:var(--cyan)}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* CARD */
+.card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:8px;
+  padding:14px 16px;transition:border-color 0.3s,box-shadow 0.3s;
+}
+.card:hover{border-color:var(--border-glow);box-shadow:0 0 20px rgba(0,240,255,0.06),inset 0 0 30px rgba(0,240,255,0.015)}
+.card-title{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(30,34,56,0.5);
+}
+.card-title h2{
+  font-family:var(--font-display);font-size:0.7rem;font-weight:600;letter-spacing:2px;
+  text-transform:uppercase;
+  background:linear-gradient(90deg,#f7c948,#d4a020);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.card-title .badge{
+  font-size:0.55rem;padding:1px 8px;border-radius:10px;
+  background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.15);color:var(--cyan);letter-spacing:1px;
+}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-group label{font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
+.form-group input,.form-group select,.form-group textarea{
+  background:rgba(14,16,24,0.8);border:1px solid var(--border);border-radius:4px;
+  padding:6px 8px;color:var(--text-bright);font-family:var(--font-mono);font-size:0.75rem;
+  outline:none;transition:border-color 0.2s;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{
+  border-color:var(--cyan);box-shadow:0 0 8px rgba(0,240,255,0.1);
+}
+.form-group textarea{resize:vertical;min-height:50px}
+.form-row{grid-column:1/-1}
+.btn{
+  background:transparent;border:1px solid var(--gold);color:var(--gold);
+  padding:7px 20px;border-radius:4px;font-family:var(--font-display);
+  font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;
+  transition:all 0.3s;
+}
+.btn:hover{background:rgba(247,201,72,0.1);box-shadow:0 0 16px rgba(247,201,72,0.15)}
+.btn-cyan{border-color:var(--cyan);color:var(--cyan)}
+.btn-cyan:hover{background:rgba(0,240,255,0.1);box-shadow:0 0 16px rgba(0,240,255,0.15)}
+.btn-red{border-color:var(--red);color:var(--red)}
+.btn-red:hover{background:rgba(255,51,85,0.1);box-shadow:0 0 16px rgba(255,51,85,0.15)}
+.btn-sm{padding:4px 12px;font-size:0.55rem}
+.btn-group{display:flex;gap:8px;flex-wrap:wrap}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:6px;margin-bottom:8px}
+.stat-box{
+  background:rgba(14,16,24,0.6);border:1px solid rgba(30,34,56,0.5);
+  border-radius:6px;padding:8px 10px;text-align:center;
+}
+.stat-box .sb-label{font-size:0.55rem;text-transform:uppercase;letter-spacing:1px;color:var(--text)}
+.stat-box .sb-value{font-size:1.2rem;font-weight:700;font-family:var(--font-mono);line-height:1.3}
+.stat-box .sb-sub{font-size:0.5rem;color:var(--text);margin-top:2px}
+
+/* PSYCH CHECKLIST */
+.psych-list{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+@media(max-width:600px){.psych-list{grid-template-columns:1fr}}
+.psych-item{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;
+  background:rgba(14,16,24,0.5);border:1px solid rgba(30,34,56,0.4);border-radius:4px;
+  cursor:pointer;transition:all 0.2s;font-size:0.72rem;
+}
+.psych-item:hover{border-color:rgba(0,240,255,0.2)}
+.psych-item .ck{width:14px;height:14px;border:1px solid var(--border);border-radius:3px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.psych-item.done .ck{border-color:var(--green);background:rgba(0,255,136,0.1)}
+.psych-item.done .ck::after{content:'\2713';color:var(--green);font-size:10px;font-weight:700}
+.psych-item.done{opacity:0.6;text-decoration:line-through}
+.psych-item .emoji{font-size:0.85rem}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;max-height:220px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:0.68rem}
+th{text-align:left;padding:5px 8px;font-size:0.55rem;text-transform:uppercase;letter-spacing:1px;color:var(--text);border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg-card);z-index:1}
+td{padding:5px 8px;border-bottom:1px solid rgba(30,34,56,0.3);white-space:nowrap}
+tr:hover td{background:rgba(0,240,255,0.03)}
+.tag{padding:1px 6px;border-radius:3px;font-size:0.55rem;font-weight:600}
+.tag-win{background:rgba(0,255,136,0.12);color:var(--green)}
+.tag-loss{background:rgba(255,51,85,0.12);color:var(--red)}
+.tag-flat{background:rgba(160,168,196,0.1);color:var(--text)}
+.tag-dir-l{color:var(--green)}.tag-dir-s{color:var(--red)}
+.tag-psych{background:rgba(247,201,72,0.1);color:var(--gold)}
+
+/* CHART WRAPPER */
+.chart-wrap{position:relative;height:160px;width:100%}
+
+/* PLACEHOLDER */
+.empty-state{text-align:center;padding:30px 10px;color:var(--text);opacity:0.4}
+.empty-state .e-icon{font-size:2rem;margin-bottom:8px}
+.empty-state .e-text{font-family:var(--font-display);font-size:0.65rem;letter-spacing:2px}
+
+/* QUOTE */
+.quote-box{
+  margin-top:8px;padding:10px 14px;
+  background:rgba(247,201,72,0.04);border-left:2px solid var(--gold);
+  border-radius:0 4px 4px 0;
+}
+.quote-box q{font-size:0.72rem;font-style:italic;color:var(--text-bright);line-height:1.5}
+.quote-box .attribution{font-size:0.55rem;color:var(--gold);margin-top:4px;letter-spacing:1px}
+
+/* FULL WIDTH */
+.full-w{grid-column:1/-1}
+@media(max-width:900px){.full-w{grid-column:1}}
+
+/* RESPONSIVE FORM */
+#tradeForm{display:contents}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-left">
+      <div>
+        <h1>⬡ 内观复盘系统</h1>
+        <div class="header-sub">野人哥 · 交易核心哲学</div>
+      </div>
+    </div>
+    <div class="header-stats">
+      <span class="hs-item"><span class="hs-l">总复盘</span><span class="hs-v gold" id="totalTrades">0</span></span>
+      <span class="hs-item"><span class="hs-l">胜率</span><span class="hs-v" id="winRateDisplay">0%</span></span>
+      <span class="hs-item"><span class="hs-l">盈亏比</span><span class="hs-v cyan" id="profitFactorDisplay">0.00</span></span>
+      <span class="hs-item"><span class="hs-l">净利</span><span class="hs-v" id="netPnlDisplay">0</span></span>
+    </div>
+  </header>
+
+  <!-- ===== GRID ===== -->
+  <div class="grid">
+
+    <!-- LEFT TOP: 复盘录入 -->
+    <div class="card">
+      <div class="card-title">
+        <h2>⬡ 交易复盘录入</h2>
+        <span class="badge">内观</span>
+      </div>
+      <form id="tradeForm">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="txDate" required>
+        </div>
+        <div class="form-group">
+          <label>标的</label>
+          <input type="text" id="txSymbol" placeholder="例: 002156" required>
+        </div>
+        <div class="form-group">
+          <label>方向</label>
+          <select id="txDirection"><option value="L">多 / 做多</option><option value="S">空 / 做空</option></select>
+        </div>
+        <div class="form-group">
+          <label>结果</label>
+          <select id="txResult"><option value="win">盈利</option><option value="loss">亏损</option><option value="flat">平保</option></select>
+        </div>
+        <div class="form-group">
+          <label>盈亏 (R)</label>
+          <input type="number" id="txPnl" step="0.1" placeholder="单位: R" required>
+        </div>
+        <div class="form-group">
+          <label>持仓周期</label>
+          <select id="txHolding"><option value="day">日内</option><option value="swing">波段(1-5天)</option><option value="trend">趋势(>5天)</option></select>
+        </div>
+        <div class="form-group form-row">
+          <label>顺市场？(市场背景)</label>
+          <select id="txMarket">
+            <option value="trend_up">上升趋势 — 顺</option>
+            <option value="trend_down">下降趋势 — 顺(空)</option>
+            <option value="range">震荡 — 逆(需谨慎)</option>
+            <option value="reverse">顶底反转 — 逆势交易</option>
+            <option value="chaos">无趋势/混乱 — 不应交易</option>
+          </select>
+        </div>
+        <div class="form-group form-row">
+          <label>内观反思 (违犯了什么？学到了什么？)</label>
+          <textarea id="txReflection" placeholder="复盘自身交易记录远胜读书... 戒贪惧方行"></textarea>
+        </div>
+        <div class="form-group form-row">
+          <div class="btn-group">
+            <button type="submit" class="btn">⬡ 记录复盘</button>
+            <button type="button" class="btn btn-cyan btn-sm" id="loadSampleBtn">加载示例</button>
+            <button type="button" class="btn btn-red btn-sm" id="clearAllBtn">清空数据</button>
+          </div>
+        </div>
+      </div>
+      </form>
+      <div class="quote-box">
+        <q>复盘自身交易记录远胜读书，交易与做事皆要顺应天道规则。散户无定价权只能跟随，市场底层是少数人盈利，戒贪惧方行。</q>
+        <div class="attribution">— 野人哥</div>
+      </div>
+    </div>
+
+    <!-- RIGHT TOP: 核心统计 -->
+    <div class="card">
+      <div class="card-title">
+        <h2>⬡ 交易核心指标</h2>
+        <span class="badge">顺市场</span>
+      </div>
+      <div class="stats-row" id="coreStats">
+        <div class="stat-box"><div class="sb-label">总笔数</div><div class="sb-value gold" id="sTotal">0</div></div>
+        <div class="stat-box"><div class="sb-label">胜率</div><div class="sb-value" id="sWinRate">0%</div><div class="sb-sub">盈利/总笔</div></div>
+        <div class="stat-box"><div class="sb-label">盈亏比</div><div class="sb-value cyan" id="sProfitRatio">0.00</div><div class="sb-sub">平均盈/平均亏</div></div>
+        <div class="stat-box"><div class="sb-label">期望值 EV</div><div class="sb-value" id="sEV">0.00</div><div class="sb-sub">每笔期望 R</div></div>
+        <div class="stat-box"><div class="sb-label">最大连亏</div><div class="sb-value negative" id="sMaxLoss">0</div><div class="sb-sub">连续亏损</div></div>
+        <div class="stat-box"><div class="sb-label">顺市率</div><div class="sb-value" id="sMarketAlign">0%</div><div class="sb-sub">顺市场交易占比</div></div>
+      </div>
+      <div class="chart-wrap"><canvas id="equityChart"></canvas></div>
+    </div>
+
+    <!-- LEFT BOTTOM: 交易记录 -->
+    <div class="card full-w" style="grid-column:1;">
+      <div class="card-title">
+        <h2>⬡ 复盘交易记录</h2>
+        <span class="badge" id="recordCount">0 条</span>
+      </div>
+      <div class="table-wrap" id="tradeTableWrap">
+        <div class="empty-state" id="emptyState">
+          <div class="e-icon">⬡</div>
+          <div class="e-text">暂无复盘记录<br>录入你的第一笔交易复盘</div>
+        </div>
+        <table id="tradeTable" style="display:none">
+          <thead><tr>
+            <th>日期</th><th>标的</th><th>方向</th><th>结果</th><th>盈亏(R)</th><th>持仓</th><th>市场背景</th><th>反思</th><th></th>
+          </tr></thead>
+          <tbody id="tradeBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT BOTTOM: 心理检查 + 市场分析 -->
+    <div class="card" style="grid-column:2;">
+      <div class="card-title">
+        <h2>⬡ 戒贪惧 · 心理检查</h2>
+        <span class="badge">内观</span>
+      </div>
+      <div class="psych-list" id="psychChecklist">
+        <div class="psych-item" data-key="fomo"><span class="emoji">🔥</span> FOMO 追高 — 怕错过</div>
+        <div class="psych-item" data-key="revenge"><span class="emoji">⚡</span> 报复交易 — 亏了想翻本</div>
+        <div class="psych-item" data-key="overconfidence"><span class="emoji">🦚</span> 过度自信 — 连盈后飘了</div>
+        <div class="psych-item" data-key="hesitation"><span class="emoji">⏳</span> 犹豫不决 — 该进没进/该出没出</div>
+        <div class="psych-item" data-key="greed"><span class="emoji">💰</span> 贪婪不止盈 — 想让利润奔跑过头</div>
+        <div class="psych-item" data-key="fear"><span class="emoji">😨</span> 恐惧止盈过早 — 小赚就跑</div>
+        <div class="psych-item" data-key="hope"><span class="emoji">🙏</span> 扛单希望 — 亏损时希望反弹</div>
+        <div class="psych-item" data-key="boredom"><span class="emoji">😐</span> 无聊出手 — 没机会硬做</div>
+      </div>
+      <div style="margin-top:8px">
+        <div class="card-title" style="margin-bottom:6px"><h2>⬡ 市场阶段判断</h2></div>
+        <div class="form-grid" style="grid-template-columns:1fr 1fr">
+          <div class="form-group">
+            <label>当前市场阶段</label>
+            <select id="marketPhase">
+              <option value="">-- 请判断 --</option>
+              <option value="accumulation">吸筹阶段 (底部区间)</option>
+              <option value="markup">拉升阶段 (主升浪)</option>
+              <option value="distribution">派发阶段 (顶部区间)</option>
+              <option value="markdown">下跌阶段 (主跌浪)</option>
+              <option value="chaos">混沌/不确定</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>散户情绪</label>
+            <select id="retailSentiment">
+              <option value="">-- 请判断 --</option>
+              <option value="fear">恐惧 — 恐慌抛售</option>
+              <option value="skeptic">怀疑 — 将信将疑</option>
+              <option value="greed">贪婪 — 疯狂追涨</option>
+              <option value="denial">否认 — 下跌中不信会跌</option>
+              <option value="capitulation">投降 — 底部割肉</option>
+            </select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <label>你的应对计划</label>
+            <textarea id="marketPlan" rows="2" placeholder="顺市场，懂散户跟随本质..."></textarea>
+          </div>
+          <div class="form-group" style="grid-column:1/-1">
+            <button class="btn btn-cyan btn-sm" id="saveMarketBtn">保存市场判断</button>
+            <span id="marketSaveStatus" style="font-size:0.6rem;color:var(--green);margin-left:8px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+</div><!-- /container -->
+
+<script>
+// ============================================================
+// DATA LAYER
+// ============================================================
+const STORAGE_KEY = 'neiquan_review_data';
+
+let state = {
+  trades: [],
+  psych: {},     // { key: true/false }
+  marketPhase: '',
+  retailSentiment: '',
+  marketPlan: ''
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      state.trades = d.trades || [];
+      state.psych = d.psych || {};
+      state.marketPhase = d.marketPhase || '';
+      state.retailSentiment = d.retailSentiment || '';
+      state.marketPlan = d.marketPlan || '';
+    }
+  } catch(e) {}
+}
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ============================================================
+// PSYCH CHECKLIST
+// ============================================================
+function renderPsych() {
+  document.querySelectorAll('.psych-item').forEach(el => {
+    const k = el.dataset.key;
+    if (state.psych[k]) {
+      el.classList.add('done');
+    } else {
+      el.classList.remove('done');
+    }
+  });
+}
+function setupPsych() {
+  document.querySelectorAll('.psych-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const k = el.dataset.key;
+      state.psych[k] = !state.psych[k];
+      saveState();
+      renderPsych();
+    });
+  });
+}
+
+// ============================================================
+// MARKET PHASE
+// ============================================================
+function renderMarket() {
+  document.getElementById('marketPhase').value = state.marketPhase || '';
+  document.getElementById('retailSentiment').value = state.retailSentiment || '';
+  document.getElementById('marketPlan').value = state.marketPlan || '';
+}
+function setupMarket() {
+  document.getElementById('saveMarketBtn').addEventListener('click', () => {
+    state.marketPhase = document.getElementById('marketPhase').value;
+    state.retailSentiment = document.getElementById('retailSentiment').value;
+    state.marketPlan = document.getElementById('marketPlan').value;
+    saveState();
+    const st = document.getElementById('marketSaveStatus');
+    st.textContent = '\u2713 已保存 ' + new Date().toLocaleTimeString();
+    setTimeout(() => { st.textContent = ''; }, 3000);
+  });
+}
+
+// ============================================================
+// TRADES
+// ============================================================
+let equityChart = null;
+
+function calcStats() {
+  const t = state.trades;
+  const total = t.length;
+  if (total === 0) {
+    return { total:0, wins:0, losses:0, flats:0, winRate:0, avgWin:0, avgLoss:0,
+             profitRatio:0, ev:0, maxConsecLoss:0, marketAlign:0, netPnl:0, equity:[] };
+  }
+  const wins = t.filter(d => d.result === 'win');
+  const losses = t.filter(d => d.result === 'loss');
+  const flats = t.filter(d => d.result === 'flat');
+  const winRate = total > 0 ? (wins.length / total * 100) : 0;
+
+  let avgWin = 0, avgLoss = 0;
+  if (wins.length > 0) avgWin = wins.reduce((s,d) => s + d.pnl, 0) / wins.length;
+  if (losses.length > 0) avgLoss = Math.abs(losses.reduce((s,d) => s + d.pnl, 0)) / losses.length;
+  const profitRatio = avgLoss > 0 ? avgWin / avgLoss : (avgWin > 0 ? 999 : 0);
+
+  const netPnl = t.reduce((s,d) => s + d.pnl, 0);
+  const ev = total > 0 ? netPnl / total : 0;
+
+  // Max consecutive losses
+  let maxCL = 0, curCL = 0;
+  for (const d of t) {
+    if (d.result === 'loss') { curCL++; maxCL = Math.max(maxCL, curCL); }
+    else { curCL = 0; }
+  }
+
+  // Market alignment rate
+  const marketGood = ['trend_up','trend_down'];
+  const aligned = t.filter(d => marketGood.includes(d.market)).length;
+  const marketAlign = total > 0 ? (aligned / total * 100) : 0;
+
+  // Equity curve
+  let cum = 0;
+  const equity = t.map(d => { cum += d.pnl; return cum; });
+
+  return { total, wins:wins.length, losses:losses.length, flats:flats.length,
+           winRate, avgWin, avgLoss, profitRatio, ev, maxConsecLoss:maxCL,
+           marketAlign, netPnl, equity };
+}
+
+function renderStats() {
+  const s = calcStats();
+  document.getElementById('totalTrades').textContent = s.total;
+  document.getElementById('sTotal').textContent = s.total;
+  document.getElementById('sWinRate').textContent = s.winRate.toFixed(1) + '%';
+  document.getElementById('winRateDisplay').textContent = s.winRate.toFixed(1) + '%';
+  document.getElementById('sProfitRatio').textContent = s.profitRatio.toFixed(2);
+  document.getElementById('profitFactorDisplay').textContent = s.profitRatio.toFixed(2);
+  document.getElementById('sEV').textContent = (s.ev >= 0 ? '+' : '') + s.ev.toFixed(2) + 'R';
+  document.getElementById('sMaxLoss').textContent = s.maxConsecLoss;
+  document.getElementById('sMarketAlign').textContent = s.marketAlign.toFixed(1) + '%';
+  const netEl = document.getElementById('netPnlDisplay');
+  netEl.textContent = (s.netPnl >= 0 ? '+' : '') + s.netPnl.toFixed(1) + 'R';
+  netEl.className = 'hs-v ' + (s.netPnl >= 0 ? 'positive' : 'negative');
+  const evEl = document.getElementById('sEV');
+  evEl.className = 'sb-value ' + (s.ev >= 0 ? 'positive' : 'negative');
+
+  // Equity chart
+  const ctx = document.getElementById('equityChart');
+  if (equityChart) equityChart.destroy();
+  if (s.equity.length < 2) {
+    equityChart = new Chart(ctx, {
+      type:'line',
+      data:{ labels:[''], datasets:[{ data:[0], borderColor:'#4a5070', borderWidth:1, pointRadius:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{enabled:false} },
+        scales:{ x:{display:false}, y:{display:false, min:0} }
+      }
+    });
+    return;
+  }
+  const labels = s.equity.map((_,i) => i + 1);
+  const isUp = s.equity[s.equity.length - 1] >= s.equity[0];
+  const grad = ctx.getContext('2d').createLinearGradient(0,0,0,160);
+  grad.addColorStop(0, isUp ? 'rgba(0,255,136,0.25)' : 'rgba(255,51,85,0.2)');
+  grad.addColorStop(1, 'rgba(0,255,136,0)');
+
+  equityChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'权益曲线',
+        data:s.equity,
+        borderColor: isUp ? '#00ff88' : '#ff3355',
+        borderWidth:2,
+        pointRadius:0,
+        fill:true,
+        backgroundColor:grad,
+        tension:0.3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false},
+        tooltip:{
+          backgroundColor:'rgba(10,11,14,0.92)',
+          borderColor:'rgba(0,240,255,0.2)',
+          titleFont:{family:'JetBrains Mono',size:10},
+          bodyFont:{family:'JetBrains Mono',size:10},
+          callbacks:{ label:(ctx) => ctx.parsed.y.toFixed(1) + 'R' }
+        }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{display:false} },
+        y:{ grid:{color:'rgba(30,34,56,0.4)'},
+          ticks:{ font:{size:8,family:'JetBrains Mono'}, color:'#4a5070',
+            callback:(v)=>v.toFixed(0)+'R' } }
+      },
+      interaction:{ intersect:false, mode:'index' }
+    }
+  });
+}
+
+function renderTable() {
+  const t = state.trades;
+  const tbl = document.getElementById('tradeTable');
+  const empty = document.getElementById('emptyState');
+  const tbody = document.getElementById('tradeBody');
+  document.getElementById('recordCount').textContent = t.length + ' 条';
+
+  if (t.length === 0) {
+    tbl.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  tbl.style.display = '';
+  empty.style.display = 'none';
+  tbody.innerHTML = '';
+  // Show newest first
+  const sorted = [...t].reverse();
+  for (const d of sorted) {
+    const tr = document.createElement('tr');
+    const dirLabel = d.dir === 'L' ? '<span class="tag-dir-l">多</span>' : '<span class="tag-dir-s">空</span>';
+    const resultLabel = d.result === 'win' ? '<span class="tag tag-win">盈利</span>'
+      : d.result === 'loss' ? '<span class="tag tag-loss">亏损</span>'
+      : '<span class="tag tag-flat">平保</span>';
+    const marketLabel = {trend_up:'上升顺市',trend_down:'下降顺市',range:'震荡',reverse:'逆势',chaos:'混乱'}[d.market] || d.market;
+    const holdLabel = {day:'日内',swing:'波段',trend:'趋势'}[d.hold] || d.hold;
+    const pnlColor = d.pnl > 0 ? 'positive' : (d.pnl < 0 ? 'negative' : '');
+    tr.innerHTML = `
+      <td>${d.date}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${d.symbol}</td>
+      <td>${dirLabel}</td>
+      <td>${resultLabel}</td>
+      <td class="${pnlColor}" style="font-weight:600">${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(1)}</td>
+      <td>${holdLabel}</td>
+      <td style="font-size:0.6rem">${marketLabel}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.6rem;color:var(--text)">${d.reflection || '-'}</td>
+      <td><button class="btn btn-red btn-sm del-btn" data-idx="${d._id}" style="padding:2px 8px;font-size:0.5rem">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  // Delete handlers
+  tbody.querySelectorAll('.del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.idx);
+      state.trades = state.trades.filter(d => d._id !== id);
+      saveState();
+      renderAll();
+    });
+  });
+}
+
+function renderAll() {
+  renderStats();
+  renderTable();
+  renderPsych();
+  renderMarket();
+}
+
+// ============================================================
+// FORM SUBMIT
+// ============================================================
+function addTrade(e) {
+  e.preventDefault();
+  const date = document.getElementById('txDate').value;
+  const symbol = document.getElementById('txSymbol').value.trim();
+  const dir = document.getElementById('txDirection').value;
+  const result = document.getElementById('txResult').value;
+  const pnl = parseFloat(document.getElementById('txPnl').value);
+  const hold = document.getElementById('txHolding').value;
+  const market = document.getElementById('txMarket').value;
+  const reflection = document.getElementById('txReflection').value.trim();
+
+  if (!date || !symbol || isNaN(pnl)) return;
+
+  state.trades.push({
+    _id: Date.now() + Math.floor(Math.random() * 1000),
+    date, symbol, dir, result, pnl, hold, market, reflection
+  });
+  saveState();
+  renderAll();
+  document.getElementById('tradeForm').reset();
+  document.getElementById('txDate').value = date; // keep date
+}
+
+// ============================================================
+// SAMPLE DATA
+// ============================================================
+function loadSample() {
+  const samples = [
+    { date:'2026-07-28', symbol:'002156', dir:'L', result:'win', pnl:2.8, hold:'swing', market:'trend_up', reflection:'顺趋势做多，AMD订单催化，持有3天，按计划止盈。情绪平稳，无贪惧。' },
+    { date:'2026-07-25', symbol:'300750', dir:'L', result:'loss', pnl:-1.5, hold:'day', market:'range', reflection:'震荡市追高，违反了顺市场原则。散户在震荡中容易被洗。教训：震荡市不追突破。' },
+    { date:'2026-07-22', symbol:'601899', dir:'L', result:'win', pnl:1.2, hold:'day', market:'trend_up', reflection:'黄金板块跟随趋势，做了正确的事。没有FOMO，等回调入场。' },
+    { date:'2026-07-18', symbol:'688981', dir:'L', result:'loss', pnl:-3.0, hold:'swing', market:'chaos', reflection:'混乱市强行交易，亏损是必然的。市场混沌时不应出手，这是纪律问题。犯了"无聊出手"的毛病。' },
+    { date:'2026-07-15', symbol:'002371', dir:'L', result:'loss', pnl:-2.0, hold:'day', market:'reverse', reflection:'试图抄底半导体，逆势交易。散户无定价权，只能跟随不能抄底。' },
+    { date:'2026-07-10', symbol:'300059', dir:'L', result:'win', pnl:4.5, hold:'trend', market:'trend_up', reflection:'券商龙头趋势完好，持有8天。过程中没有因为小波动而卖出，克制了恐惧。' },
+    { date:'2026-07-07', symbol:'600519', dir:'S', result:'win', pnl:1.8, hold:'swing', market:'trend_down', reflection:'白酒下行趋势，顺势做空。顺市场+懂散户：散户在下跌中不断抄底，我们做空跟随。' },
+    { date:'2026-07-03', symbol:'688256', dir:'L', result:'loss', pnl:-2.5, hold:'day', market:'range', reflection:'AI概念追高被套。明显的FOMO交易。反思：好机会不会只有一次，错过就等下一次。' },
+    { date:'2026-06-28', symbol:'002594', dir:'L', result:'win', pnl:3.2, hold:'swing', market:'trend_up', reflection:'汽车板块趋势行情，跟随趋势，中间扛住了一次回调，没有恐惧出局。' },
+    { date:'2026-06-25', symbol:'000858', dir:'S', result:'flat', pnl:0, hold:'day', market:'trend_down', reflection:'白酒空单，进场后横盘，平推出场。虽然没有亏损，但应该给趋势更多时间。' }
+  ];
+  state.trades = samples;
+  saveState();
+  renderAll();
+}
+
+// ============================================================
+// CLEAR
+// ============================================================
+function clearAll() {
+  if (!confirm('确定清空所有复盘数据？')) return;
+  state.trades = [];
+  state.psych = {};
+  state.marketPhase = '';
+  state.retailSentiment = '';
+  state.marketPlan = '';
+  saveState();
+  renderAll();
+}
+
+// ============================================================
+// SET DEFAULT DATE
+// ============================================================
+function setDefaultDate() {
+  const d = new Date();
+  document.getElementById('txDate').value = d.toISOString().slice(0,10);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadState();
+renderAll();
+setDefaultDate();
+
+// Events
+document.getElementById('tradeForm').addEventListener('submit', addTrade);
+document.getElementById('loadSampleBtn').addEventListener('click', loadSample);
+document.getElementById('clearAllBtn').addEventListener('click', clearAll);
+setupPsych();
+setupMarket();
+</script>
+</body>
+</html>

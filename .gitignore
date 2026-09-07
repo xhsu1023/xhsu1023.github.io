@@ -1,0 +1,7 @@
+# 本地临时/演示文件不提交
+*.log
+_diag/
+node_modules/
+.DS_Store
+Thumbs.db
+*.tmp

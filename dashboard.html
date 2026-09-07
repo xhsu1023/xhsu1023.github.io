@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>NEURAL QUANT — 量化分析仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ========== RESET & BASE ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root {
+  --bg-primary: #0a0b0e;
+  --bg-card: #11131a;
+  --bg-card-hover: #171a24;
+  --border: #1e2238;
+  --border-glow: #00f0ff;
+  --gold: #f7c948;
+  --gold-dark: #c7940a;
+  --cyan: #00f0ff;
+  --cyan-dim: rgba(0,240,255,0.15);
+  --pink: #ff2d77;
+  --green: #00ff88;
+  --red: #ff3355;
+  --text: #a0a8c4;
+  --text-bright: #e0e4f0;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Orbitron', sans-serif;
+}
+html{font-size:14px}
+body{
+  font-family:var(--font-mono);
+  background:var(--bg-primary);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 20%, rgba(0,240,255,0.03) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(247,201,72,0.02) 0%, transparent 70%);
+}
+
+/* ========== SCANLINES ========== */
+body::after {
+  content:'';position:fixed;inset:0;
+  pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(0,240,255,0.012) 2px, rgba(0,240,255,0.012) 4px
+  );
+}
+
+/* ========== LAYOUT ========== */
+.dashboard {
+  max-width:1440px;margin:0 auto;padding:16px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:auto 1fr;
+  gap:14px;
+  min-height:100vh;
+}
+.header {
+  grid-column:1/-1;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  position:relative;overflow:hidden;
+}
+.header::before {
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(0,240,255,0.04),transparent);
+  animation:headerSweep 4s ease-in-out infinite;
+}
+@keyframes headerSweep {
+  0%{transform:translateX(-100%)}
+  100%{transform:translateX(100%)}
+}
+.header h1 {
+  font-family:var(--font-display);
+  font-size:1.3rem;font-weight:700;letter-spacing:3px;
+  background:linear-gradient(90deg,#f7c948,#f0a030,#f7c948);
+  background-size:200% auto;
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:goldPulse 3s ease-in-out infinite;
+  position:relative;z-index:1;
+}
+@keyframes goldPulse {
+  0%,100%{filter:drop-shadow(0 0 6px rgba(247,201,72,0.3));background-position:0% center}
+  50%{filter:drop-shadow(0 0 18px rgba(247,201,72,0.6));background-position:100% center}
+}
+.header-stats {
+  display:flex;gap:20px;position:relative;z-index:1;
+  font-size:0.75rem;
+}
+.header-stats span {
+  display:flex;align-items:center;gap:6px;
+}
+.header-stats .label{color:var(--text);font-size:0.65rem;text-transform:uppercase;letter-spacing:1px}
+.header-stats .value{font-weight:600;font-size:0.85rem}
+.positive{color:var(--green)}
+.negative{color:var(--red)}
+
+/* ========== CARD ========== */
+.card {
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:14px 16px;
+  position:relative;
+  transition:border-color 0.3s, box-shadow 0.3s;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.card:hover {
+  border-color:var(--border-glow);
+  box-shadow:0 0 20px rgba(0,240,255,0.08), inset 0 0 30px rgba(0,240,255,0.02);
+}
+
+/* Card title bar */
+.card-title {
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;padding-bottom:8px;
+  border-bottom:1px solid rgba(30,34,56,0.6);
+  flex-shrink:0;
+}
+.card-title h2 {
+  font-family:var(--font-display);
+  font-size:0.75rem;font-weight:600;letter-spacing:2px;
+  text-transform:uppercase;
+  background:linear-gradient(90deg,#f7c948,#d4a020);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.card-title .badge {
+  font-size:0.6rem;padding:2px 8px;border-radius:10px;
+  background:rgba(0,240,255,0.1);border:1px solid rgba(0,240,255,0.2);
+  color:var(--cyan);letter-spacing:1px;
+}
+
+/* ========== TOP-LEFT: TICK CHART ========== */
+#tickChart {
+  flex:1;min-height:0;width:100%;
+}
+
+/* Real-time overlay on chart */
+.chart-overlay {
+  position:absolute;top:50px;right:18px;
+  display:flex;flex-direction:column;align-items:flex-end;gap:2px;
+  pointer-events:none;z-index:10;
+  font-family:var(--font-mono);
+}
+.chart-overlay .price-big {
+  font-size:1.6rem;font-weight:700;
+  color:var(--text-bright);
+  text-shadow:0 0 20px rgba(0,255,136,0.3);
+}
+.chart-overlay .change {
+  font-size:0.75rem;font-weight:600;
+}
+
+/* ========== TOP-RIGHT: SIGNAL ENGINE ========== */
+.signal-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  flex:1;
+}
+.signal-item {
+  background:rgba(14,16,24,0.6);
+  border:1px solid rgba(30,34,56,0.5);
+  border-radius:6px;
+  padding:8px 10px;
+  display:flex;flex-direction:column;justify-content:center;
+  transition:border-color 0.3s;
+}
+.signal-item:hover {
+  border-color:rgba(0,240,255,0.3);
+}
+.signal-item .label {
+  font-size:0.6rem;text-transform:uppercase;letter-spacing:1.5px;
+  color:var(--text);margin-bottom:3px;
+}
+.signal-item .value-row {
+  display:flex;align-items:baseline;justify-content:space-between;gap:6px;
+}
+.signal-item .value {
+  font-size:1.1rem;font-weight:700;
+  font-family:var(--font-mono);
+}
+.signal-item .bar-track {
+  flex:1;height:4px;background:rgba(255,255,255,0.06);
+  border-radius:3px;overflow:hidden;margin-top:4px;
+}
+.signal-item .bar-fill {
+  height:100%;border-radius:3px;
+  transition:width 0.6s cubic-bezier(0.25,0.46,0.45,0.94), background 0.6s;
+}
+.signal-item .sub {
+  font-size:0.55rem;color:var(--text);margin-top:2px;
+  letter-spacing:0.5px;
+}
+
+/* ========== BOTTOM ROWS (placeholder for future quadrants) ========== */
+.bottom-left, .bottom-right {
+  min-height:220px;
+  display:flex;align-items:center;justify-content:center;
+}
+.placeholder-text {
+  font-family:var(--font-display);
+  font-size:0.7rem;letter-spacing:2px;opacity:0.3;
+  text-transform:uppercase;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width:900px){
+  .dashboard{grid-template-columns:1fr;padding:10px}
+  .header{flex-direction:column;gap:8px;align-items:flex-start}
+  .header-stats{flex-wrap:wrap;gap:8px}
+}
+@media (max-width:480px){
+  .signal-grid{grid-template-columns:1fr}
+  .header h1{font-size:1rem}
+}
+</style>
+</head>
+<body>
+
+<div class="dashboard">
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <h1>⬡ NEURAL QUANT</h1>
+    <div class="header-stats">
+      <span><span class="label">系统</span><span class="value" style="color:var(--cyan)">ONLINE</span></span>
+      <span><span class="label">延迟</span><span class="value" style="color:var(--green)" id="latencyVal">2.3ms</span></span>
+      <span><span class="label">信号</span><span class="value positive" id="signalCount">7/7</span></span>
+      <span><span class="label">更新</span><span class="value" id="updateTime" style="color:var(--text-bright)">--:--:--</span></span>
+    </div>
+  </header>
+
+  <!-- ===== TOP-LEFT: TICK CHART ===== -->
+  <div class="card" style="grid-column:1;grid-row:2;position:relative">
+    <div class="card-title">
+      <h2>⬡ TICK 分时图</h2>
+      <span class="badge">REALTIME</span>
+    </div>
+    <div class="chart-overlay" id="chartOverlay">
+      <div class="price-big" id="livePrice">128.46</div>
+      <div class="change positive" id="liveChange">+3.82 (+3.07%)</div>
+    </div>
+    <div id="tickChart"></div>
+  </div>
+
+  <!-- ===== TOP-RIGHT: SIGNAL ENGINE ===== -->
+  <div class="card" style="grid-column:2;grid-row:2">
+    <div class="card-title">
+      <h2>⬡ 信号引擎</h2>
+      <span class="badge">v2.4.1</span>
+    </div>
+    <div class="signal-grid" id="signalGrid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+
+  <!-- ===== BOTTOM-LEFT placeholder ===== -->
+  <div class="card bottom-left" style="grid-column:1;grid-row:3">
+    <div class="card-title">
+      <h2>⬡ 订单流 Delta</h2>
+      <span class="badge">COMING</span>
+    </div>
+    <div class="placeholder-text">Order Flow Delta 模块加载中…</div>
+  </div>
+
+  <!-- ===== BOTTOM-RIGHT placeholder ===== -->
+  <div class="card bottom-right" style="grid-column:2;grid-row:3">
+    <div class="card-title">
+      <h2>⬡ 多因子热力图</h2>
+      <span class="badge">COMING</span>
+    </div>
+    <div class="placeholder-text">Multi-Factor Heatmap 模块加载中…</div>
+  </div>
+
+</div>
+
+<script>
+// ============================================================
+// 1. SIGNAL ENGINE DATA (7 indicators)
+// ============================================================
+const signalDefs = [
+  { key:'vol', label:'VOL', unit:'', decimals:0, color:'#00f0ff',
+    sub:'成交量能', min:0, max:100 },
+  { key:'score', label:'SCORE', unit:'', decimals:1, color:'#f7c948',
+    sub:'综合评分', min:0, max:10 },
+  { key:'winRate', label:'胜率', unit:'%', decimals:1, color:'#00ff88',
+    sub:'历史胜率', min:0, max:100 },
+  { key:'odds', label:'赔率', unit:'', decimals:2, color:'#ff2d77',
+    sub:'盈亏比', min:0, max:5 },
+  { key:'risk', label:'风险', unit:'', decimals:1, color:'#ff8800',
+    sub:'VaR 95%', min:0, max:10 },
+  { key:'position', label:'仓位', unit:'%', decimals:0, color:'#a855f7',
+    sub:'建议仓位', min:0, max:100 },
+  { key:'ev', label:'EV', unit:'', decimals:2, color:'#38bdf8',
+    sub:'期望值', min:-2, max:5 }
+];
+// Initial values
+let signalValues = {
+  vol: 73, score: 7.2, winRate: 62.5, odds: 2.45,
+  risk: 3.8, position: 45, ev: 1.62
+};
+
+function renderSignals() {
+  const grid = document.getElementById('signalGrid');
+  grid.innerHTML = '';
+  signalDefs.forEach(def => {
+    const val = signalValues[def.key];
+    let pct;
+    if (def.key === 'ev') {
+      // EV negative → 50% 0 → 70% max → 100%
+      pct = ((val - def.min) / (def.max - def.min)) * 100;
+      pct = Math.max(0, Math.min(100, pct));
+    } else {
+      pct = ((val - def.min) / (def.max - def.min)) * 100;
+    }
+    pct = Math.max(0, Math.min(100, pct));
+
+    const el = document.createElement('div');
+    el.className = 'signal-item';
+    el.innerHTML = `
+      <div class="label">${def.label}</div>
+      <div class="value-row">
+        <span class="value" style="color:${def.color}">${val.toFixed(def.decimals)}${def.unit}</span>
+        <span style="font-size:0.55rem;color:var(--text)">${def.sub}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%;background:${def.color}"></div>
+      </div>
+    `;
+    grid.appendChild(el);
+  });
+}
+
+function updateSignals() {
+  // Random walk simulation
+  const ranges = {
+    vol: [15,98], score: [1.5,9.5], winRate: [35,85],
+    odds: [0.8,4.5], risk: [0.5,9.0], position: [5,95], ev: [-1.5,4.5]
+  };
+  signalDefs.forEach(def => {
+    const r = ranges[def.key];
+    const cur = signalValues[def.key];
+    const step = (r[1] - r[0]) * 0.015;
+    const delta = (Math.random() - 0.45) * step;
+    let newVal = cur + delta;
+    newVal = Math.max(r[0], Math.min(r[1], newVal));
+    signalValues[def.key] = newVal;
+  });
+  renderSignals();
+}
+
+renderSignals();
+setInterval(updateSignals, 1800);
+
+// ============================================================
+// 2. TICK CHART (ECharts)
+// ============================================================
+const tickChart = echarts.init(document.getElementById('tickChart'));
+
+const TICK_COUNT = 240;
+let tickTime = new Date();
+tickTime.setHours(9,30,0,0);
+const basePrice = 128.46;
+let prices = [];
+let volumes = [];
+let lastPrice = basePrice;
+
+function seedData() {
+  prices = []; volumes = [];
+  let p = basePrice;
+  for (let i = 0; i < TICK_COUNT; i++) {
+    const t = tickTime.getTime() + i * 6000; // 6s per tick
+    const change = (Math.random() - 0.48) * 0.6;
+    p = p + change;
+    if (p < 110) p = 110 + Math.random() * 2;
+    if (p > 145) p = 145 - Math.random() * 2;
+    prices.push([t, +p.toFixed(2)]);
+    volumes.push([t, Math.round(Math.random() * 1800 + 200)]);
+  }
+  lastPrice = prices[prices.length - 1][1];
+}
+seedData();
+
+function buildTickOption() {
+  const timeAxis = prices.map(d => d[0]);
+  const priceVals = prices.map(d => d[1]);
+  const volVals = volumes.map(d => d[1]);
+
+  // Moving average (20-period)
+  const ma = [];
+  for (let i = 0; i < priceVals.length; i++) {
+    if (i < 19) { ma.push(null); continue; }
+    let sum = 0;
+    for (let j = i - 19; j <= i; j++) sum += priceVals[j];
+    ma.push(+(sum / 20).toFixed(2));
+  }
+
+  // Bollinger Bands
+  const bbUpper = [], bbLower = [];
+  for (let i = 0; i < priceVals.length; i++) {
+    if (i < 19) { bbUpper.push(null); bbLower.push(null); continue; }
+    const period = 20;
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j++) sum += priceVals[j];
+    const mean = sum / period;
+    let sqSum = 0;
+    for (let j = i - period + 1; j <= i; j++) sqSum += (priceVals[j] - mean) ** 2;
+    const std = Math.sqrt(sqSum / period);
+    bbUpper.push(+(mean + 2 * std).toFixed(2));
+    bbLower.push(+(mean - 2 * std).toFixed(2));
+  }
+
+  // VWAP
+  let cumPv = 0, cumV = 0;
+  const vwap = priceVals.map((p, i) => {
+    cumPv += p * volVals[i];
+    cumV += volVals[i];
+    return +(cumPv / cumV).toFixed(2);
+  });
+
+  const maxPrice = Math.max(...priceVals);
+  const minPrice = Math.min(...priceVals);
+  const padding = (maxPrice - minPrice) * 0.12 || 2;
+
+  return {
+    backgroundColor:'transparent',
+    grid: [{ left:'3%', right:'3%', top:'6%', height:'62%' },
+           { left:'3%', right:'3%', bottom:'3%', height:'18%' }],
+    xAxis: [
+      { type:'time', axisLine:{show:false}, axisTick:{show:false},
+        splitLine:{show:false},
+        axisLabel:{color:'#4a5070', fontSize:9, fontFamily:'JetBrains Mono'} },
+      { type:'time', gridIndex:1, axisLine:{show:false}, axisTick:{show:false},
+        splitLine:{show:false},
+        axisLabel:{color:'#4a5070', fontSize:9, fontFamily:'JetBrains Mono'} }
+    ],
+    yAxis: [
+      { type:'value', scale:true,
+        min: Math.floor((minPrice - padding) * 10) / 10,
+        max: Math.ceil((maxPrice + padding) * 10) / 10,
+        splitLine:{lineStyle:{color:'rgba(30,34,56,0.6)', type:'dashed'}},
+        axisLabel:{color:'#4a5070', fontSize:9, fontFamily:'JetBrains Mono',
+          formatter:(v)=>v.toFixed(1)},
+        axisLine:{show:false}, axisTick:{show:false} },
+      { type:'value', gridIndex:1, splitLine:{show:false},
+        axisLabel:{show:false}, axisLine:{show:false}, axisTick:{show:false} }
+    ],
+    series: [
+      // Bollinger Band fill
+      { name:'Bollinger Upper', type:'line', data:timeAxis.map((t,i)=>[t,bbUpper[i]]),
+        lineStyle:{width:0}, symbol:'none', z:1,
+        areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0,color:'rgba(0,240,255,0.04)'},
+          {offset:1,color:'rgba(0,240,255,0.01)'}
+        ])} },
+      { name:'Bollinger Lower', type:'line', data:timeAxis.map((t,i)=>[t,bbLower[i]]),
+        lineStyle:{width:0}, symbol:'none', z:1,
+        areaStyle:{color:new echarts.graphic.LinearGradient(0,1,0,0,[
+          {offset:0,color:'rgba(0,240,255,0.04)'},
+          {offset:1,color:'rgba(0,240,255,0.01)'}
+        ])} },
+      // MA line
+      { name:'MA20', type:'line', data:timeAxis.map((t,i)=>[t,ma[i]]),
+        lineStyle:{width:1, color:'rgba(247,201,72,0.35)', type:'dashed'},
+        symbol:'none', z:2 },
+      // VWAP
+      { name:'VWAP', type:'line', data:timeAxis.map((t,i)=>[t,vwap[i]]),
+        lineStyle:{width:1, color:'rgba(255,45,119,0.3)', type:'dotted'},
+        symbol:'none', z:2 },
+      // Price line (main)
+      { name:'价格', type:'line', smooth:true,
+        data:prices.map(d=>[d[0],d[1]]),
+        lineStyle:{width:2.5, color:'#00f0ff',
+          shadowBlur:12, shadowColor:'rgba(0,240,255,0.25)'},
+        symbol:'none', z:3,
+        areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0,color:'rgba(0,240,255,0.18)'},
+          {offset:0.6,color:'rgba(0,240,255,0.04)'},
+          {offset:1,color:'rgba(0,240,255,0.0)'}
+        ])} },
+      // Volume bars
+      { name:'成交量', type:'bar', xAxisIndex:1, yAxisIndex:1,
+        data:volumes.map((d,i)=>[d[0],d[1]]),
+        itemStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[
+          {offset:0,color:'rgba(0,240,255,0.4)'},
+          {offset:1,color:'rgba(0,240,255,0.08)'}
+        ]), borderRadius:[2,2,0,0]},
+        barWidth:'65%', z:4 }
+    ],
+    tooltip:{
+      trigger:'axis', backgroundColor:'rgba(10,11,14,0.92)',
+      borderColor:'rgba(0,240,255,0.2)', borderWidth:1,
+      textStyle:{color:'#e0e4f0', fontSize:11, fontFamily:'JetBrains Mono'},
+      formatter:function(p) {
+        const d = new Date(p[0].axisValue);
+        const tm = d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+        let s = `<b style="color:#f7c948">${tm}</b><br/>`;
+        p.forEach(i => {
+          const c = i.color === '#00f0ff' ? '#00f0ff' : i.color;
+          s += `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${c};margin-right:4px"></span>`;
+          s += `${i.seriesName}: <b>${typeof i.value[1] === 'number' ? i.value[1].toFixed(2) : i.value[1]}</b><br/>`;
+        });
+        return s;
+      }
+    }
+  };
+}
+
+tickChart.setOption(buildTickOption());
+
+// ============================================================
+// 3. REAL-TIME TICK UPDATE
+// ============================================================
+let tickInterval;
+
+function addTick() {
+  const now = new Date();
+  const change = (Math.random() - 0.48) * 0.5;
+  let newP = lastPrice + change;
+  if (newP < 110) newP = 110 + Math.random() * 2;
+  if (newP > 145) newP = 145 - Math.random() * 2;
+  newP = +newP.toFixed(2);
+  lastPrice = newP;
+
+  const t = now.getTime();
+  prices.shift(); prices.push([t, newP]);
+  volumes.shift(); volumes.push([t, Math.round(Math.random() * 1800 + 200)]);
+
+  // Update overlay
+  const firstP = prices[0][1];
+  const diff = newP - firstP;
+  const pct = (diff / firstP * 100);
+  const elPrice = document.getElementById('livePrice');
+  const elChange = document.getElementById('liveChange');
+  elPrice.textContent = newP.toFixed(2);
+  const isPos = diff >= 0;
+  elChange.className = 'change ' + (isPos ? 'positive' : 'negative');
+  elChange.textContent = (isPos ? '+' : '') + diff.toFixed(2) + ' (' + (isPos ? '+' : '') + pct.toFixed(2) + '%)';
+  elPrice.style.textShadow = isPos
+    ? '0 0 20px rgba(0,255,136,0.3)'
+    : '0 0 20px rgba(255,51,85,0.3)';
+
+  tickChart.setOption(buildTickOption());
+}
+
+tickInterval = setInterval(addTick, 1800);
+
+// ============================================================
+// 4. HEADER CLOCK / LATENCY
+// ============================================================
+function updateHeader() {
+  const now = new Date();
+  document.getElementById('updateTime').textContent =
+    now.toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const lat = (1.5 + Math.random() * 2.5).toFixed(1);
+  document.getElementById('latencyVal').textContent = lat + 'ms';
+}
+updateHeader();
+setInterval(updateHeader, 1000);
+
+// ============================================================
+// 5. RESPONSIVE
+// ============================================================
+window.addEventListener('resize', () => {
+  tickChart.resize();
+});
+</script>
+</body>
+</html>
