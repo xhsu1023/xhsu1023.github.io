@@ -8880,17 +8880,14 @@ function init(){
   refreshKmBoardPool();                                     // 预热最近3日热门板块成分池（买卖点扫描范围扩展）
   setTimeout(()=>{ kickFundDays(); kickRowAnalysis(); loadDip(); },1200);
   // 预热自选/备选K线：买卖点扫描器需要 klineCache[sym].day≥35根，未预取则扫描器无法产出信号
-  setTimeout(()=>{
+  (async()=>{
     const syms=[...new Set([...watchList,...backupList])].filter(s=>!(klineCache[s]&&Array.isArray(klineCache[s].day)&&klineCache[s].day.length>=35));
     let n=0;
-    const run=async()=>{
-      for(const s of syms.slice(0,80)){
-        try{ const g=await getKlines(s,'day',250); if(g&&g.length){ klineCache[s]=klineCache[s]||{}; klineCache[s].day=g; } }catch(e){}
-        if(++n%12===0) await new Promise(r=>setTimeout(r,120));
-      }
-    };
-    run();
-  },3000);
+    for(const s of syms.slice(0,80)){
+      try{ const g=await getKlines(s,'day',250); if(g&&g.length){ klineCache[s]=klineCache[s]||{}; klineCache[s].day=g; } }catch(e){}
+      if(++n%12===0) await new Promise(r=>setTimeout(r,120));
+    }
+  })();
   // 默认选中第一只
   setTimeout(()=>{ if(!selected && watchList.length){ select(watchList[0]); } },800);
   autoTimer=setInterval(()=>{
