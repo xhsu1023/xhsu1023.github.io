@@ -217,7 +217,7 @@ function renderUs(top){
 function renderCn(rows, usDatetime){
   const tb=$id('cnTb');
   if(usDatetime) $id('usTime').textContent=usDatetime;
-  $id('cnTag').textContent='共 '+rows.length+' 只 · TOP3板块归属个股';
+  $id('cnTag').textContent='共 '+rows.length+' 只 · TOP3板块各匹配板块Top5';
   if(!rows.length){ tb.innerHTML='<tr><td colspan="7" class="empty">暂无匹配个股（未匹配到A股板块或行情失败）</td></tr>'; return; }
   tb.innerHTML=rows.map(r=>{
     const w=isWatching(r.sym);
@@ -247,13 +247,14 @@ async function refreshAll(){
     // 为每个 TOP3 ETF 匹配 A股板块（取涨幅前2），挂到渲染用对象
     for(const e of top3){ e.cnBoards=matchBoards(e, boards); }
     renderUs(top3);
-    // 板块2：每个 ETF 取最强板块的成分股（按主力净流入前4），跨ETF去重
+    // 板块2：每个 ETF 的所有匹配板块各取 Top5 核心个股（按主力净流入），跨板块去重
     const pool=[]; const seen=new Set();
     for(const e of top3){
-      const b=e.cnBoards[0]; if(!b) continue;
-      let st=[]; try{ st=await fetchBoardStocks(b.code, 4); }catch(err){}
-      for(const x of st){ if(seen.has(x.sym)) continue; seen.add(x.sym); x.boards=b.name; x.rec=recommend(x); pool.push(x); }
-      if(pool.length>=20) break;
+      const boards=e.cnBoards||[];
+      for(const b of boards){
+        let st=[]; try{ st=await fetchBoardStocks(b.code, 5); }catch(err){}
+        for(const x of st){ if(seen.has(x.sym)) continue; seen.add(x.sym); x.boards=b.name; x.rec=recommend(x); pool.push(x); }
+      }
     }
     renderCn(pool, (top3[0]&&top3[0].time)||'');
     const wt=top3.map(e=>e.label+'('+pctHtml0(e.pct)+')').join('   ');
