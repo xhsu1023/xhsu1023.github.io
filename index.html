@@ -287,6 +287,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 @media(max-width:600px){.sync-box{padding:14px 12px}.sync-steps{font-size:0.72rem}.sync-box h3{font-size:0.95rem}}
 #kmRemindBtn:hover{background:rgba(255,191,71,0.1)}
 #kmRemindBtn .cnt{margin-left:3px;color:var(--red,#ff3355);font-weight:700}
+#kmRemindBtn .cnt.new::after{content:'';display:inline-block;width:6px;height:6px;margin-left:3px;border-radius:50%;background:var(--red,#ff3355);box-shadow:0 0 5px var(--red,#ff3355);vertical-align:middle}
 /* ---------- K线弹窗（klineModal）重新布局：通达信式 四面板 + 固定高度 ---------- */
 #klineModal{padding:0;align-items:stretch;justify-content:stretch;background:#07090f}
 #klineModal .modal-box{width:100vw;height:100vh;max-width:none;border:none;border-radius:0;box-shadow:none}
@@ -4307,7 +4308,8 @@ function zxHit(sym){
 }
 /* A 股交易时间判断：周一~五 9:30-11:30 / 13:00-15:00 */
 function isATradeTime(){
-  const d=new Date();
+  let d=new Date();
+  try{ d=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
   if(d.getDay()===0||d.getDay()===6) return false;
   const h=d.getHours(), m=d.getMinutes(); const mm=h*60+m;
   return (mm>=570&&mm<=690)||(mm>=780&&mm<=900);
@@ -8009,10 +8011,11 @@ document.addEventListener('keydown',e=>{
 /* =====================================================================
  * 买卖提醒：交易时段 K线触发买入/卖出 → 右下角卡片 2 分钟自动关闭 + 持久化提醒列表
  * ===================================================================== */
-const KM_REM_KEY='stock_pulse_km_remind_v1', KM_SEEN_KEY='stock_pulse_km_seen_v1', KM_TOAST_MS=120000;
+const KM_REM_KEY='stock_pulse_km_remind_v1', KM_SEEN_KEY='stock_pulse_km_seen_v1', KM_TOAST_MS=120000, KM_REM_COOLDOWN=1800000;
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 let kmReminds=[];              // [{ts, time, sym, name, code, side, reason}]
-let kmSeen=new Set();          // 已提醒去重: sym|side|YYYYMMDD
+let kmSeen=new Set();          // 已提醒去重: sym|side|30min桶（盘中新点可再次提醒）
+let kmUnread=0;                // 打开提醒列表前新产生的提醒数（未读角标）
 function loadKmReminds(){
   try{ const r=localStorage.getItem(KM_REM_KEY); if(r){ const a=JSON.parse(r); if(Array.isArray(a)) kmReminds=a; } }catch(e){}
   try{ const s=localStorage.getItem(KM_SEEN_KEY); if(s){ const a=JSON.parse(s); if(Array.isArray(a)) kmSeen=new Set(a); } }catch(e){}
@@ -8023,8 +8026,10 @@ function _kmDayKey(){ const d=new Date(); return d.getFullYear()+('0'+(d.getMont
 /* 记录一条提醒 + 弹右下角卡片（2 分钟自动关闭） */
 function kmFireReminder(sym, side, reason, q){
   if(!sym) return;
-  const key=sym+'|'+(side==='S'?'S':'B')+'|'+_kmDayKey();
-  if(kmSeen.has(key)) return;                    // 同一股票当日同方向只提醒一次
+  const sideKey=side==='S'?'S':'B';
+  const bucket=Math.floor(Date.now()/KM_REM_COOLDOWN);   // 每 30 分钟一个去重桶：盘中新点可再次提醒，短时震荡不重复
+  const key=sym+'|'+sideKey+'|'+bucket;
+  if(kmSeen.has(key)) return;
   kmSeen.add(key); saveKmSeen();
   const d=new Date();
   const rec={ ts:Date.now(), time:d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
@@ -8032,11 +8037,13 @@ function kmFireReminder(sym, side, reason, q){
     side, reason };
   kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop();
   saveKmReminds();
-  kmUpdCnt();
+  kmUnread++; kmUpdCnt();
   kmShowToast(rec);
 }
 function kmUpdCnt(){
-  const el=document.getElementById('kmRemindCnt'); if(el) el.textContent=kmReminds.length;
+  const el=document.getElementById('kmRemindCnt'); if(!el) return;
+  el.textContent=kmReminds.length;
+  el.classList.toggle('new', kmUnread>0);
 }
 /* 右下角卡片：标题=买入/卖出（红/绿标签），内容=名称/代码+理由；2 分钟自动关闭 */
 function kmShowToast(rec){
@@ -8108,7 +8115,7 @@ function renderKmRemindList(){
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
-document.getElementById('kmRemindBtn').addEventListener('click',()=>{ renderKmRemindList(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
+document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 loadKmReminds(); kmUpdCnt();
 
