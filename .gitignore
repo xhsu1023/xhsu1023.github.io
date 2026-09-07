@@ -1,4 +1,6 @@
 # 本地临时/演示文件不提交
+./._cache_ChromiumSetup.exe
+._cache*
 *.log
 _diag/
 node_modules/
