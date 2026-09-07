@@ -266,6 +266,19 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRemindBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--gold,#ffbf47);color:var(--gold,#ffbf47);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
 #usPageBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--cyan,#00e5ff);color:var(--cyan,#00e5ff);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;text-decoration:none;transition:all 0.2s}
 #usPageBtn:hover{background:rgba(0,229,255,0.1)}
+#syncBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--gold,#f7c948);color:var(--gold,#f7c948);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
+#syncBtn:hover{background:rgba(247,201,72,0.1)}
+#syncModal{display:none;position:fixed;inset:0;z-index:800;background:rgba(5,7,12,0.82);backdrop-filter:blur(3px);align-items:center;justify-content:center;padding:14px}
+#syncModal.show{display:flex}
+.sync-box{background:var(--bg-card,#11131a);border:1px solid var(--gold,#f7c948);border-radius:10px;width:min(560px,94vw);max-height:92vh;overflow-y:auto;padding:16px 18px;font-family:var(--font-display)}
+.sync-box h3{margin:0 0 10px;font-size:0.85rem;letter-spacing:2px;color:var(--gold,#f7c948)}
+.sync-steps{font-size:0.65rem;line-height:1.9;color:var(--text,#b5bcd4);margin-bottom:10px}
+.sync-steps b{color:var(--gold,#f7c948)}
+.sync-box textarea{width:100%;min-height:90px;background:#0b1020;color:var(--text-bright,#f2f4fc);border:1px solid #2a3550;border-radius:6px;padding:8px;font-size:0.62rem;font-family:var(--font-mono);box-sizing:border-box;resize:vertical}
+.sync-ops{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.sync-ops .btn{flex:1;min-width:120px}
+.sync-status{font-size:0.6rem;color:var(--green,#00ff88);margin-top:8px;min-height:1em}
+@media(max-width:600px){.sync-box{padding:14px 12px}.sync-steps{font-size:0.72rem}.sync-box h3{font-size:0.95rem}}
 #kmRemindBtn:hover{background:rgba(255,191,71,0.1)}
 #kmRemindBtn .cnt{margin-left:3px;color:var(--red,#ff3355);font-weight:700}
 /* ---------- K线弹窗（klineModal）重新布局：通达信式 四面板 + 固定高度 ---------- */
@@ -332,6 +345,23 @@ tr:hover td{background:rgba(0,240,255,0.025)}
     </div>
   </header>
 
+  <!-- 数据同步弹窗：电脑导出同步码 → 手机导入 -->
+  <div id="syncModal"><div class="sync-box">
+    <h3>♻ 数据同步 · 自选 / 备选股</h3>
+    <div class="sync-steps">
+      <b>电脑导出：</b>点「导出同步码」→ 选「复制」→ 发到自己手机（微信/备忘录），
+      <br><b>手机导入：</b>粘贴同步码 → 点「应用同步」，自选·备选·置顶即与电脑一致。
+    </div>
+    <textarea id="syncCode" placeholder="同步码会显示在这里…" spellcheck="false"></textarea>
+    <div class="sync-ops">
+      <button class="btn btn-cyan btn-sm" id="syncExportBtn">导出同步码</button>
+      <button class="btn btn-cyan btn-sm" id="syncCopyBtn">📋 复制</button>
+      <button class="btn btn-sm" id="syncImportBtn" style="border-color:var(--gold);color:var(--gold)">应用同步</button>
+      <button class="btn btn-sm" id="syncCloseBtn">关闭</button>
+    </div>
+    <div class="sync-status" id="syncStatus"></div>
+  </div></div>
+
   <!-- ============ 模块1: 今日热门股/自选/量化分析 ============ -->
   <div class="grid" style="flex:1;min-height:0;grid-template-rows:1fr">
     <div class="card span2" style="display:flex;flex-direction:column;min-height:0">
@@ -352,6 +382,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
           </button>
           <button id="kmRemindBtn" title="买卖提醒列表（交易时段 K线买入/卖出自动提醒）">🔔 买卖提醒<span class="cnt" id="kmRemindCnt">0</span></button>
           <a id="usPageBtn" href="us_sector_page.html" title="隔夜美股上涨板块TOP3 → 映射A股核心个股">🌎 隔夜美股映射</a>
+          <button id="syncBtn" title="同步自选/备选股：电脑导出一串同步码，手机粘贴即恢复同一批股票">♻ 同步</button>
         </div>
       </div>
       <div class="row" id="watchAddRow" style="margin-bottom:6px">
@@ -8316,6 +8347,66 @@ function fitViewport(){
     kmSyncCharts();
   }catch(e){}
 }
+/* =====================================================================
+ * 数据同步：导出/导入 自选·备选·置顶（电脑 ↔ 手机）
+ * ===================================================================== */
+const SYNC_PREFIX='STKPULSE1:';
+function _b64enc(s){ try{ return btoa(unescape(encodeURIComponent(s))); }catch(e){ return btoa(s); } }
+function _b64dec(s){ try{ return decodeURIComponent(escape(atob(s))); }catch(e){ return atob(s); } }
+function _syncExport(){
+  const payload={v:1,w:watchList,a:addedExt,p:pinned,b:backupList};
+  return SYNC_PREFIX+_b64enc(JSON.stringify(payload));
+}
+function _syncApply(code){
+  code=(code||'').trim();
+  const i=code.indexOf(':');
+  const raw=(i>=0&&code.slice(0,i)==='STKPULSE1')?code.slice(i+1):code;
+  const d=JSON.parse(_b64dec(raw));
+  if(!d||typeof d!=='object') throw new Error('同步码无法解析');
+  let changed=false;
+  if(Array.isArray(d.w)&&d.w.length){ if(JSON.stringify(d.w)!==JSON.stringify(watchList)){ watchList=d.w; saveWatch(); changed=true; } }
+  if(Array.isArray(d.a)){ if(JSON.stringify(d.a)!==JSON.stringify(addedExt)){ addedExt=d.a; saveAddedExt(); changed=true; } }
+  if(Array.isArray(d.p)){ if(JSON.stringify(d.p)!==JSON.stringify(pinned)){ pinned=d.p; savePinned(); changed=true; } }
+  if(Array.isArray(d.b)){ if(JSON.stringify(d.b)!==JSON.stringify(backupList)){ backupList=d.b; saveBak(); changed=true; } }
+  if(changed){ resetDipAI(); resetRecAI(); refreshQuotes(); refreshPoolAll(); }
+  return changed;
+}
+function _syncCopyBtn(){
+  const ta=document.getElementById('syncCode'); if(!ta||!ta.value) return false;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(()=>true).catch(()=>_syncCopyFallback(ta));
+  }else{ return _syncCopyFallback(ta); }
+  return true;
+}
+function _syncCopyFallback(ta){
+  ta.focus(); ta.select();
+  try{ const ok=document.execCommand('copy'); if(ok){ ta.setSelectionRange(0,0); ta.blur(); return true; } }catch(e){}
+  return false;
+}
+function _wireSync(){
+  const m=document.getElementById('syncModal'), ta=document.getElementById('syncCode'), st=document.getElementById('syncStatus');
+  if(!m||!ta) return;
+  const msg=t=>{ if(st) st.textContent=t; };
+  const open=()=>{ ta.value=''; msg(''); m.classList.add('show'); };
+  const close=()=>{ m.classList.remove('show'); };
+  document.getElementById('syncBtn').addEventListener('click',open);
+  document.getElementById('syncCloseBtn').addEventListener('click',close);
+  m.addEventListener('click',e=>{ if(e.target===m) close(); });
+  document.getElementById('syncExportBtn').addEventListener('click',()=>{
+    try{ ta.value=_syncExport(); msg('已生成同步码（点击「复制」再粘贴发自选 / 微信）'); }
+    catch(e){ msg('导出失败：'+e.message); }
+  });
+  document.getElementById('syncCopyBtn').addEventListener('click',()=>{
+    if(_syncCopyBtn()) msg('✅ 已复制到剪贴板，粘贴到手机端导入'); else msg('复制失败，请长按选中后手动复制');
+  });
+  document.getElementById('syncImportBtn').addEventListener('click',()=>{
+    try{
+      const ok=_syncApply(ta.value);
+      msg(ok?'✅ 同步成功：自选/备选/置顶已更新':'同步码与当前数据相同，无需变更');
+    }catch(e){ msg('❌ 同步失败：'+e.message); }
+  });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
+}
 function init(){
   loadWatch();
   loadAddedExt();
@@ -8330,6 +8421,7 @@ function init(){
       saveBak();
     }
   }catch(e){}
+  _wireSync();
   loadLlmCfg();
   mainChart=echarts.init(document.getElementById('mainChart'));
   window.addEventListener('resize',()=>{ fitViewport(); if(mainChart)mainChart.resize(); if(modalChart)modalChart.resize(); kmSyncCharts(); });
