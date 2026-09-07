@@ -1980,6 +1980,7 @@ async function fetchKmFundDays(sym){
       if(!kl.length) continue;
       const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], main:+p[1], xl:+p[2]}; });
       kmFundCache[sym]={ts:now, days};
+      _fundHistAdd(sym, days.map(d=>({date:d.date, dark:d.xl, main:d.main})));
       return days;
     }catch(e){ /* 尝试下一个 host */ }
   }
@@ -2059,13 +2060,14 @@ function renderKmFund(sym){
   const pDays=fetchKmFundDays(sym).catch(()=>null);
   const pRt=realtime()!=null? Promise.resolve(realtime()) : fetchFundFlow([sym]).then(fl=>(fl&&fl[sym]&&Number.isFinite(+fl[sym].xl)? +fl[sym].xl : null)).catch(()=>null);
   Promise.all([pDays, pRt]).then(([days0, rv])=>{
-    if(rv!=null){ try{ fundFlow[sym]=fundFlow[sym]||{}; fundFlow[sym].xl=rv; }catch(e){} }
-    let days=(days0&&days0.length)? days0.filter(d=>Number.isFinite(d.xl)) : [];
-    if(rv!=null){
-      const last=days.length? days[days.length-1] : null;
-      if(last && last.date===todayStr){ days[days.length-1]={date:todayStr, xl:rv}; }
-      else { days=days.concat([{date:todayStr, xl:rv}]); }
-    }
+    if(rv!=null){ try{ fundFlow[sym]=fundFlow[sym]||{}; fundFlow[sym].xl=rv; }catch(e){} _fundHistAdd(sym,[{date:todayStr, dark:rv}]); }
+    /* 近一月归档（本地+云端）为底，接口历史覆盖同日期；实时覆盖今日 */
+    const map={};
+    const feed=(list)=>{ (list||[]).forEach(d=>{ if(d.date && Number.isFinite(+d.xl)) map[d.date]=+d.xl; }); };
+    feed(_fundHistDays(sym));
+    feed(days0);
+    if(rv!=null) map[todayStr]=rv;
+    let days=Object.keys(map).sort().map(d=>({date:d, xl:map[d]}));
     if(!days.length){ box.textContent='暂无暗盘资金数据'; return; }
     _renderKmBars(box, t, days);
     const last=days[days.length-1];
@@ -2093,6 +2095,7 @@ async function fetchFundDays(sym){
       const kl=(j&&j.data&&j.data.klines)||[];      // 每行 "日期,主力净流入"
       if(!kl.length) continue;
       const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], in:+p[1]}; });
+      _fundHistAdd(sym, days.map(d=>({date:d.date, main:d.in})));
       const today=days[days.length-1];
       // 仅单日数据无法推算持续天数：若 push2his 已给多日则精确；单日（push2delay）只作粗略 0/1 兜底
       let n=0;
@@ -8526,6 +8529,7 @@ function _cloudInitUI(){
     _cloudCfgStore(); _cloudSha=null;
     _cloudStatusText('连接中…');
     _cloudPull(true).then(()=>{ if(st){ st.textContent=_cloudCfg.lastT?('已连接 · 云端数据已同步 '+new Date(_cloudCfg.lastT).toLocaleTimeString()):'已连接 · 云端暂无有效数据，本机修改后自动上传'; } });
+    _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{});
   });
   document.getElementById('cloudSyncBtn').addEventListener('click',()=>{
     _cloudStatusText('同步中…');
@@ -8536,7 +8540,95 @@ function _cloudInitUI(){
     tok.value=''; _cloudSha=null; refreshState();
   });
 }
-/* 改动后自动排队上传（云端启用时） */
+/* =====================================================================
+ * 资金历史归档：每日 暗盘(f56/超大单净流入) + 主力(f52) 快照 → 本地 + 云端(fund_hist.json)
+ * 解决 push2his 历史源不可达时只剩当天的问题；保留约 35 天（一个多月）
+ * 依赖上方云端模块（_cloudEnabled/_cloudApi），未配置令牌时仅本地积累
+ * ===================================================================== */
+const FUNDHIST_DAYS_=35;
+const FUNDHIST_LOCAL_KEY='stock_pulse_fundhist_v1';
+let _fundHist=null, _cloudFundSha=null, _cloudFundTimer=null, _cloudFundBusy=false, _cloudFundDirty=false, _cloudFundForce=false, _cloudFundLastPush=0;
+function _fundHistLoad(){ if(_fundHist) return _fundHist; try{ const r=localStorage.getItem(FUNDHIST_LOCAL_KEY); _fundHist=(r&&JSON.parse(r))||{}; }catch(e){ _fundHist={}; } return _fundHist; }
+function _fundHistSave(){ try{ localStorage.setItem(FUNDHIST_LOCAL_KEY, JSON.stringify(_fundHist)); }catch(e){} }
+function _fundSymId(sym){ return String(sym||'').replace(/[^0-9a-zA-Z]/g,''); }
+function _fundHistDays(sym){
+  const h=_fundHistLoad(); const m=h[_fundSymId(sym)];
+  if(!m) return null;
+  return Object.keys(m).sort().map(d=>({date:d, xl:m[d].dark, main:m[d].main}));
+}
+function _fundHistAdd(sym, rows){
+  if(!sym || !rows || !rows.length) return;
+  const h=_fundHistLoad(); const key=_fundSymId(sym);
+  if(!h[key]) h[key]={};
+  let changed=false;
+  for(const r of rows){
+    if(!r || !r.date) continue;
+    const e=h[key][r.date]||(h[key][r.date]={});
+    if(r.dark!=null && Number.isFinite(+r.dark)){ if(e.dark!==+r.dark){ e.dark=+r.dark; changed=true; } }
+    if(r.main!=null && Number.isFinite(+r.main)){ if(e.main!==+r.main){ e.main=+r.main; changed=true; } }
+  }
+  if(changed){
+    const keys=Object.keys(h[key]).sort();
+    while(keys.length>FUNDHIST_DAYS_) delete h[key][keys.shift()];
+    _fundHistSave();
+    _cloudFundDirty=true;
+    _cloudFundTick();
+  }
+}
+function _fundHistMerge(remote){
+  if(!remote || typeof remote!=='object') return;
+  const h=_fundHistLoad(); let changed=false;
+  for(const code in remote){
+    const m=remote[code]; if(!m || typeof m!=='object') continue;
+    if(!h[code]) h[code]={};
+    for(const date in m){
+      const e=m[date]; if(!e) continue;
+      const cur=h[code][date]||(h[code][date]={});
+      if(e.dark!=null && Number.isFinite(+e.dark)){ if(cur.dark!==+e.dark){ cur.dark=+e.dark; changed=true; } }
+      if(e.main!=null && Number.isFinite(+e.main)){ if(cur.main!==+e.main){ cur.main=+e.main; changed=true; } }
+    }
+  }
+  if(changed) _fundHistSave();
+}
+function _cloudFundPull(force){
+  if(!_cloudEnabled()) return Promise.resolve();
+  return _cloudApi('GET','/contents/fund_hist.json').then(r=>{
+    const c=r.json && r.json.content;
+    if(!c) return;
+    let raw; try{ raw=decodeURIComponent(escape(atob(c))); }catch(e){ try{ raw=atob(c); }catch(e2){ return; } }
+    let d; try{ d=JSON.parse(raw); }catch(e){ return; }
+    _cloudFundSha=r.json.sha;
+    if(d && d.hist) _fundHistMerge(d.hist);
+  }).catch(e=>{ /* 404=云端尚未创建归档，正常 */ });
+}
+function _cloudFundPush(){
+  if(!_cloudEnabled() || _cloudFundBusy || !_cloudFundDirty) return Promise.resolve();
+  const now=Date.now();
+  if(!_cloudFundForce && now-_cloudFundLastPush<90*1000) return Promise.resolve();
+  _cloudFundBusy=true;
+  const payload=JSON.stringify({t:now, hist:_fundHistLoad()});
+  const content=btoa(unescape(encodeURIComponent(payload)));
+  const doPut=()=>{
+    const p={message:'fundhist', content:content};
+    if(_cloudFundSha) p.sha=_cloudFundSha;
+    return _cloudApi('PUT','/contents/fund_hist.json',p).then(r=>{
+      _cloudFundSha=(r.json && r.json.content) ? r.json.content.sha : null;
+      _cloudFundLastPush=Date.now(); _cloudFundDirty=false; _cloudFundForce=false;
+    }).catch(e=>{
+      if(e.code===409 || e.code===412 || e.code===422){ _cloudFundSha=null; return _cloudFundPull(true).then(()=>_cloudFundPush()); }
+    }).finally(()=>{ _cloudFundBusy=false; });
+  };
+  if(_cloudFundSha) return doPut();
+  return _cloudApi('GET','/contents/fund_hist.json').then(r=>{ _cloudFundSha=r.json.sha; return doPut(); }).catch(e=>{
+    if(e.code===404 || e.code===409 || e.code===422){ _cloudFundSha=null; return doPut(); }
+    _cloudFundBusy=false;
+  });
+}
+function _cloudFundTick(force){
+  if(!_cloudEnabled() || _cloudFundBusy || _cloudFundTimer) return;
+  _cloudFundForce=!!force;
+  _cloudFundTimer=setTimeout(()=>{ _cloudFundTimer=null; _cloudFundPush(); }, force?800:2500);
+}
 ['saveWatch','saveAddedExt','savePinned','saveBak'].forEach(function(name){
   const orig=window[name];
   if(typeof orig==='function'){
@@ -8566,9 +8658,9 @@ function init(){
   /* 云同步：先建好 UI，已启用则自动拉取云端（不阻塞其余初始化） */
   try{
     _cloudInitUI();
-    if(_cloudEnabled()){ _cloudPull().catch(()=>{}); }
-    window.addEventListener('focus',()=>{ if(_cloudEnabled()) _cloudPull().catch(()=>{}); });
-    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _cloudEnabled()) _cloudPull().catch(()=>{}); });
+    if(_cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); }
+    window.addEventListener('focus',()=>{ if(!_cloudEnabled()) return; _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); });
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); } });
   }catch(e){}
   mainChart=echarts.init(document.getElementById('mainChart'));
   window.addEventListener('resize',()=>{ fitViewport(); if(mainChart)mainChart.resize(); if(modalChart)modalChart.resize(); kmSyncCharts(); });
