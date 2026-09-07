@@ -6761,7 +6761,7 @@ function kmRenderConcept(sym){
   }).catch(()=>{});
 }
 /* ---- 弹窗副图面板：VOL（成交量专用）+ 主力技术副图（DMI 默认，可切 MACD/KDJ/RSI） ---- */
-let kmSubInd='DMI';
+let kmSubInd='RSI';
 function kmTechData(){
   const sym=kmSym; if(!sym) return null;
   const c=klineCache[sym]&&klineCache[sym][kmRange];
@@ -6862,6 +6862,7 @@ function _kmNewChart(el){
   const ch=window.LightweightCharts.createChart(el, Object.assign({},_KM_LC_CFG,{width:w,height:h}));
   el._chart=ch;
   kmLinkTimeRange(ch);
+  kmLinkCrosshair(ch);
   return ch;
 }
 function kmLinkTimeRange(ch){
@@ -6873,6 +6874,41 @@ function kmLinkTimeRange(ch){
     if(!range || range.from==null || range.to==null) return;
     kmSyncFrom=range.from; kmSyncTo=range.to;
     kmPushFrom(ch);
+  });
+}
+/* ---------- 跨面板十字线联动：任一面板hover时，纵向虚线同步延伸到其余面板 ---------- */
+function kmLinkCrosshair(ch){
+  if(!ch || typeof ch.subscribeCrosshairMove!=='function') return;
+  ch.subscribeCrosshairMove(param=>{
+    if(performance.now()<kmNoSyncUntil) return;
+    const targets=kmCharts().filter(c=>c!==ch && !c._noSync);
+    for(const t of targets){
+      if(typeof t.setCrosshairPosition==='function'){
+        try{
+          if(param.time!=null && param.seriesData){
+            const entry=[...param.seriesData.entries()].next().value;
+            if(entry){ const series=entry[0]; t.setCrosshairPosition(entry[1].value, param.time, series); }
+          }
+        }catch(e){}
+      } else if(param.time!=null){
+        try{
+          const srcTS=ch.timeScale(), tgtTS=t.timeScale();
+          const srcW=srcTS.width(), tgtW=tgtTS.width();
+          if(!(srcW>0 && tgtW>0)) continue;
+          const lr=srcTS.getVisibleLogicalRange();
+          if(!lr) continue;
+          const lPos=(param.point&&param.point.x!=null)? param.point.x/srcW : 0.5;
+          const tgtX=lPos*tgtW;
+          const tgtCanvas=t.element&&t.element.querySelector&&t.element.querySelector('canvas');
+          const tgtH=tgtCanvas?tgtCanvas.height:100;
+          const tgtEl=t.element||t.parentElement;
+          if(tgtEl){
+            tgtEl.dispatchEvent(new PointerEvent('pointerenter',{clientX:0,clientY:0,bubbles:false}));
+            tgtEl.dispatchEvent(new PointerEvent('pointermove',{clientX:tgtX,clientY:tgtH/2,bubbles:false}));
+          }
+        }catch(e){}
+      }
+    }
   });
 }
 function kmStartSync(){
@@ -7157,7 +7193,7 @@ function buildKmIndBar(){
     else if(kind==='FUND'||kind==='DARK'){ syncKmBarAct(kind); }
     else setKmSubInd(kind);
   });
-  syncKmBarAct('MA'); syncKmBarAct('VOL'); syncKmBarAct('DMI'); syncKmBarAct('FUND');
+  syncKmBarAct('MA'); syncKmBarAct('VOL'); syncKmBarAct('RSI'); syncKmBarAct('FUND');
 }
 buildKmIndBar();
 function openKmModal(sym, preserve){
