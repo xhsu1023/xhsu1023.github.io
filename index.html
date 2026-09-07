@@ -8566,9 +8566,8 @@ function _cloudApi(method, path, body){
   }).catch(e=>{ clearTimeout(to); if(!e.code) e.code='net'; throw e; });
 }
 function _cloudPayload(){
-  return JSON.stringify({t:Date.now(), v:{w:watchList, a:addedExt, p:pinned, b:backupList}, r:kmReminds});
-}
-/* 合并云端提醒列表：按 sym|side|ts 去重取并集，按时间降序保留最近 300 条 */
+  return JSON.stringify({t:Date.now(), v:{w:watchList, a:addedExt, p:pinned, b:backupList}});
+}/* 合并云端提醒列表：按 sym|side|ts 去重取并集，按时间降序保留最近 300 条 */
 function _kmMergeReminds(remote){
   if(!Array.isArray(remote)) return false;
   const seen=new Set();
@@ -8590,16 +8589,15 @@ function _kmMergeReminds(remote){
   return true;
 }
 function _cloudApply(d){
-  let listChanged=false, any=false;
+  let changed=false;
   if(d && d.v){
-    if(Array.isArray(d.v.w)){ watchList=d.v.w; saveWatch(); listChanged=true; any=true; }
-    if(Array.isArray(d.v.a)){ addedExt=d.v.a; saveAddedExt(); listChanged=true; any=true; }
-    if(Array.isArray(d.v.p)){ pinned=d.v.p; savePinned(); listChanged=true; any=true; }
-    if(Array.isArray(d.v.b)){ backupList=d.v.b; saveBak(); listChanged=true; any=true; }
+    if(Array.isArray(d.v.w)){ watchList=d.v.w; saveWatch(); changed=true; }
+    if(Array.isArray(d.v.a)){ addedExt=d.v.a; saveAddedExt(); changed=true; }
+    if(Array.isArray(d.v.p)){ pinned=d.v.p; savePinned(); changed=true; }
+    if(Array.isArray(d.v.b)){ backupList=d.v.b; saveBak(); changed=true; }
   }
-  if(d && Array.isArray(d.r)){ if(_kmMergeReminds(d.r)) any=true; }
-  if(listChanged){ resetDipAI(); resetRecAI(); refreshQuotes(); refreshPoolAll(); }
-  return any;
+  if(changed){ resetDipAI(); resetRecAI(); refreshQuotes(); refreshPoolAll(); }
+  return changed;
 }
 function _cloudPull(force){
   if(!_cloudEnabled()) return Promise.resolve(false);
@@ -8661,6 +8659,7 @@ function _cloudInitUI(){
     _cloudStatusText('连接中…');
     _cloudPull(true).then(()=>{ if(st){ st.textContent=_cloudCfg.lastT?('已连接 · 云端数据已同步 '+new Date(_cloudCfg.lastT).toLocaleTimeString()):'已连接 · 云端暂无有效数据，本机修改后自动上传'; } });
     _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{});
+    _cloudKmPull().then(()=>{ _cloudKmTick(true); }).catch(()=>{});
   });
   document.getElementById('cloudSyncBtn').addEventListener('click',()=>{
     _cloudStatusText('同步中…');
@@ -8760,7 +8759,52 @@ function _cloudFundTick(force){
   _cloudFundForce=!!force;
   _cloudFundTimer=setTimeout(()=>{ _cloudFundTimer=null; _cloudFundPush(); }, force?800:2500);
 }
-['saveWatch','saveAddedExt','savePinned','saveBak','saveKmReminds'].forEach(function(name){
+/* =====================================================================
+ * 买卖提醒云同步：独立文件 km_remind.json（schema {t, r:[...]}）
+ * 策略：拉取=合并进本地；上传=先合并远端再上传本地并集 → 双向同化，
+ * 任意一端启动即 pull→push 收敛，历史记录也能跨设备互通
+ * ===================================================================== */
+let _cloudKmSha=null, _cloudKmBusy=false, _cloudKmTimer=null, _cloudKmForce=false;
+function _cloudKmPull(){
+  if(!_cloudEnabled()) return Promise.resolve();
+  return _cloudApi('GET','/contents/km_remind.json').then(r=>{
+    const c=r.json && r.json.content;
+    if(!c) return;
+    let raw; try{ raw=decodeURIComponent(escape(atob(c))); }catch(e){ try{ raw=atob(c); }catch(e2){ return; } }
+    let d; try{ d=JSON.parse(raw); }catch(e){ return; }
+    _cloudKmSha=r.json.sha;
+    if(d && Array.isArray(d.r)) _kmMergeReminds(d.r);
+  }).catch(e=>{ /* 404=云端尚未创建，正常 */ });
+}
+function _cloudKmPush(){
+  if(!_cloudEnabled() || _cloudKmBusy) return Promise.resolve();
+  _cloudKmBusy=true;
+  const payload=JSON.stringify({t:Date.now(), r:kmReminds});
+  const content=btoa(unescape(encodeURIComponent(payload)));
+  const doPut=()=>{
+    const p={message:'kmremind', content:content};
+    if(_cloudKmSha) p.sha=_cloudKmSha;
+    return _cloudApi('PUT','/contents/km_remind.json',p).then(r=>{
+      _cloudKmSha=(r.json && r.json.content) ? r.json.content.sha : null;
+    }).catch(e=>{
+      if(e.code===409 || e.code===412 || e.code===422){ _cloudKmSha=null; _cloudKmBusy=false; return _cloudKmPull().then(()=>_cloudKmPush()); }
+    }).finally(()=>{ _cloudKmBusy=false; });
+  };
+  /* 上传前先合并远端，保证远程已有记录不被覆盖 */
+  return _cloudKmPull().then(()=>{
+    if(_cloudKmSha) return doPut();
+    return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return doPut(); }).catch(e=>{
+      if(e.code===404 || e.code===409 || e.code===422){ _cloudKmSha=null; return doPut(); }
+      _cloudKmBusy=false;
+    });
+  });
+}
+function _cloudKmTick(force){
+  if(!_cloudEnabled() || _cloudKmBusy || _cloudKmTimer) return;
+  _cloudKmForce=!!force;
+  _cloudKmTimer=setTimeout(()=>{ _cloudKmTimer=null; _cloudKmPush(); }, force?800:2500);
+}
+['saveWatch','saveAddedExt','savePinned','saveBak'].forEach(function(name){
   const orig=window[name];
   if(typeof orig==='function'){
     window[name]=function(){
@@ -8770,6 +8814,17 @@ function _cloudFundTick(force){
     };
   }
 });
+/* saveKmReminds 专用包装：提醒改动只同步 km_remind.json（区别于自选/备选走 sync.json） */
+{
+  const orig=window.saveKmReminds;
+  if(typeof orig==='function'){
+    window.saveKmReminds=function(){
+      const r=orig.apply(this, arguments);
+      if(!_cloudApplying) _cloudKmTick();
+      return r;
+    };
+  }
+}
 function init(){
   loadWatch();
   loadAddedExt();
@@ -8789,9 +8844,9 @@ function init(){
   /* 云同步：先建好 UI，已启用则自动拉取云端（不阻塞其余初始化） */
   try{
     _cloudInitUI();
-    if(_cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); }
-    window.addEventListener('focus',()=>{ if(!_cloudEnabled()) return; _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); });
-    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); } });
+    if(_cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); _cloudKmPull().then(()=>{ _cloudKmTick(true); }).catch(()=>{}); }
+    window.addEventListener('focus',()=>{ if(!_cloudEnabled()) return; _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); _cloudKmPull().then(()=>{ _cloudKmTick(true); }).catch(()=>{}); });
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _cloudEnabled()){ _cloudPull().catch(()=>{}); _cloudFundPull(true).then(()=>{ _cloudFundDirty=true; _cloudFundTick(true); }).catch(()=>{}); _cloudKmPull().then(()=>{ _cloudKmTick(true); }).catch(()=>{}); } });
   }catch(e){}
   mainChart=echarts.init(document.getElementById('mainChart'));
   window.addEventListener('resize',()=>{ fitViewport(); if(mainChart)mainChart.resize(); if(modalChart)modalChart.resize(); kmSyncCharts(); });
