@@ -6800,6 +6800,7 @@ const _KM_LC_CFG={
 let kmSyncFrom=null, kmSyncTo=null, kmSyncing=false;
 let kmNoSyncUntil=0;   // 渲染/重建期间的初始 visible-range 事件不参与联动
 let kmSyncTimer=null;  // 联动自愈轮询（事件缺失/时序竞态时兜底收敛）
+let kmLiveTimer=null;   // 弹窗交易时段实时刷新（Vol/资金监控/报价）：30s 周期
 function _kmTs(s){
   const str=String(s==null?'':s).replace('T',' ');
   const t=Date.parse(str);
@@ -6878,6 +6879,82 @@ function kmStartSync(){
 }
 function kmStopSync(){
   if(kmSyncTimer){ clearInterval(kmSyncTimer); kmSyncTimer=null; }
+}
+/* ---------- 弹窗交易时段实时刷新：Vol / 资金监控 / 报价条 ---------- */
+function _kmInSession(){
+  try{
+    const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'}));
+    const wd=d.getDay(); if(wd===0||wd===6) return false;
+    const m=d.getHours()*60+d.getMinutes();
+    return (m>=9*60+15 && m<=11*60+30) || (m>=13*60 && m<=15*60);
+  }catch(e){ return true; }
+}
+function _kmLiveTick(){
+  const sym=kmSym;
+  if(!sym) return;
+  const modal=document.getElementById('klineModal');
+  if(!modal || !modal.classList.contains('show')) return;
+  if(!_kmInSession()) return;
+  /* 顶部报价条（实时价/涨跌/成交额） */
+  fetchQuotes([sym]).then(qs=>{ if(sym===kmSym && qs && qs[sym]){ quotes[sym]=qs[sym]; kmRenderQuoteBar(); } }).catch(()=>{});
+  /* 资金监控：今日柱取最新实时资金流（历史栏继续吃 10min 日线缓存） */
+  fetchFundFlow([sym]).then(fl=>{
+    if(sym!==kmSym) return;
+    if(fl && fl[sym]) fundFlow[sym]=fl[sym];
+    renderKmFund(sym);
+  }).catch(()=>{ if(sym===kmSym) renderKmFund(sym); });
+  if(kmRange==='d1'){
+    /* 分时主图+量图：破 5min 分时缓存取最新，原地更新主图价格/均价线，重建量图与副图（不重建主图，避免闪烁） */
+    if(fsCache[sym]) delete fsCache[sym];
+    _fsLoadRows(sym).then(load=>{
+      if(sym!==kmSym || !document.getElementById('klineModal').classList.contains('show')) return;
+      if(!load || !load.dates || !load.dates.length) return;
+      const dayStr=load.dates[load.dates.length-1];
+      const pts=_fsDayPoints(load, dayStr);
+      if(!pts.length) return;
+      const mainEl=document.getElementById('kmChart'); if(!mainEl) return;
+      mainEl._fsPts=pts; mainEl._data=pts; mainEl._n=pts.length;
+      let preClose=(quotes[sym] && typeof quotes[sym].prev==='number')?quotes[sym].prev:mainEl._preClose;
+      if(preClose==null){ const i=load.dates.indexOf(dayStr); if(i>0){ const pp=_fsDayPoints(load,load.dates[i-1]); if(pp.length) preClose=pp[pp.length-1].price; } }
+      mainEl._preClose=preClose;
+      if(mainEl._pS) mainEl._pS.setData(pts.filter(p=>!p.auc).map(p=>({time:p.ts, value:+p.price.toFixed(2)})));
+      if(mainEl._avgS) mainEl._avgS.setData(pts.map(p=>({time:p.ts, value:+p.avg.toFixed(2)})));
+      const aucPts=pts.filter(p=>p.auc);
+      const ohlcBase=[];
+      if(aucPts.length){ const p0=aucPts[0]; ohlcBase.push({ts:p0.ts, o:p0.price,c:p0.price,h:p0.price,l:p0.price, v:0}); const p1=aucPts[1]; if(p1) ohlcBase.push({ts:p1.ts, o:p1.price,c:p1.price,h:p1.price,l:p1.price, v:p1.vol}); }
+      const dayRows=load.rows.filter(r=>_fsDayKey(r.day)===dayStr).sort((a,b)=>(a.day<b.day?-1:1));
+      mainEl._fsOhlc=ohlcBase.concat(dayRows.filter(r=>{ const hm=+r.day.slice(11,13)*60+(+r.day.slice(14,16)); return hm>=570&&(hm<=690||(hm>=780&&hm<=900)); })
+                              .map(r=>({ts:_fsCnTs(r.day), o:+r.o, c:+r.c, h:+r.h, l:+r.l, v:+r.v})));
+      renderKmVol();
+      renderKmTech();
+      try{ kmSyncRange(); }catch(e){}
+    }).catch(()=>{});
+  } else {
+    /* 日/周/15分钟：重取K线，原地更新最后一根蜡烛 + 量图 + 副图 */
+    const period=kmRange==='day'?'day':(kmRange==='week'?'week':'m15');
+    const count=kmRange==='week'?80:(kmRange==='m15'?120:250);
+    getKlines(sym, period, count).then(data=>{
+      if(sym!==kmSym || !data || !data.length) return;
+      const live=_liveCandles(data, quotes[sym]); const d=live||data;
+      const mainEl=document.getElementById('kmChart'); if(!mainEl) return;
+      mainEl._data=d; mainEl._n=d.length;
+      if(mainEl._candS){
+        const times=d.map(x=>_kmDt(x));
+        mainEl._candS.setData(d.map((x,i)=>({time:times[i], open:x.o, high:x.h, low:x.l, close:x.c})));
+      }
+      renderKmVol();
+      renderKmTech();
+      setKmMainTitle();
+      try{ kmSyncRange(); }catch(e){}
+    }).catch(()=>{});
+  }
+}
+function kmStartLive(){
+  if(kmLiveTimer){ clearInterval(kmLiveTimer); kmLiveTimer=null; }
+  kmLiveTimer=setInterval(_kmLiveTick, 30000);
+}
+function kmStopLive(){
+  if(kmLiveTimer){ clearInterval(kmLiveTimer); kmLiveTimer=null; }
 }
 function renderKmVol(){
   const el=document.getElementById('kmVolChart'); if(!el) return;
@@ -7107,6 +7184,7 @@ function openKmModal(sym, preserve){
   renderKmTech();
   renderKmFund(sym);
   kmStartSync();
+  kmStartLive();
   setTimeout(()=>{ kmSyncCharts(); renderKmFund(sym); },90);
   setTimeout(()=>{ kmSyncCharts(); },340);
 }
@@ -7123,7 +7201,7 @@ function setKmInd(i){ kmInd=i; syncKmBarAct(i);
   if(kmChart && el && el._data){ kmRenderMainInds(el._data); }
   setKmMainTitle();
 }
-function closeKmModal(){ kmStopSync(); const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
+function closeKmModal(){ kmStopSync(); kmStopLive(); const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
 /* 弹窗内滚轮切换个股：delta>0（滚下）= 下一个，delta<0（滚上）= 上一个；首尾循环 */
 function kmNav(delta){
   const list=kmNavList;
@@ -7776,6 +7854,7 @@ function kmRenderChart(data, sym){
       if(aucPts.length){ const acS=ch.addLineSeries({color:'#9aa0b5',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}}); acS.setData(aucPts.map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }
       const avgS=ch.addLineSeries({color:'#f7c948',lineWidth:1,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
       avgS.setData(pts.map(p=>({time:p.ts, value:+p.avg.toFixed(2)})));
+      el._pS=priceS; el._avgS=avgS; el._preClose=preClose;
       if(preClose!=null){ const pc=ch.addLineSeries({color:'#6b7280',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false}); pc.setData(pts.map(p=>({time:p.ts, value:preClose}))); }
       try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false,tickMarkFormatter:(t)=>{ const d2=new Date(t*1000); const hh=String(d2.getHours()).padStart(2,'0'), mm=String(d2.getMinutes()).padStart(2,'0'); return (hh==='11'&&mm==='30')?'11:30/13:00':hh+':'+mm; }}); }catch(e){}
       try{ ch.timeScale().fitContent(); }catch(e){}
@@ -7807,6 +7886,7 @@ function kmRenderChart(data, sym){
     wickUpColor:'#ff3355', wickDownColor:'#00ff88'
   });
   candle.setData(d.map((x,i)=>({time:times[i], open:x.o, high:x.h, low:x.l, close:x.c})));
+  el._candS=candle;
   try{
     if(ch && typeof ch.subscribeClick==='function'){
       ch.subscribeClick(param=>{
