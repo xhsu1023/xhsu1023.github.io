@@ -7482,9 +7482,12 @@ C6「回踩再攻·放量突破前高」（AI复盘敦煌种业2026-08-25新增�
            回踩贴身20日线后反转：今日收盘一举上穿 MA5 与 MA10（昨日收盘仍至少位于其一之下），
            涨幅>3%、量能较昨日温和放大、MACD dif>dea → 回踩完成后放量上攻日买入。
          C14「回踩10日线·K线上穿5日线·温和放量」(用户规则)：
-           回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
-           量能较昨日温和放大、MACD dif>dea → 回踩10线后放量上攻日买入。
-       全局硬约束：股价收盘已脱离20日线下方（低于20日线1.5%以上）→ 一律不提示买点 */
+            回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
+            量能较昨日温和放大、MACD dif>dea → 回踩10线后放量上攻日买入。
+         C15「连续下跌首次上穿5日线·站稳红柱」(用户规则 2026-09-07)：
+            连续下跌(≥3日)后首次上涨，今日收盘上穿并站稳MA5(昨日在MA5之下、今日在之上)，
+            且为红柱(收盘>开盘) → 趋势反转首日买入。
+        全局硬约束：股价收盘已脱离20日线下方（低于20日线1.5%以上）→ 一律不提示买点 */
     const dif=m.dif[i], dea=m.dea[i];
     const r=r6[i]!=null?r6[i]:0, rP=r6[i-1]!=null?r6[i-1]:0;
     const upBar = d[i].o!=null && (closes[i]>d[i].o || closes[i]>closes[i-1]);
@@ -7691,7 +7694,22 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
                          && chgNow>3 && upBar && mildVol && notAdrift
                          && touch20
                          && dif!=null&&dea!=null&&dif>dea
-                         && (r==null||(r>=40&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
+                      && (r==null||(r>=40&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
+    /* ——C15「连续下跌首次上穿5日线·站稳红柱」（用户规则 2026-09-07）——
+       连续下跌(≥3日阴线/下跌)后首次上涨，今日收盘由昨日MA5之下上穿并站稳MA5(收盘>MA5)，
+       且为红柱(收盘>开盘) → 趋势反转首日买入。
+       宏昌电子2026-06-05为例：连续下跌后首根阳线上穿5日线并站稳。 */
+    let consecDown=0;
+    for(let j=i-1;j>=Math.max(1,i-8);j--){
+      if(closes[j]!=null&&closes[j-1]!=null&&closes[j]<closes[j-1]) consecDown++;
+      else break;
+    }
+    const firstUpAfterDown = consecDown>=3 && closes[i]>closes[i-1];     // 连跌≥3日后首次上涨
+    const crossAbove5 = ma5i!=null&&ma5[i-1]!=null&&closes[i]>ma5i&&closes[i-1]<=ma5[i-1]; // 上穿5日线
+    const holdAbove5 = ma5i!=null&&closes[i]>ma5i;                        // 站稳5日线
+    const redBar = d[i].o!=null&&closes[i]>d[i].o;                        // 红柱(阳线)
+    const c15_buynow = firstUpAfterDown && crossAbove5 && holdAbove5 && redBar && notAdrift
+                    && (r==null||(r>=30&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
     /* ——C14「回踩10日线·K线上穿5日线·温和放量」（用户规则）——
        回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
        量能较昨日温和放大(1~4倍)、MACD dif>dea → 回踩10线后放量上攻日买入。 */
@@ -7724,6 +7742,7 @@ addB(ma5DualCross,3.0,'5穿10/20金叉');           // C11：5日线同穿10/20�
 addB(priceTriCross,3.0,'三线突破');              // C12：K线同时上穿5/10/20日线+放量中阳，单键可触发
 addB(cPriceAbove10_5,3.0,'回踩20上穿5/10');       // C13：回踩20日线后K线穿5/10日线+温量，单键可触发
 addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K线上穿5日线+温量，单键可触发
+    addB(c15_buynow,3.0,'连跌首阳穿5');             // C15：连续下跌后首次上穿5日线+站稳红柱，单因子可触发
     addB(f.triple_cross,3.2,'三金叉');
     addB(lowDead?false:f.lowbase_launch,3.0,'低位启动');
     addB(f.macd_cross&&(f.deep_oversold||(rP!=null&&r6[i]!=null&&rP<=30&&r6[i]>rP)),3.0,'超跌金叉');
@@ -7739,7 +7758,7 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     const pat=kmCandles(d, i);
     const patConfB=pat.b.length>0&&Math.max.apply(null,pat.b.map(x=>x.w))>=2.6;
     const bKeySet=bKeys.length;
-    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
+    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
     /* ——AI四因子 末根置信加成—— 模型存在时，仅对"最后一根K线"(实时决策)按 AI4 买/卖分加减：
        与规则共振(买分≥60 或 卖分≥60)时，把 buyOk/sellOk 判定所需强度放宽 0.5；强反向则收紧。 */
     let ai4b=0, ai4s=0;
