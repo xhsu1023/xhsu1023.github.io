@@ -2097,21 +2097,35 @@ async function fetchFundDays(sym){
       const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], in:+p[1]}; });
       _fundHistAdd(sym, days.map(d=>({date:d.date, main:d.in})));
       const today=days[days.length-1];
-      // 仅单日数据无法推算持续天数：若 push2his 已给多日则精确；单日（push2delay）只作粗略 0/1 兜底
-      let n=0;
-      if(today.in>0){                               // 今日净流入≤0 → 0
-        if(days.length>=2){
-          let lastBreak=-1;                         // 最近一个 净流入≤0 的交易日下标（全为正则=-1）
-          for(let i=days.length-1;i>=0;i--){ if(days[i].in<=0){ lastBreak=i; break; } }
-          n=days.length-1-lastBreak;                // break 之后（含今日）的交易日数量
-        }else{
-          n=1;
-        }
-      }
-      return {n, date:today.date, ts:Date.now(), host};
+      /* 单日（push2delay 兜底）时：用近一月归档补齐历史后再精确推算持续流入天数 */
+      const series=(days.length>=2)? days : _fundDaySeries(sym, today, days);
+      return {n:_fundSustainDays(series), date:today.date, ts:Date.now(), host};
     }catch(e){ /* 尝试下一个 host */ }
   }
+  /* 双 host 均失败：归档里有今日则直接用归档推算（离线可用） */
+  const arch=(_fundHistDays(sym)||[]).filter(d=>Number.isFinite(+d.main));
+  if(arch.length){
+    return {n:_fundSustainDays(arch), date:arch[arch.length-1].date, ts:Date.now(), host:'archive'};
+  }
   return null;
+}
+/* 让 days 数组（归档为底 + 实参覆盖 + 今日终值）拼出按日期升序的主力日序列 */
+function _fundDaySeries(sym, todayRow, apiRows){
+  const map={};
+  const feed=(list)=>{ (list||[]).forEach(d=>{ if(d.date && Number.isFinite(+d.main)) map[d.date]=+d.main; }); };
+  feed(_fundHistDays(sym));
+  feed(apiRows);
+  if(todayRow && Number.isFinite(+todayRow.in)) map[todayRow.date]=+todayRow.in;
+  return Object.keys(map).sort().map(d=>({date:d, in:map[d]}));
+}
+/* 持续净流入天数：最近一个 净流入≤0 交易日之后（含今日）的交易日数；今日≤0 则 0 */
+function _fundSustainDays(series){
+  if(!series || !series.length) return 0;
+  const today=series[series.length-1];
+  if(!Number.isFinite(+today.in) || today.in<=0) return 0;
+  let lastBreak=-1;
+  for(let i=series.length-1;i>=0;i--){ if(Number.isFinite(+series[i].in) && series[i].in<=0){ lastBreak=i; break; } }
+  return series.length-1-lastBreak;
 }
 /* 为可见股票（热门+自选）补齐持续净流入天数（30 分钟缓存，队列式逐批预取） */
 let fundDaysPending=new Set();
