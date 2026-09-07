@@ -278,6 +278,12 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .sync-ops{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
 .sync-ops .btn{flex:1;min-width:120px}
 .sync-status{font-size:0.6rem;color:var(--green,#00ff88);margin-top:8px;min-height:1em}
+.sync-cloud{margin-top:14px;border-top:1px dashed #2a3550;padding-top:12px}
+.sync-cloud b{color:var(--gold,#f7c948);font-size:0.72rem;letter-spacing:1px}
+.sync-cloud-tag{float:right;font-size:0.55rem;color:var(--cyan,#00e5ff);border:1px solid rgba(0,229,255,.4);border-radius:3px;padding:1px 7px}
+.sync-lbl{display:flex;flex-direction:column;gap:3px;font-size:0.62rem;color:var(--text,#b5bcd4)}
+.sync-lbl small{color:var(--dim,#7a90a5);font-size:0.55rem}
+.sync-lbl input{width:100%;background:#0b1020;color:var(--text-bright,#f2f4fc);border:1px solid #2a3550;border-radius:6px;padding:6px 8px;font-size:0.62rem;font-family:var(--font-mono);box-sizing:border-box}
 @media(max-width:600px){.sync-box{padding:14px 12px}.sync-steps{font-size:0.72rem}.sync-box h3{font-size:0.95rem}}
 #kmRemindBtn:hover{background:rgba(255,191,71,0.1)}
 #kmRemindBtn .cnt{margin-left:3px;color:var(--red,#ff3355);font-weight:700}
@@ -360,6 +366,20 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <button class="btn btn-sm" id="syncCloseBtn">关闭</button>
     </div>
     <div class="sync-status" id="syncStatus"></div>
+    <div class="sync-cloud">
+      <b>☁ 云端自动同步</b><span class="sync-cloud-tag">免费 · GitHub 仓库</span>
+      <div class="sync-steps">在「电脑」和「手机」里填同一个 <b>仓库+令牌</b>，任一端改自选/备选/置顶，另一端会自动同步，<b>无需再复制同步码</b>。</div>
+      <div class="sync-ops" style="flex-direction:column;align-items:stretch">
+        <label class="sync-lbl">仓库<small>默认 pulse-sync，可与别人共用</small><input id="cloudRepo" value="pulse-sync" spellcheck="false"></label>
+        <label class="sync-lbl">GitHub 令牌<small>Fine-grained，仅授权 pulse-sync 的 Contents 读写，网页端只存本机 localStorage</small><input id="cloudTok" type="password" placeholder="github_pat_…" spellcheck="false"></label>
+      </div>
+      <div class="sync-ops">
+        <button class="btn btn-cyan btn-sm" id="cloudSaveBtn">连接</button>
+        <button class="btn btn-sm" id="cloudSyncBtn">立即同步</button>
+        <button class="btn btn-sm" id="cloudOffBtn">断开</button>
+      </div>
+      <div class="sync-status" id="cloudStatus"></div>
+    </div>
   </div></div>
 
   <!-- ============ 模块1: 今日热门股/自选/量化分析 ============ -->
@@ -8407,6 +8427,126 @@ function _wireSync(){
   });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') close(); });
 }
+/* =====================================================================
+ * 云端自动同步：借免费 GitHub 仓库（pulse-sync）作为共享存储，
+ * 多设备填同一个 仓库+令牌 后自选/备选/置顶 自动互相同步（last-write-wins）
+ * ===================================================================== */
+const CLOUD_KEY_ = 'stock_pulse_cloud_v1';
+let _cloudCfg = null, _cloudSha = null, _cloudApplying = false, _cloudTimer = null;
+function _cloudCfgLoad(){ if(_cloudCfg) return _cloudCfg; try{ const r=localStorage.getItem(CLOUD_KEY_); _cloudCfg=(r&&JSON.parse(r))||null; }catch(e){ _cloudCfg=null; } return _cloudCfg; }
+function _cloudCfgStore(){ try{ localStorage.setItem(CLOUD_KEY_, JSON.stringify(_cloudCfg)); }catch(e){} }
+function _cloudEnabled(){ const c=_cloudCfgLoad(); return !!(c && c.token && c.repo); }
+function _cloudSt(el){ if(el) el.textContent=arguments[1]; }
+function _cloudStatusText(t){ const el=document.getElementById('cloudStatus'); if(el) el.textContent=t; }
+function _cloudApi(method, path, body){
+  const c=_cloudCfgLoad();
+  const url='https://api.github.com/repos/'+(c.owner||'xhsu1023')+'/'+c.repo+path;
+  const opt={method:method, headers:{'Authorization':'token '+c.token, 'Accept':'application/vnd.github+json'}};
+  if(body){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+  const ctl=('AbortController' in window)?new AbortController():null; if(ctl) opt.signal=ctl.signal;
+  const to=setTimeout(()=>{ try{ ctl&&ctl.abort(); }catch(e){} }, 25000);
+  return fetch(url, opt).then(res=>{
+    clearTimeout(to);
+    return res.json().catch(()=>null).then(j=>{
+      if(!res.ok){ const e=new Error('HTTP '+res.status); e.code=res.status; e.detail=j; throw e; }
+      return {status:res.status, json:j};
+    });
+  }).catch(e=>{ clearTimeout(to); if(!e.code) e.code='net'; throw e; });
+}
+function _cloudPayload(){
+  return JSON.stringify({t:Date.now(), v:{w:watchList, a:addedExt, p:pinned, b:backupList}});
+}
+function _cloudApply(d){
+  let changed=false;
+  if(d && d.v){
+    if(Array.isArray(d.v.w)){ watchList=d.v.w; saveWatch(); changed=true; }
+    if(Array.isArray(d.v.a)){ addedExt=d.v.a; saveAddedExt(); changed=true; }
+    if(Array.isArray(d.v.p)){ pinned=d.v.p; savePinned(); changed=true; }
+    if(Array.isArray(d.v.b)){ backupList=d.v.b; saveBak(); changed=true; }
+  }
+  if(changed){ resetDipAI(); resetRecAI(); refreshQuotes(); refreshPoolAll(); }
+  return changed;
+}
+function _cloudPull(force){
+  if(!_cloudEnabled()) return Promise.resolve(false);
+  return _cloudApi('GET','/contents/sync.json').then(r=>{
+    const c=r.json && r.json.content;
+    if(!c) return false;
+    let raw; try{ raw=decodeURIComponent(escape(atob(c))); }catch(e){ try{ raw=atob(c); }catch(e2){ return false; } }
+    let d; try{ d=JSON.parse(raw); }catch(e){ return false; }
+    _cloudSha=r.json.sha;
+    if(_cloudCfg.lastT && d.t && d.t<=_cloudCfg.lastT && !force) return false;
+    if(!d.t || !d.v) return false;
+    _cloudApplying=true;
+    try{
+      const changed=_cloudApply(d);
+      _cloudCfg.lastT=d.t; _cloudCfgStore();
+      _cloudStatusText('云端已拉取 '+new Date().toLocaleTimeString()+(changed?' · 列表已更新':''));
+      return changed;
+    } finally { _cloudApplying=false; }
+  }).catch(e=>{ if(e.code!==404) _cloudStatusText('拉取失败('+e.code+')'); return false; });
+}
+function _cloudPush(){
+  if(!_cloudEnabled() || _cloudApplying) return Promise.resolve();
+  const content=btoa(unescape(encodeURIComponent(_cloudPayload())));
+  const doPut=()=>{
+    const payload={message:'sync', content:content};
+    if(_cloudSha) payload.sha=_cloudSha;
+    return _cloudApi('PUT','/contents/sync.json', payload).then(r=>{
+      _cloudSha=(r.json && r.json.content) ? r.json.content.sha : null;
+      _cloudCfg.lastT=_cloudCfg.lastT || Date.now(); _cloudCfgStore();
+      _cloudStatusText('已上传 '+new Date().toLocaleTimeString());
+    }).catch(e=>{
+      if(e.code===409 || e.code===412 || e.code===422){ _cloudSha=null; return _cloudPull(true).then(()=>_cloudPush()); }
+      _cloudStatusText('上传失败('+e.code+')');
+    });
+  };
+  if(_cloudSha) return doPut();
+  return _cloudApi('GET','/contents/sync.json').then(r=>{ _cloudSha=r.json.sha; return doPut(); }).catch(e=>{
+    if(e.code===404){ _cloudSha=null; return doPut(); }
+    if(e.code===409 || e.code===422){ _cloudSha=null; return doPut(); }
+    _cloudStatusText('连接失败('+e.code+')');
+  });
+}
+function _cloudTick(){ if(!_cloudEnabled()) return; clearTimeout(_cloudTimer); _cloudTimer=setTimeout(()=>{ _cloudPush(); }, 1500); }
+function _cloudInitUI(){
+  const repo=document.getElementById('cloudRepo'), tok=document.getElementById('cloudTok');
+  const st=document.getElementById('cloudStatus');
+  if(!repo || !tok) return;
+  const c=_cloudCfgLoad();
+  if(c){ repo.value=c.repo||'pulse-sync'; if(c.token) tok.value=c.token; }
+  const refreshState=()=>{
+    if(!st) return;
+    st.textContent=_cloudEnabled()?('已连接 · '+(c.repo||'')+' · 云端时间 '+((c.lastT?new Date(c.lastT).toLocaleTimeString():'--'))):'未连接云端';
+    st.style.color=_cloudEnabled()?'var(--green,#00ff88)':'var(--text,#b5bcd4)';
+  };
+  refreshState();
+  document.getElementById('cloudSaveBtn').addEventListener('click',()=>{
+    _cloudCfg={owner:'xhsu1023', repo:(repo.value||'pulse-sync').trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$/,''), token:(tok.value||'').trim(), lastT:0};
+    _cloudCfgStore(); _cloudSha=null;
+    _cloudStatusText('连接中…');
+    _cloudPull(true).then(()=>{ if(st){ st.textContent=_cloudCfg.lastT?('已连接 · 最近云端数据已同步 '+new Date().toLocaleTimeString()):'已连接 · 云端为空或读取失败'; } });
+  });
+  document.getElementById('cloudSyncBtn').addEventListener('click',()=>{
+    _cloudStatusText('同步中…');
+    _cloudPush().then(()=>_cloudPull(true));
+  });
+  document.getElementById('cloudOffBtn').addEventListener('click',()=>{
+    if(_cloudCfg){ _cloudCfg.token=''; _cloudCfg.lastT=0; _cloudCfgStore(); }
+    tok.value=''; _cloudSha=null; refreshState();
+  });
+}
+/* 改动后自动排队上传（云端启用时） */
+['saveWatch','saveAddedExt','savePinned','saveBak'].forEach(function(name){
+  const orig=window[name];
+  if(typeof orig==='function'){
+    window[name]=function(){
+      const r=orig.apply(this, arguments);
+      if(!_cloudApplying) _cloudTick();
+      return r;
+    };
+  }
+});
 function init(){
   loadWatch();
   loadAddedExt();
@@ -8423,6 +8563,13 @@ function init(){
   }catch(e){}
   _wireSync();
   loadLlmCfg();
+  /* 云同步：先建好 UI，已启用则自动拉取云端（不阻塞其余初始化） */
+  try{
+    _cloudInitUI();
+    if(_cloudEnabled()){ _cloudPull().catch(()=>{}); }
+    window.addEventListener('focus',()=>{ if(_cloudEnabled()) _cloudPull().catch(()=>{}); });
+    document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && _cloudEnabled()) _cloudPull().catch(()=>{}); });
+  }catch(e){}
   mainChart=echarts.init(document.getElementById('mainChart'));
   window.addEventListener('resize',()=>{ fitViewport(); if(mainChart)mainChart.resize(); if(modalChart)modalChart.resize(); kmSyncCharts(); });
   fitViewport();
