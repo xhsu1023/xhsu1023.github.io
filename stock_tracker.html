@@ -306,6 +306,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRangeTabs .tab.act{background:#2b5499;color:#fff;font-weight:600}
 .kline-wrapper{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;min-width:0}
 .chart-panel{position:relative;width:100%;box-sizing:border-box;border:1px solid #272b38;border-radius:4px;background:rgba(13,16,24,0.35);padding:6px 8px;overflow:hidden}
+.km-crosshair-line{position:absolute;top:0;bottom:0;width:1px;background:rgba(43,84,153,0.8);border-left:1px dashed #2b5499;z-index:10;pointer-events:none;display:none}
 .panel-main{height:420px}
 .panel-vol{height:140px}
 .panel-fund{height:130px}
@@ -6879,31 +6880,42 @@ function kmLinkTimeRange(ch){
   });
 }
 /* ---------- 跨面板十字线联动：任一面板hover时，纵向虚线同步延伸到其余面板 ---------- */
+const _kmCrosshairLines=[];
 function kmLinkCrosshair(ch){
   if(!ch || typeof ch.subscribeCrosshairMove!=='function') return;
+  const container=ch.element;
+  if(container){
+    container.addEventListener('mouseleave',()=>{ kmHideCrosshair(); });
+    container.addEventListener('pointerleave',()=>{ kmHideCrosshair(); });
+  }
   ch.subscribeCrosshairMove(param=>{
     if(performance.now()<kmNoSyncUntil) return;
-    const targets=kmCharts().filter(c=>c!==ch && !c._noSync);
-    for(const t of targets){
-      const tgtSeries=t._primarySeries;
-      if(typeof t.setCrosshairPosition==='function' && tgtSeries && param.time!=null){
-        try{ t.setCrosshairPosition(tgtSeries, param.time); }catch(e){}
-      } else {
-        /* fallback: 通过 pointer 事件模拟 hover */
-        try{
-          const srcW=ch.timeScale().width(), tgtW=t.timeScale().width();
-          if(!(srcW>0 && tgtW>0)) continue;
-          const lPos=(param.point&&param.point.x!=null)? param.point.x/srcW : 0.5;
-          const tgtX=lPos*tgtW;
-          const tgtEl=t.element||t.parentElement;
-          if(tgtEl){
-            tgtEl.dispatchEvent(new PointerEvent('pointerenter',{clientX:0,clientY:0,bubbles:false}));
-            tgtEl.dispatchEvent(new PointerEvent('pointermove',{clientX:tgtX,clientY:50,bubbles:false}));
-          }
-        }catch(e){}
-      }
+    let xPos=null;
+    if(param.point&&param.point.x!=null){
+      const w=ch.timeScale().width();
+      if(w>0) xPos=param.point.x/w;
     }
+    const show=(xPos!=null&&param.time!=null);
+    const panels=document.querySelectorAll('#klineModal .chart-panel');
+    panels.forEach((p,i)=>{
+      let line=_kmCrosshairLines[i];
+      if(!line){
+        line=document.createElement('div');
+        line.className='km-crosshair-line';
+        p.appendChild(line);
+        _kmCrosshairLines.push(line);
+      }
+      if(show){
+        line.style.display='block';
+        line.style.left=(xPos*100)+'%';
+      } else {
+        line.style.display='none';
+      }
+    });
   });
+}
+function kmHideCrosshair(){
+  _kmCrosshairLines.forEach(l=>{ l.style.display='none'; });
 }
 function kmStartSync(){
   if(kmSyncTimer){ clearInterval(kmSyncTimer); kmSyncTimer=null; }
@@ -7241,7 +7253,7 @@ function setKmInd(i){ kmInd=i; syncKmBarAct(i);
   if(kmChart && el && el._data){ kmRenderMainInds(el._data); }
   setKmMainTitle();
 }
-function closeKmModal(){ kmStopSync(); kmStopLive(); const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
+function closeKmModal(){ kmStopSync(); kmStopLive(); kmHideCrosshair(); const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
 /* 弹窗内滚轮切换个股：delta>0（滚下）= 下一个，delta<0（滚上）= 上一个；首尾循环 */
 function kmNav(delta){
   const list=kmNavList;
