@@ -6892,7 +6892,8 @@ function kmLinkCrosshair(ch){
     if(performance.now()<kmNoSyncUntil) return;
     let xPos=null;
     if(param.point&&param.point.x!=null){
-      const w=ch.timeScale().width();
+      const el=ch.element;
+      const w=el?el.clientWidth:0;
       if(w>0) xPos=param.point.x/w;
     }
     const show=(xPos!=null&&param.time!=null);
