@@ -6883,23 +6883,24 @@ function kmLinkTimeRange(ch){
 const _kmCrosshairLines=[];
 function kmLinkCrosshair(ch){
   if(!ch || typeof ch.subscribeCrosshairMove!=='function') return;
-  const container=ch.element;
-  if(container){
-    container.addEventListener('mouseleave',()=>{ kmHideCrosshair(); });
-    container.addEventListener('pointerleave',()=>{ kmHideCrosshair(); });
-  }
+  /* mouseleave 时隐藏所有竖线 */
+  const panels0=document.querySelectorAll('#klineModal .chart-panel');
+  panels0.forEach(p=>{
+    p.addEventListener('mouseleave',()=>{ kmHideCrosshair(); });
+  });
   ch.subscribeCrosshairMove(param=>{
     if(performance.now()<kmNoSyncUntil) return;
     let xPos=null;
-    if(param.point&&param.point.x!=null){
-      /* param.point.x 是鼠标相对 chart element（含价格坐标轴）的像素坐标；
-         需要除以 panel 内容区宽度（panel.clientWidth - 左右padding 8px*2） */
-      const panel=ch.element&&ch.element.closest&&ch.element.closest('.chart-panel');
-      const pw=panel? panel.clientWidth-16 : 0; // 16 = 2*8px padding
-      if(pw>0) xPos=param.point.x/pw;
+    /* 优先用 sourceEvent 的 clientX，最可靠 */
+    const se=param&&param.sourceEvent;
+    if(se && se.clientX!=null){
+      const panels=document.querySelectorAll('#klineModal .chart-panel');
+      if(panels.length){
+        const rect=panels[0].getBoundingClientRect();
+        if(rect.width>0) xPos=(se.clientX-rect.left)/rect.width;
+      }
     }
     const show=(xPos!=null&&param.time!=null);
-    /* 首次需要补齐 line 元素到所有 panel */
     const panels=document.querySelectorAll('#klineModal .chart-panel');
     panels.forEach((p,i)=>{
       let line=_kmCrosshairLines[i];
