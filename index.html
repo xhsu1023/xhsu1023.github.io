@@ -6892,11 +6892,14 @@ function kmLinkCrosshair(ch){
     if(performance.now()<kmNoSyncUntil) return;
     let xPos=null;
     if(param.point&&param.point.x!=null){
-      const el=ch.element;
-      const w=el?el.clientWidth:0;
-      if(w>0) xPos=param.point.x/w;
+      /* param.point.x 是鼠标相对 chart element（含价格坐标轴）的像素坐标；
+         需要除以 panel 内容区宽度（panel.clientWidth - 左右padding 8px*2） */
+      const panel=ch.element&&ch.element.closest&&ch.element.closest('.chart-panel');
+      const pw=panel? panel.clientWidth-16 : 0; // 16 = 2*8px padding
+      if(pw>0) xPos=param.point.x/pw;
     }
     const show=(xPos!=null&&param.time!=null);
+    /* 首次需要补齐 line 元素到所有 panel */
     const panels=document.querySelectorAll('#klineModal .chart-panel');
     panels.forEach((p,i)=>{
       let line=_kmCrosshairLines[i];
