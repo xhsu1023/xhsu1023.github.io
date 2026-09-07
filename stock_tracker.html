@@ -650,6 +650,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
   <div class="modal-box" style="max-width:860px;height:80vh">
     <div class="modal-head">
       <h2>🔔 买卖提醒列表</h2>
+      <button class="modal-close" id="kmRemindClear" style="border-color:var(--red,#ff3355);color:var(--red,#ff3355)">🗑 一键清空</button>
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
@@ -8117,6 +8118,10 @@ function renderKmRemindList(){
 }
 document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
+document.getElementById('kmRemindClear').addEventListener('click',()=>{
+  if(!kmReminds.length) return;
+  if(confirm('确认清空全部买卖提醒记录？')){ kmReminds=[]; kmUnread=0; saveKmReminds(); kmUpdCnt(); renderKmRemindList(); }
+});
 loadKmReminds(); kmUpdCnt();
 
 /* =====================================================================
