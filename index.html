@@ -51,6 +51,28 @@ body{font-family:var(--font-mono);background:var(--bg);color:var(--text);min-hei
 .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 @media(max-width:1100px){.grid{grid-template-columns:1fr 1fr}}
 @media(max-width:760px){.grid{grid-template-columns:1fr}}
+/* ============ 移动端自适应（iOS/安卓 PWA） ============ */
+@media (max-width:900px){
+  .container{height:auto !important;min-height:100vh;overflow-x:hidden;overflow-y:auto}
+  .grid{grid-template-columns:1fr !important;gap:8px}
+  .span2,.span3{grid-column:1/-1 !important}
+  .card{min-width:0;margin-bottom:8px}
+  .header{flex-direction:column;align-items:stretch;padding:8px 10px}
+  .header .hr{justify-content:space-between}
+  .card[style*="var(--fitU"][style*="height"]{height:auto !important;max-height:none !important;min-height:0 !important}
+  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .suggest{max-height:calc(46vh);position:fixed;left:8px;right:8px;top:auto}
+  #modalChart{min-height:50vh}
+  #fsModal .modal-box{width:98vw;height:94vh}
+  #klineModal .modal-box{width:100vw;height:100vh;border-radius:0}
+  #kmToastWrap{max-width:calc(100vw - 24px)}
+}
+@media (max-width:480px){
+  td,th{padding:4px 6px;font-size:0.58rem}
+  .card-title h2{font-size:0.6rem}
+  .header .hr{gap:6px;font-size:0.58rem}
+  #watchAddRow .fg input[type=text]{width:100% !important;max-width:none}
+}
 .card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px 14px;transition:border-color 0.3s,box-shadow 0.3s}
 .card:hover{border-color:var(--border-glow);box-shadow:0 0 20px rgba(0,240,255,0.05),inset 0 0 30px rgba(0,240,255,0.012)}
 .card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid rgba(30,34,56,0.5);flex-wrap:wrap;gap:4px}
@@ -8282,9 +8304,11 @@ function fitViewport(){
   try{
     const baseW=1700, baseH=980, baseFs=16;
     const vw=window.innerWidth||1280, vh=window.innerHeight||720;
-    const s=Math.max(0.5, Math.min(vw/baseW, vh/baseH)*0.86);
+    const isMob=vw<900;
+    document.documentElement.classList.toggle('is-mobile',isMob);
+    const s=isMob?1:Math.max(0.5, Math.min(vw/baseW, vh/baseH)*0.86);
     document.documentElement.style.setProperty('--fitU', s);
-    const sFont=Math.max(s, 0.95);
+    const sFont=isMob?0.84:Math.max(s, 0.95);
     document.documentElement.style.fontSize=(baseFs*sFont)+'px';
     if(mainChart)mainChart.resize();
     if(modalChart)modalChart.resize();
