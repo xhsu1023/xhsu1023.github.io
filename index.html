@@ -7708,8 +7708,11 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     const holdAbove5 = ma5i!=null&&closes[i]>ma5i;                        // 站稳5日线
     const redBar = d[i].o!=null&&closes[i]>d[i].o;                        // 红柱(阳线)
     const fl15=fundFlow&&fundFlow[sym]?fundFlow[sym]:null;
-    const mainInflow15=fl15&&typeof fl15.main==='number'&&fl15.main>0;    // 主力资金净流入>0
-    const c15_buynow = firstUpAfterDown && crossAbove5 && holdAbove5 && redBar && mainInflow15 && notAdrift
+    const mainInflow15=fl15&&typeof fl15.main==='number'&&fl15.main>0;
+    /* fundFlow 仅当日实时数据，历史K线图标记买点时跳过资金检查 */
+    const isLatestBar15 = (i===n-1);
+    const c15_buynow = firstUpAfterDown && crossAbove5 && holdAbove5 && redBar
+                    && (!isLatestBar15 || mainInflow15)
                     && (r==null||(r>=30&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
     /* ——C14「回踩10日线·K线上穿5日线·温和放量」（用户规则）——
        回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
