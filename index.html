@@ -7485,7 +7485,7 @@ C6「回踩再攻·放量突破前高」（AI复盘敦煌种业2026-08-25新增�
             回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
             量能较昨日温和放大、MACD dif>dea → 回踩10线后放量上攻日买入。
          C15「连续下跌首次上穿5日线·站稳红柱」(用户规则 2026-09-07)：
-            连续下跌(≥3日)后首次上涨，今日收盘上穿并站稳MA5(昨日在MA5之下、今日在之上)，
+            连续下跌(≥2日)后首次上涨，今日收盘上穿并站稳MA5(昨日在MA5之下、今日在之上)，
             且为红柱(收盘>开盘) → 趋势反转首日买入。
         全局硬约束：股价收盘已脱离20日线下方（低于20日线1.5%以上）→ 一律不提示买点 */
     const dif=m.dif[i], dea=m.dea[i];
@@ -7696,7 +7696,7 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
                          && dif!=null&&dea!=null&&dif>dea
                       && (r==null||(r>=40&&r<=85)) && (kd.j[i]==null||kd.j[i]<=95);
     /* ——C15「连续下跌首次上穿5日线·站稳红柱」（用户规则 2026-09-07）——
-       连续下跌(≥3日阴线/下跌)后首次上涨，今日收盘由昨日MA5之下上穿并站稳MA5(收盘>MA5)，
+       连续下跌(≥2日阴线/下跌)后首次上涨，今日收盘由昨日MA5之下上穿并站稳MA5(收盘>MA5)，
        且为红柱(收盘>开盘) → 趋势反转首日买入。
        宏昌电子2026-06-05为例：连续下跌后首根阳线上穿5日线并站稳。 */
     let consecDown=0;
@@ -7704,7 +7704,7 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
       if(closes[j]!=null&&closes[j-1]!=null&&closes[j]<closes[j-1]) consecDown++;
       else break;
     }
-    const firstUpAfterDown = consecDown>=3 && closes[i]>closes[i-1];     // 连跌≥3日后首次上涨
+    const firstUpAfterDown = consecDown>=2 && closes[i]>closes[i-1];     // 连跌≥2日后首次上涨
     const crossAbove5 = ma5i!=null&&ma5[i-1]!=null&&closes[i]>ma5i&&closes[i-1]<=ma5[i-1]; // 上穿5日线
     const holdAbove5 = ma5i!=null&&closes[i]>ma5i;                        // 站稳5日线
     const redBar = d[i].o!=null&&closes[i]>d[i].o;                        // 红柱(阳线)
