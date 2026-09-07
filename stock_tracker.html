@@ -106,7 +106,8 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .btn-sm{padding:3px 10px;font-size:0.5rem}
 .btn-red{border-color:var(--red);color:var(--red)}
 .btn-red:hover{background:rgba(255,51,85,0.08);box-shadow:0 0 12px rgba(255,51,85,0.12)}
-.emptys{text-align:center;padding:20px;opacity:0.35;font-family:var(--font-display);font-size:0.6rem;letter-spacing:2px}
+.emptys{text-align:center;padding:22px 14px;opacity:0.92;font-family:var(--font-display);font-size:0.72rem;letter-spacing:1px;color:var(--text-bright);line-height:1.7}
+  @media(max-width:900px){.emptys{font-size:0.78rem;padding:26px 12px;color:#dfe7f7}}
 
 /* Watchlist */
 #hotList td{cursor:pointer}
@@ -8320,6 +8321,15 @@ function init(){
   loadAddedExt();
   loadPinned();
   loadBak();
+  /* 首次使用（本机无任何本地数据）：把默认股池预置进「自选」与「备选股」，保证各列表首次即可见 */
+  try{
+    if(!localStorage.getItem(STK_KEY) && !localStorage.getItem(ADD_KEY) && !localStorage.getItem(BAK_KEY)){
+      addedExt = DEFAULT_WATCH.filter(s=>watchList.includes(s));
+      saveAddedExt();
+      backupList = watchList.slice();
+      saveBak();
+    }
+  }catch(e){}
   loadLlmCfg();
   mainChart=echarts.init(document.getElementById('mainChart'));
   window.addEventListener('resize',()=>{ fitViewport(); if(mainChart)mainChart.resize(); if(modalChart)modalChart.resize(); kmSyncCharts(); });
