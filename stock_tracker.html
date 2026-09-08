@@ -4031,8 +4031,12 @@ async function runQiangleScan(force){
       await Promise.all(chunk.map(s=>getKlines(s,'day',40).then(kl=>{ if(kl&&kl.length){ rowKline[s]=kl; } }).catch(()=>{})));
     }
     try{
-      while(fundFetching || (Date.now()-lastFundFetch)<5200) await new Promise(r=>setTimeout(r,300));
-      const fl=await fetchFundFlow(syms); Object.assign(fundFlow, fl);
+      // 分片拉资金（每批60只），避免超大 secids URL 触发东财/接口限制导致整批失败、结果为空；串行+force 消除节流等待
+      for(let k=0;k<syms.length;k+=60){
+        const chunk=syms.slice(k,k+60);
+        while(fundFetching) await new Promise(r=>setTimeout(r,200));
+        const fl=await fetchFundFlow(chunk, true); Object.assign(fundFlow, fl);
+      }
     }catch(e){}
     const results=[];
     for(const p of pool){
