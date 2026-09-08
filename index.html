@@ -8256,6 +8256,17 @@ function loadKmReminds(){
 function saveKmReminds(){ try{ localStorage.setItem(KM_REM_KEY, JSON.stringify(kmReminds.slice(-300))); }catch(e){} }
 function saveKmSeen(){ try{ localStorage.setItem(KM_SEEN_KEY, JSON.stringify([...kmSeen].slice(-3000))); }catch(e){} }
 function _kmDayKey(){ const d=new Date(); return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2); }
+/* 名称兜底：优先实时行情，其次热门池/板块池，最后才是代码 */
+function kmStockName(sym){
+  if(!sym) return '';
+  const q=quotes[sym];
+  if(q&&q.name) return q.name;
+  let it=(hotStocks||[]).find(x=>x.sym===sym);
+  if(it&&it.name) return it.name;
+  it=(kmBoardStocks||[]).find(x=>x.sym===sym);
+  if(it&&it.name) return it.name;
+  return sym;
+}
 /* 记录一条提醒 + 弹右下角卡片（2 分钟自动关闭） */
 function kmFireReminder(sym, side, reason, q){
   if(!sym) return;
@@ -8266,7 +8277,7 @@ function kmFireReminder(sym, side, reason, q){
   kmSeen.add(key); saveKmSeen();
   const d=new Date();
   const rec={ ts:Date.now(), time:d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-    date:d.toLocaleDateString('zh-CN'), sym, name:(q&&q.name)||sym, code:sym.replace(/^(sh|sz|bj)/i,''),
+    date:d.toLocaleDateString('zh-CN'), sym, name:(q&&q.name)||kmStockName(sym), code:sym.replace(/^(sh|sz|bj)/i,''),
     side, reason };
   kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop();
   saveKmReminds();
