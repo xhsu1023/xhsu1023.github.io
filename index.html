@@ -7816,7 +7816,12 @@ function loadKmChart(force){
   // force=true锛堝弻鍑绘柊寮€寮圭獥/鍒囧懆鏈燂級锛氬己鍒舵媺鏈€鏂癒绾垮苟閲嶇畻涔板崠鐐癸紝閬垮厤澶嶇敤闄堟棫缂撳瓨
   if(!force){
     const use=(Array.isArray(cache)&&cache.length)?cache:null;
-    if(use){ kmWaitLc(8000).then(()=>{ kmRenderChart(use, sym); renderKmVol(); renderKmTech(); renderKmFund(sym); }); return; }
+    if(use){
+      /* 缂撳瓨鍛戒腑锛堟粴杞垏鑲?preserve=true / 鍒囧懆鏈燂級锛氶鍙栦笌涓婚〉鍐欏叆鐨勬棩K涓嶅惈浠婃棩 鈫?鍚屾牱琛ュ嚭浠婃棩鏌卞啀娓叉煋 */
+      let d=use;
+      if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=d; }catch(e){} }
+      kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); renderKmFund(sym); }); return;
+    }
   }
   fetchKline(sym, period, count).then(async data=>{
     if(sym!==kmSym) return;
@@ -7830,7 +7835,7 @@ function loadKmChart(force){
     renderKmVol();
     renderKmTech();
     renderKmFund(sym);
-  }).catch(()=>{ if(!force){ const use=(Array.isArray(cache)&&cache.length)?cache:null; if(use&&kmSym===sym){ kmWaitLc(8000).then(()=>{ kmRenderChart(use, sym); renderKmVol(); renderKmTech(); }); } } });
+  }).catch(()=>{ if(!force){ const use=(Array.isArray(cache)&&cache.length)?cache:null; if(use&&kmSym===sym){ let d=use; if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} } kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); }); } } });
 }
 document.getElementById('klineModalClose').addEventListener('click',closeKmModal);
 (function(){
