@@ -4025,7 +4025,11 @@ async function runQiangleScan(force){
     }
     progress('强势回调低吸：分析 '+pool.length+' 只热门板块成分股…');
     const syms=pool.map(p=>p.sym);
-    await Promise.all(syms.map(s=>getKlines(s,'day',40).then(k=>{ if(k&&k.length){ rowKline[s]=k; } }).catch(()=>{})));
+    // 分片并发拉 K线，避免大量 JSONP 同时涌入新浪接口
+    for(let k=0;k<syms.length;k+=20){
+      const chunk=syms.slice(k,k+20);
+      await Promise.all(chunk.map(s=>getKlines(s,'day',40).then(kl=>{ if(kl&&kl.length){ rowKline[s]=kl; } }).catch(()=>{})));
+    }
     try{
       while(fundFetching || (Date.now()-lastFundFetch)<5200) await new Promise(r=>setTimeout(r,300));
       const fl=await fetchFundFlow(syms); Object.assign(fundFlow, fl);
@@ -8599,7 +8603,7 @@ function _kmBoardMerged3(){
     const seen=new Map();                                   // code -> name
     Object.keys(map).sort().forEach(k=>{
       if(!want.has(+k)) return;
-      (map[k]||[]).slice(0,3).forEach(b=>{ if(b&&b.code&&b.name&&!seen.has(b.code)) seen.set(b.code,b.name); });  // 每日仅取热门板块 TOP3
+      (map[k]||[]).slice(0,6).forEach(b=>{ if(b&&b.code&&b.name&&!seen.has(b.code)) seen.set(b.code,b.name); });  // 每日取热门板块 TOP6
     });
     return [...seen.entries()].map(([code,name])=>({code,name}));
   }catch(e){ return []; }
@@ -8633,12 +8637,12 @@ async function refreshKmBoardPool(){
     const merged=_kmBoardMerged3();
     if(!merged.length) return;
     const pool=[], seen=new Map();
-    for(const b of merged.slice(0,9)){   // 最近3日每日热门板块 TOP3，跨日去重后最多 9 个
+    for(const b of merged.slice(0,18)){   // 最近3日每日热门板块 TOP6，跨日去重后最多 18 个
       try{
-        const st=await _kmFetchBoardStocks(b.code,15);
-        for(const x of st){ if(seen.has(x.sym)) continue; seen.set(x.sym,true); x.boards=[b.name]; pool.push(x); if(pool.length>=100) break; }
+        const st=await _kmFetchBoardStocks(b.code,30);
+        for(const x of st){ if(seen.has(x.sym)) continue; seen.set(x.sym,true); x.boards=[b.name]; pool.push(x); if(pool.length>=250) break; }
       }catch(e){}
-      if(pool.length>=100) break;
+      if(pool.length>=250) break;
       await new Promise(r=>setTimeout(r,50));
     }
     kmBoardStocks=pool;
