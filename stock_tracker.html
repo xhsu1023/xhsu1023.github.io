@@ -2137,6 +2137,56 @@ async function fetchFundFlow(syms, force){
     }catch(e2){ console.error(e2); return {}; }
   }finally{ fundFetching=false; }
 }
+/* ---------- 游资-营业部对照表：龙虎榜当日出现对应营业部交易 → 才判定该日游资参与 ----------
+   核心常用营业部 + 补充关联席位；名称含"证券/股份/有限/公司/营业部"等前缀尾缀自动归一化模糊匹配 */
+const YZHU_DEPTS=[
+  {k:'章盟主', deps:['国泰君安上海江苏路','国泰君安宁波彩虹北路','中信杭州延安路','国泰君安上海海阳西路']},
+  {k:'赵老哥', deps:['中国银河证券绍兴营业部','浙商证券绍兴解放北路','银河北京阜成路']},
+  {k:'炒股养家', deps:['华鑫证券上海宛平南路','华鑫上海茅台路','华鑫上海红宝石路','华鑫海口海德路']},
+  {k:'孙哥', deps:['中信证券上海溧阳路','中信上海古北路','中信上海分公司']},
+  {k:'方新侠', deps:['中信证券西安朱雀大街','兴业证券陕西分公司']},
+  {k:'作手新一', deps:['国泰君安南京太平南路','国泰君安泰州鼓楼南路']},
+  {k:'小鳄鱼', deps:['南京证券南京大钟亭','中金财富南京太平南路','华泰上海武定路']},
+  {k:'陈小群', deps:['中国银河大连黄河路','大连金马路证券时报']},
+  {k:'宁波桑田路', deps:['国盛证券宁波桑田路']},
+  {k:'佛山无影脚', deps:['光大证券佛山季华六路','光大佛山绿景路']},
+  {k:'成都帮', deps:['华泰成都南一环路','国泰君安成都北一环路']},
+  {k:'消闲派', deps:['东方证券武汉紫阳东路','国泰海通武汉紫阳东路','万豪世家','知春路']},
+  {k:'乔帮主', deps:['招商证券深圳蛇口工业七路']},
+  {k:'呼家楼', deps:['中信证券北京呼家楼营业部','中信北京总部','中信上海凯滨路']},
+  {k:'著名刺客', deps:['华泰证券上海武定路','信达上海北外滩']}
+];
+function _lhbNorm(s){ return String(s||'').replace(/[\s（）()]/g,'').replace(/证券股份有限公司|证券有限责任公司|证券|股份有限公司|有限责任公司|股份|有限|公司|营业部/g,''); }
+function _lhbHit(name, deps){ const A=_lhbNorm(name); if(!A) return false; for(const dp of deps){ const B=_lhbNorm(dp); if(B&&(A.indexOf(B)>=0||B.indexOf(A)>=0)) return true; } return false; }
+let kmYzhuCache={};   // sym -> {ts, map:{date -> {ji,jio,ya,yo}}}  ji=机构专用买入次数 jio=机构卖出 yo=游资卖出 ya=游资买入  10分钟缓存
+async function fetchKmYzhu(sym){
+  const now=Date.now();
+  const c=kmYzhuCache[sym];
+  if(c && now-c.ts<10*60*1000) return c.map;
+  const code=sym.slice(2);
+  const mset={};
+  const isInst=(name)=>_lhbNorm(name).indexOf('机构专用')>=0;
+  const isYzhu=(name)=>{ for(const g of YZHU_DEPTS){ if(_lhbHit(name,g.deps)) return true; } return false; };
+  for(const rn of ['RPT_BILLBOARD_DAILYDETAILSBUY','RPT_BILLBOARD_DAILYDETAILSSELL']){
+    const buySide=rn.indexOf('BUY')>=0;
+    try{
+      const u='https://datacenter-web.eastmoney.com/api/data/v1/get?reportName='+rn+'&columns=ALL&sortColumns=TRADE_DATE,SECURITY_CODE&sortTypes=-1,-1&pageNumber=1&pageSize=500&source=WEB&client=WEB&filter=(SECURITY_CODE%3D%22'+code+'%22)';
+      const res=await fetch(u);
+      const j=await res.json();
+      const rows=(j&&j.result&&j.result.data)||[];
+      for(const r of rows){
+        const date=String(r.TRADE_DATE||'').slice(0,10);
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!r.OPERATEDEPT_NAME||!r.OPERATEDEPT_CODE) continue;
+        const rec=mset[date]=mset[date]||{ji:0,jio:0,ya:0,yo:0};
+        if(isInst(r.OPERATEDEPT_NAME)){ if(buySide) rec.ji++; else rec.jio++; }
+        else if(isYzhu(r.OPERATEDEPT_NAME)){ if(buySide) rec.ya++; else rec.yo++; }
+      }
+    }catch(e){ /* 单个接口失败不影响整体 */ }
+  }
+  const map=mset;
+  kmYzhuCache[sym]={ts:now, map};
+  return map;
+}
 /* 弹窗暗盘资金：拉取每日 超大单净流入(f56=每日暗盘资金) + 大单净流入(f55=游资) 历史（旧→新），带 10 分钟缓存 */
 async function fetchKmFundDays(sym){
   const now=Date.now();
@@ -7574,7 +7624,7 @@ function setKmInd(i){ kmInd=i; syncKmBarAct(i);
   if(kmChart && el && el._data){ kmRenderMainInds(el._data); }
   setKmMainTitle();
 }
-function closeKmModal(){ kmStopSync(); kmStopLive(); kmHideCrosshair(); const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
+function closeKmModal(){ kmStopSync(); kmStopLive(); kmHideCrosshair(); const kmc=document.getElementById('kmChart'); if(kmc){ if(kmc._resoTimer){ clearInterval(kmc._resoTimer); kmc._resoTimer=null; } } const m=document.getElementById('klineModal'); if(m){ m.classList.remove('show'); m.style.display=''; } if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; } ['kmVolChart','kmFundBars','kmDmiChart'].forEach(id=>{ const c=document.getElementById(id); if(!c) return; if(c._chart){ try{ c._chart.remove(); }catch(e){} c._chart=null; } c.innerHTML=''; }); kmSyncFrom=null; kmSyncTo=null; const mt1=document.getElementById('kmMainTitle'); if(mt1) mt1.textContent=''; const vt=document.getElementById('kmVolTitle'); if(vt) vt.textContent=''; const dt=document.getElementById('kmDmiTitle'); if(dt) dt.textContent=''; kmNavList=[]; }
 /* 弹窗内滚轮切换个股：delta>0（滚下）= 下一个，delta<0（滚上）= 上一个；首尾循环 */
 function kmNav(delta){
   const list=kmNavList;
@@ -8350,22 +8400,53 @@ function kmRenderChart(data, sym){
   const W=Math.max(60, d.length-125);
   sig.buys.forEach(i=>{ if(i>=W) markers.push({time:times[i], position:'belowBar', color:'#ff3355', shape:'arrowUp', text:'买', size:1}); });
   sig.sells.forEach(i=>{ if(i>=W) markers.push({time:times[i], position:'aboveBar', color:'#00ff88', shape:'arrowDown', text:'卖', size:1}); });
-  /* 机构+游资资金共振标注：当日 超大单净流入(机构,f56历史/f66实时)>0 且 大单净流入(游资,f55历史/f72实时)>0 → 紫色圆点"机游" */
-  const resoFor=()=>{ const out=[]; const kc2=kmFundCache&&kmFundCache[kmSym]; const kd2=(kc2&&kc2.days)||[];
-    if(!kd2.length) return out;
-    const fmap={}; kd2.forEach(x=>{ if(x&&x.date) fmap[x.date]=x; });
+  /* 机构+游资共振标注：
+     历史柱 → 龙虎榜当日同时出现 机构专用（买入=机构流入/卖出=机构流出）与 对照表游资营业部（买入=游资流入/卖出=游资流出）
+     今日实时柱 → 盘中实时资金流方向：超大单f66(机构) 与 大单f72(游资) 同为流入 或 同为流出 */
+  const resoFor=()=>{ const out=[]; const kd2=(kmFundCache&&kmFundCache[kmSym]&&kmFundCache[kmSym].days)||[]; const yz=(kmYzhuCache&&kmYzhuCache[kmSym]&&kmYzhuCache[kmSym].map)||{};
     let todayStr=''; try{ const dt2=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); todayStr=dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-'+String(dt2.getDate()).padStart(2,'0'); }catch(e){}
     const fl=fundFlow&&fundFlow[kmSym];
-    d.forEach((x,i)=>{ const key=String(times[i]); const f=fmap[key]; if(!f) return;
-      const xl=Number.isFinite(+f.xl)?+f.xl : (fl&&key===todayStr&&Number.isFinite(+fl.xl)? +fl.xl:0);
-      const dl=Number.isFinite(+f.dl)?+f.dl : (fl&&key===todayStr&&Number.isFinite(+fl.dl)? +fl.dl:0);
-      if(i>=W && xl>0 && dl>0) out.push({time:times[i], position:'aboveBar', color:'#c084fc', shape:'circle', text:'机游', size:1});
-    }); return out; };
-  const applyMk=()=>{ try{ candle.setMarkers(markers.concat(resoFor())); }catch(e){} };
+    const hasYz=kd2.length>0 || Object.keys(yz).length>0;
+    d.forEach((x,i)=>{ const key=String(times[i]); const rec=yz[key];
+      let ji=0,jio=0,ya=0,yo=0;
+      if(rec){ ji=rec.ji||0; jio=rec.jio||0; ya=rec.ya||0; yo=rec.yo||0; }
+      /* 今日实时柱（盘中）：无龙虎榜当日数据时用实时资金流方向识别 */
+      const isToday=(key===todayStr);
+      if(isToday && (!rec || ji===0&&ya===0) && fl && Number.isFinite(+fl.xl)&&Number.isFinite(+fl.dl)){
+        const inXl=+fl.xl>0, inDl=+fl.dl>0;
+        if(inXl&&inDl){ ji++; ya++; }            // 机构+游资 均流入
+        else if(!inXl&&!inDl){ jio++; yo++; }    // 机构+游资 均流出
+        else if(inXl&&!inDl){ ji++; }            // 仅机构流入
+        else { jio++; }                          // 仅机构流出
+      }
+      if(i<W) return;
+      /* 机构+游资 共振：同向（均流入 或 均流出）→ 标注 */
+      if(ji>0&&ya>0) out.push({time:times[i], position:'aboveBar', color:'#c084fc', shape:'circle', text:'机+游流入', size:1});
+      else if(jio>0&&yo>0) out.push({time:times[i], position:'aboveBar', color:'#22c55e', shape:'circle', text:'机+游流出', size:1});
+      else if(ji>0&&yo>0) out.push({time:times[i], position:'belowBar', color:'#a855f7', shape:'circle', text:'机构接游资', size:1});
+    });
+    return {out, hasYz}; };
+  const applyMk=()=>{ try{ const r=resoFor(); el._resoYz=r.hasYz; candle.setMarkers(markers.concat(r.out)); }catch(e){} };
   applyMk();
-  if(!(kmFundCache[sym]&&kmFundCache[sym].days&&kmFundCache[sym].days.length)){
-    fetchKmFundDays(sym).then(days=>{ if(sym!==kmSym || !days) return; applyMk(); }).catch(()=>{});
+  /* 第一时间补齐：资金历史 + 龙虎榜（未缓存时），补齐后重算标注 */
+  const needFund=!(kmFundCache[sym]&&kmFundCache[sym].days&&kmFundCache[sym].days.length);
+  const needYz=!(kmYzhuCache[sym]&&kmYzhuCache[sym].map);
+  if(needFund||needYz){
+    Promise.all([
+      needFund? fetchKmFundDays(sym).catch(()=>null):Promise.resolve(null),
+      needYz? fetchKmYzhu(sym).catch(()=>({})):Promise.resolve({})
+    ]).then(()=>{ if(sym!==kmSym) return; applyMk(); });
   }
+  /* 盘中实时：已缓存则按交易时段轮询，实时重算标注（流入/流出动态或当日龙虎榜补上后覆盖） */
+  if(el._resoTimer){ clearInterval(el._resoTimer); el._resoTimer=null; }
+  const tk=()=>{
+    if(!document.getElementById('klineModal')||!document.getElementById('klineModal').classList.contains('show')) return;
+    if(sym!==kmSym) return;
+    if(!el._resoYz && !(kmYzhuCache[sym]&&kmYzhuCache[sym].map)){ fetchKmYzhu(sym).then(()=>{ if(sym===kmSym) applyMk(); }).catch(()=>{}); }
+    applyMk();
+  };
+  el._resoTimer=setInterval(tk, 30000);
+  setTimeout(()=>{ if(sym===kmSym) tk(); }, 3000);
 kmRenderMainInds(d, ch);
     if(kmSyncFrom==null || kmSyncTo==null){
       const n=d.length;
