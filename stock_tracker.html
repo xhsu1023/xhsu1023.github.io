@@ -6362,7 +6362,9 @@ function _liveCandles(base, q){
   const qOpen=(q&&typeof q.open==='number'&&q.open>0)?q.open:null;
   const qHigh=(q&&typeof q.high==='number'&&q.high>0)?q.high:null;
   const qLow=(q&&typeof q.low==='number'&&q.low>0)?q.low:null;
-  const qVol=(q&&typeof q.volume==='number'&&q.volume>0)?q.volume:null;
+  const qVolTmp=(q&&typeof q.volume==='number'&&q.volume>0)?q.volume:null;
+  // 腾讯实时行情 volume 单位为"手"，新浪日K为"股"：换算一致（×100），避免今日柱锁死在旧值
+  const qVol=qVolTmp!=null? qVolTmp*100 : null;
   // 今日日期键：优先用实时行情自带的时间；若缺失/非法则回退到系统北京时间
   let todayKey=String((q&&q.time)||'').slice(0,8);
   if(!/^\d{8}$/.test(todayKey)){
