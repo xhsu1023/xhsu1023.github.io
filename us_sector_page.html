@@ -68,7 +68,7 @@ td .bd{font-size:12px;color:var(--gold)}
 <header class="hd">
   <div>
     <h1>🌎 隔夜美股 → A股映射 · 核心个股</h1>
-    <div class="hs">隔夜美股个股涨幅 TOP10（真实个股，滤除杠杆ETF/衍生品）→ 对知名股映射 A股核心个股，本地规则给「推荐买卖」，交易时段每 60 秒自动刷新。</div>
+    <div class="hs">知名美股按隔夜涨幅 TOP10（英伟达/特斯拉/苹果/微软/台积电等）→ 映射 A股概念板块核心个股（PCB/半导体/CPO/算力等），本地规则给「推荐买卖」，交易时段每 60 秒自动刷新。</div>
   </div>
   <div class="rh">
     <span>数据时间：<b id="usTime" style="color:var(--cyan)">--</b></span>
@@ -79,18 +79,18 @@ td .bd{font-size:12px;color:var(--gold)}
 <div id="status" class="st"></div>
 
 <section class="card">
-  <div class="ct"><h2>▍板块 1 · 隔夜美股个股涨幅 TOP10</h2><span class="tag">上一交易日涨幅榜</span><span class="aux" id="usNote"></span></div>
+  <div class="ct"><h2>▍板块 1 · 知名美股隔夜涨幅 TOP10</h2><span class="tag">上一交易日涨幅榜</span><span class="aux" id="usNote"></span></div>
   <div class="wrap">
     <table id="usTb"></table>
   </div>
 </section>
 
 <section class="card">
-  <div class="ct"><h2>▍板块 2 · 映射 A股核心个股</h2><span class="tag" id="cnTag">--</span><span class="aux">对涨幅 TOP10 中知名美股，按映射表取 A股核心个股 · 推荐=红盘/主力/量比本地规则</span></div>
+  <div class="ct"><h2>▍板块 2 · 映射 A股概念板块核心个股</h2><span class="tag" id="cnTag">--</span><span class="aux">对涨幅 TOP10 知名美股，按映射概念板块（PCB/半导体/CPO/算力/特斯拉链等）取主力净流入 Top10 <br>· 推荐=红盘/主力/量比本地规则</span></div>
   <div class="wrap">
     <table>
       <thead><tr>
-        <th>股票名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th>推荐买卖</th><th>对应美股</th><th>操作</th>
+        <th>股票名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th>推荐买卖</th><th>来源美股 · 板块</th><th>操作</th>
       </tr></thead>
       <tbody id="cnTb"></tbody>
     </table>
@@ -98,98 +98,108 @@ td .bd{font-size:12px;color:var(--gold)}
 </section>
 
 <footer class="foot">
-  数据来源：东方财富（美股实时涨幅榜：纳斯达克/纽交所/美交所全市场按涨跌幅排序，GBK 编码；A股实时行情/资金流）。「推荐买卖」为本地规则信号（现价涨跌 + 主力净流入 + 量比），仅供研究参考，不构成任何投资建议。
-  隔夜美股个股 = 美股全市场涨幅榜 TOP10（过滤杠杆 ETF/二倍三倍衍生品/微小盘），仅对榜内知名股（英伟达/特斯拉/苹果/微软/台积电等）映射 A股核心个股。
+  数据来源：东方财富（美股知名股隔夜涨幅 · 东财接口；A股概念板块实时行情/主力净流入）。「推荐买卖」为本地规则信号（现价涨跌 + 主力净流入 + 量比），仅供研究参考，不构成任何投资建议。
+  隔夜美股 = 知名股（英伟达/特斯拉/苹果/微软/台积电/超微等）按隔夜涨幅 TOP10；映射 = 每只知名股对应 A股概念板块（英伟达→PCB/CPO/算力，AMD/台积电→半导体/先进封装，特斯拉→一体化压铸/锂电池等）按主力净流入取核心个股 Top10。
 </footer>
 
 <script>
 /* ---------- 工具 ---------- */
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-function decodeGBK(buffer){ try{ return new TextDecoder('gbk').decode(buffer); }catch(e){ return new TextDecoder('utf-8').decode(buffer); } }
-async function fetchTextGBK(url){ const res=await fetch(url); return decodeGBK(await res.arrayBuffer()); }
+function decodeText(buffer){
+  const u=new TextDecoder('utf-8').decode(buffer);
+  if(!u.includes('\uFFFD')) return u;
+  try{ return new TextDecoder('gbk').decode(buffer); }catch(e){ return u; }
+}
+async function fetchText(url){ const res=await fetch(url); return decodeText(await res.arrayBuffer()); }
 function $id(id){ return document.getElementById(id); }
-function emCode(sc){ if(!sc||sc.length<8) return null; const m=sc.slice(0,2).toLowerCase(); const d=sc.slice(2); if(m==='bj'||m==='sh'||m==='sz') return m+d; if(/^6/.test(d)) return 'sh'+d; if(/^(0|3)/.test(d)) return 'sz'+d; return 'sh'+d; }
-/* gtimg 行情入口保留（A股行情解析备用） */
-async function fetchTextGBK(url){ const res=await fetch(url); return decodeGBK(await res.arrayBuffer()); }
 
-/* ---------- 知名美股 → A股核心个股映射表（仅对涨幅榜内知名股做A股映射） ---------- */
+/* ---------- 知名美股 → A股概念板块映射表（板块名为东财实际板块名） ---------- */
 const US_MAP={
-  NVDA:{note:'英伟达',a:['sh601138','sz300308','sz002463','sz300476']},
-  AMD:{note:'AMD',a:['sz002156','sz002463']},
-  TSM:{note:'台积电',a:['sh688981','sh603986']},
-  AVGO:{note:'博通',a:['sh601138','sz300308']},
-  MU:{note:'美光',a:['sh603986','sh688008','sz300223']},
-  SMCI:{note:'超微电脑',a:['sh601138','sz000977','sz300502']},
-  TSLA:{note:'特斯拉',a:['sz300750','sh601689','sz002050']},
-  AAPL:{note:'苹果',a:['sz002475','sz002241','sz300433']},
-  MSFT:{note:'微软',a:['sz002230','sh688111']},
-  META:{note:'Meta',a:['sz300502','sz300308']},
-  AMZN:{note:'亚马逊',a:['sz300383','sh603881']},
-  GOOGL:{note:'谷歌',a:['sz300383','sh600941']},
-  NFLX:{note:'奈飞',a:['sz300413','sz300133']},
-  BAC:{note:'美国银行',a:['sh600030','sh601318']},
-  XOM:{note:'埃克森美孚',a:['sh601857','sh600028']}
+  NVDA:{name:'英伟达',mkt:105,concepts:['英伟达概念','PCB','CPO概念','光通信模块','铜缆高速连接','算力概念','液冷服务器']},
+  AMD:{name:'超威半导体',mkt:105,concepts:['半导体概念','先进封装','AI芯片','存储芯片']},
+  TSM:{name:'台积电',mkt:106,concepts:['半导体概念','先进封装','AI芯片']},
+  AVGO:{name:'博通',mkt:105,concepts:['AI芯片','光通信模块','半导体概念']},
+  MU:{name:'美光',mkt:105,concepts:['存储芯片','半导体概念']},
+  SMCI:{name:'超微电脑',mkt:105,concepts:['液冷服务器','算力概念','AI芯片','英伟达概念']},
+  TSLA:{name:'特斯拉',mkt:105,concepts:['特斯拉概念','汽车一体化压铸','锂电池概念']},
+  AAPL:{name:'苹果',mkt:105,concepts:['苹果概念','消费电子概念']},
+  MSFT:{name:'微软',mkt:105,concepts:['AI应用','AIGC概念','数据中心']},
+  META:{name:'Meta',mkt:105,concepts:['AIGC概念','数据中心']},
+  AMZN:{name:'亚马逊',mkt:105,concepts:['数据中心','AIGC概念','AI应用']},
+  GOOGL:{name:'谷歌',mkt:105,concepts:['AIGC概念','AI应用','数据中心']},
+  NFLX:{name:'奈飞',mkt:105,concepts:['AI应用','AIGC概念']},
+  BAC:{name:'美国银行',mkt:106,concepts:['银行']},
+  XOM:{name:'埃克森美孚',mkt:106,concepts:['石油石化']}
 };
 let usCache={ts:0, list:null};
 async function fetchUsTop10(){
   if(usCache.list && Date.now()-usCache.ts<600000) return usCache.list;   // 美股收盘行情极少变动，10分钟缓存
-  const url='https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=120&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:105+m:106+m:107&fields=f2,f3,f5,f12,f13,f14,f15,f16,f17,f18';
-  const buf=await (await fetch(url)).arrayBuffer();
-  const j=JSON.parse(decodeGBK(buf));
+  const secs=Object.keys(US_MAP).filter(k=>US_MAP[k]&&US_MAP[k].mkt).map(k=>US_MAP[k].mkt+'.'+k).join(',');
+  const url='https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&secids='+secs+'&fields=f2,f3,f12,f13,f14';
+  const j=JSON.parse(decodeText(await (await fetch(url)).arrayBuffer()));
   const arr=(j&&j.data&&j.data.diff)||[];
-  const clean=arr.filter(x=>{
-    const nm=String(x.f14||''), cd=String(x.f12||'').toUpperCase();
-    if(!cd||!nm) return false;
-    if(/ETF|ETN|2倍|3倍|倍做多|倍做空|杠杆|做多|做空|BULL|BEAR|WARRANT|RIGHT|UNITS|DIREXION|PROSHARES|ROUNDHILL|DEFIANCE|MICROSECTORS|GRANITESHARES|VANECK/i.test(nm+' '+cd)) return false;
-    if(/W[0-9]$|\bWTA\b|_WS|_WT|-WS|-WT|\.W$|\.WT$/i.test(cd)) return false;
-    if(!(x.f2>3)) return false;
-    return true;
-  }).map(x=>({
-    code:String(x.f12), mkt:x.f13, name:x.f14||'',
-    price:x.f2, pct:x.f3, vol:x.f5||0, open:x.f17, high:x.f15, low:x.f16, prev:x.f18,
-    time:new Date().toLocaleString('zh-CN',{hour12:false})
-  }));
-  clean.sort((a,b)=>b.pct-a.pct);
-  usCache={ts:Date.now(), list:clean};
-  return clean.slice(0,10);
+  const list=arr.map(x=>({
+    code:String(x.f12).toUpperCase(), mkt:x.f13||105, name:US_MAP[String(x.f12).toUpperCase()].name,
+    price:x.f2, pct:x.f3, time:new Date().toLocaleString('zh-CN',{hour12:false})
+  })).filter(x=>US_MAP[x.code]);
+  list.sort((a,b)=>b.pct-a.pct);
+  usCache={ts:Date.now(), list};
+  return list.slice(0,10);
 }
 
-/* ---------- A股映射股行情：涨幅TOP10中命中映射表的知名美股 → 对应A股核心个股实时行情 ---------- */
-async function fetchCnRows(top){
-  const want=new Map();       // sym(sh601138) -> {code:美股票代码, pct}
-  for(const e of top){
-    const up=(US_MAP||{})[String(e.code).toUpperCase()];
-    if(!up) continue;
-    for(const s of up.a) if(!want.has(s)) want.set(s, {code:e.code, pct:e.pct});
+/* ---------- 板块索引：东财行业(t:2)+概念(t:3) 板块名 → BK代码，缓存6小时 ---------- */
+let boardIdx=null, boardIdxTs=0;
+async function ensureBoardIdx(){
+  if(boardIdx && Date.now()-boardIdxTs<6*3600e3) return;
+  const map={};
+  for(const t of [2,3]){
+    for(let pn=1;pn<=6;pn++){
+      const url='https://push2delay.eastmoney.com/api/qt/clist/get?pn='+pn+'&pz=100&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:'+t+'&fields=f12,f14';
+      const j=JSON.parse(decodeText(await (await fetch(url)).arrayBuffer()));
+      const diff=(j&&j.data&&j.data.diff)||[];
+      for(const r of diff) if(r.f14&&!map[r.f14]) map[r.f14]=String(r.f12);
+      if(diff.length<100) break;
+    }
   }
-  const sec=[]; const symOf={};
-  for(const s of want.keys()){
-    const m=s.slice(0,2), c=s.slice(2);
-    if(m==='bj') continue;
-    const secid=(m==='sh'?'1.':'0.')+c;
-    sec.push(secid); symOf[secid]=s;
-  }
-  const rows=[];
-  if(!sec.length) return rows;
-  const url='https://push2delay.eastmoney.com/api/qt/ulist.np/get?secids='+sec.join(',')+'&fields=f2,f3,f6,f8,f10,f12,f13,f14,f62';
-  const buf=await (await fetch(url)).arrayBuffer();
-  let j=null; try{ j=JSON.parse(decodeGBK(buf)); }catch(e){ j=null; }
+  boardIdx=map; boardIdxTs=Date.now();
+}
+/* 板块成分股：按主力净流入取 TopN */
+let bkCache={};
+async function fetchBoardStocks(bk,n){
+  if(bkCache[bk] && Date.now()-bkCache[bk].ts<600000) return bkCache[bk].list.slice(0,n);
+  const url='https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz='+n+'&po=1&np=1&fltt=2&invt=2&fid=f62&fs=b:'+bk+'&fields=f2,f3,f6,f8,f10,f12,f13,f14,f62';
+  const j=JSON.parse(decodeText(await (await fetch(url)).arrayBuffer()));
   const diff=(j&&j.data&&j.data.diff)||[];
-  for(const it of diff){
-    const key=String(it.f13)+'.'+String(it.f12);
-    const s=symOf[key]; if(!s||s.slice(0,2)==='bj') continue;
-    const srcEtf=String((want.get(s)||{}).code||'').toUpperCase();
-    const srcPct=(want.get(s)||{}).pct;
-    const rows2={
-      sym:s, code:String(it.f12), name:it.f14||'',
-      price:it.f2, pct:it.f3, amt:it.f6||0, turn:it.f8, lb:it.f10, main:it.f62||0,
-      boards:(US_MAP[srcEtf]&&US_MAP[srcEtf].note)||srcEtf, srcCode:srcEtf, srcPct:srcPct
-    };
-    rows2.rec=recommend(rows2);
-    rows.push(rows2);
+  const list=diff.map(it=>({
+    sym:(it.f13===1?'sh':'sz')+String(it.f12), code:String(it.f12), name:it.f14||'',
+    price:it.f2, pct:it.f3, amt:it.f6||0, turn:it.f8, lb:it.f10, main:it.f62||0
+  }));
+  bkCache[bk]={ts:Date.now(), list};
+  return list.slice(0,n);
+}
+/* ---------- A股映射：涨幅TOP10知名美股 → 其概念板块各取 Top10 核心个股 ---------- */
+async function fetchCnRows(top){
+  await ensureBoardIdx();
+  const rows=[]; const seen=new Set();
+  for(const e of top){
+    const up=US_MAP[String(e.code).toUpperCase()];
+    if(!up||!up.concepts||!up.concepts.length) continue;
+    for(const c of up.concepts.slice(0,2)){          // 每只美股取前2个概念板块控制行数
+      const bk=boardIdx[c]; if(!bk) continue;
+      let st=[]; try{ st=await fetchBoardStocks(bk,10); }catch(err){ continue; }
+      for(const x of st){
+        if(seen.has(x.sym)) continue;
+        seen.add(x.sym);
+        x.boards=c; x.srcCode=e.code; x.srcName=up.name||e.code; x.srcPct=e.pct;
+        x.rec=recommend(x);
+        rows.push(x);
+      }
+    }
   }
-  const order=[...want.keys()];
-  rows.sort((a,b)=>order.indexOf(a.sym)-order.indexOf(b.sym));
+  rows.sort((a,b)=>{
+    const ia=top.findIndex(t=>t.code===a.srcCode), ib=top.findIndex(t=>t.code===b.srcCode);
+    return (ia-ib)||(b.main-a.main);
+  });
   return rows;
 }
 
@@ -221,14 +231,14 @@ function pctHtml(v, suf){
 }
 function renderUs(top){
   const us=$id('usNote');
-  us.textContent='隔夜美股全市场涨幅榜（滤杠杆ETF）TOP10'+(usCache.list?' · '+usCache.list.length+' 只候选':'');
+  us.textContent='知名美股票池（英伟达/特斯拉/苹果/微软等）按隔夜涨幅排序 TOP10'+(usCache.list?' · 共 '+usCache.list.length+' 只':'');
   const tb=$id('usTb');
   if(!top.length){ tb.innerHTML='<tr><td colspan="7" class="empty">美股行情获取失败（需网络访问 push2.eastmoney.com）</td></tr>'; return; }
   const mktName={105:'NASDAQ',106:'NYSE',107:'AMEX'};
-  tb.innerHTML='<thead><tr><th>排名</th><th>美股个股</th><th>代码</th><th>市场</th><th>现价 (USD)</th><th>隔夜涨幅</th><th>A股映射</th></tr></thead><tbody>'+
+  tb.innerHTML='<thead><tr><th>排名</th><th>美股个股</th><th>代码</th><th>市场</th><th>现价 (USD)</th><th>隔夜涨幅</th><th>A股映射板块</th></tr></thead><tbody>'+
     top.map((e,i)=>{
-      const mp=(US_MAP||{})[String(e.code).toUpperCase()];
-      const mpHtml=mp?'<span class="bd">→ '+esc(mp.note)+'（'+mp.a.length+' 只）</span>':'<span class="flat">—</span>';
+      const mp=US_MAP[String(e.code).toUpperCase()];
+      const mpHtml=(mp&&mp.concepts&&mp.concepts.length)?'<span class="bd">→ '+(mp.concepts.slice(0,3).join('·'))+(mp.concepts.length>3?' 等':'')+'</span>':'<span class="flat">—</span>';
       return '<tr><td>#'+(i+1)+'</td>'+
         '<td class="nm">'+esc(e.name)+'</td>'+
         '<td><span class="code">'+esc(e.code)+'</span></td>'+
@@ -241,8 +251,8 @@ function renderUs(top){
 function renderCn(rows, usDatetime){
   const tb=$id('cnTb');
   if(usDatetime) $id('usTime').textContent=usDatetime;
-  $id('cnTag').textContent='共 '+rows.length+' 只 · 来自涨幅榜内知名美股映射';
-  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" class="empty">本期涨幅TOP10暂无非知名股（无A股映射）或行情失败</td></tr>'; return; }
+  $id('cnTag').textContent='共 '+rows.length+' 只 · '+((usCache.list&&usCache.list.length)||0)+' 只知名股映射概念板块Top10';
+  if(!rows.length){ tb.innerHTML='<tr><td colspan="7" class="empty">暂无映射个股（板块行情失败或板块名未匹配）</td></tr>'; return; }
   tb.innerHTML=rows.map(r=>{
     const w=isWatching(r.sym);
     const mkt=r.sym.slice(0,2);
@@ -252,7 +262,7 @@ function renderCn(rows, usDatetime){
       '<td>'+(r.price!=null?r.price.toFixed(2):'--')+'</td>'+
       '<td>'+pctHtml(r.pct)+'</td>'+
       '<td><span class="rec '+r.rec.cls+'" title="'+esc(r.rec.r)+'">'+r.rec.t+'</span></td>'+
-      '<td><span class="bd">'+esc(r.boards+'(隔夜+'+ (r.srcPct!=null?r.srcPct.toFixed(2)+'%':'--') +')')+'</span></td>'+
+      '<td><span class="bd">'+esc(r.srcName+' · '+r.boards+(r.srcPct!=null?'（隔夜+'+r.srcPct.toFixed(2)+'%）':''))+'</span></td>'+
       '<td>'+
         '<button class="op '+(w?'watching':'')+'" data-act="watch" data-sym="'+r.sym+'" data-name="'+esc(r.name)+'">'+(w?'✓ 已自选':'＋ 自选')+'</button>'+
         '<button class="op" data-act="detail" data-url="https://quote.eastmoney.com/'+mkt+'/'+r.code+'.html">详情</button>'+
@@ -271,7 +281,7 @@ async function refreshAll(){
     const rows=await fetchCnRows(top);
     renderCn(rows, (top[0]&&top[0].time)||'');
     const wt=top.map(e=>e.code+'('+pctHtml0(e.pct)+')').join('   ');
-    setStatus('✅ 已更新 · 隔夜美TOP10：'+wt, '#8fff9f');
+    setStatus('✅ 已更新 · 知名美股票池涨幅TOP10：'+wt, '#8fff9f');
   }catch(e){
     setStatus('更新失败：'+e.message, 'var(--red)');
     console.error(e);
