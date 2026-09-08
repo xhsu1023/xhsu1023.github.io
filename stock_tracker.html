@@ -488,6 +488,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         <button class="btn btn-sm" id="zaoSweepBtn" style="border-color:var(--gold);color:var(--gold)" title="竞价战法：AI 已学习实战竞价框架（看环境/板块/位置/竞价量价/形态/风险）→ 本地规则引擎全市场评分 + 可选 AI 复核">🌅 早选 · 竞价挑强</button>
         <button class="btn btn-sm" id="zaoLearnBtn" style="border-color:#00e5ff;color:#00e5ff" title="AI 学习竞价战法：把实战竞价框架喂给大模型，归纳可执行规则与因子权重并缓存 → 应用于早选评分">🧠 AI学习竞价</button>
         <button class="btn btn-sm" id="dixiSweepBtn" style="border-color:var(--purple);color:var(--purple)" title="缩量回调低吸：日线趋势向上+缩量回调15%+日内跌幅1-4%+主力净流入为正+支撑不破">💧 低吸战法</button>
+        <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+回调后首次上涨+主力净流入（不考虑缩量）">💪 强势回调低吸</button>
         <button class="btn btn-sm" id="longtouSweepBtn" style="border-color:#ff5252;color:#ff5252" title="龙头回调低吸：板块龙头+回调8-22%+缩量+MA支撑+日内-7%~-3%+缩量承接">🐉 龙头战法</button>
         <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
         <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：先扫 A股全市场(5000+)，用 K线图买入逻辑预筛触发买点的个股，再综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率">🔮 预测</button>
@@ -1557,6 +1558,9 @@ let recView='rec';        // rec tab 当前视图: 'rec'=荐股, 'zao'=早选·�
 let dixiResults=[];        // 低吸战法命中 [{sym,score,q,volratio,intra,main,sup,pos,ty,ts}] 
 let dixiBusy=false;        // 低吸扫描进行中
 let dixiTS=0;              // 上次低吸扫描时间戳
+let qiangleResults=[];     // 强势回调低吸命中 [{sym,name,score,zts,chg10,firstUp,main,ma5,ma5ok,confirm,q}]
+let qiangleBusy=false;
+let qiangleTS=0;
 let longtouResults=[];     // 龙头战法命中
 let longtouBusy=false;
 let longtouTS=0;
@@ -1675,6 +1679,7 @@ function headerFor(t){
   if(t==='dip') return '<th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th>战法</th><th>量价信号</th><th>信号强度</th><th>建议</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='zao') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="竞价战法综合评分 0-99">评分</th><th title="高开幅度%（按位置分层：低位2-5/烂板3-6/连板≥5）">高开</th><th title="量比（>1 承接，>5 抢筹）">量比</th><th title="竞价承接=今成交额/昨全天（≥5%算有承接）">竞价承接</th><th title="撮合抬升/连板高度">结构</th><th title="高胜率形态：弱转强/强更强/抢筹首板">形态</th><th title="抛压/风险排除">风险</th><th>建议</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='dixi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="低吸综合评分 0-99">低吸评分</th><th title="今日量/昨日同时刻（<0.85 缩量15%+）">量比</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="支撑=max(昨收,MA20)，现价需在其上方">支撑</th><th title="较30日最低位置%">位置</th><th title="参考止盈区间">止盈</th><th title="参考止损">止损</th><th title="所属概念板块">概念</th><th>操作</th>';
+  if(t==='qiangle') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="强势回调低吸评分 0-99">评分</th><th title="近10交易日涨停次数（>2 强势背景）">10日涨停</th><th title="近10日累计涨幅%">10日涨幅</th><th title="今日回调后首次上涨(阳线)">首涨</th><th title="当日主力净流入(万元)">主力净流入</th><th title="MA5 与现价相对位置（回踩/拉回）">MA5位置</th><th title="回踩MA5确认（近5日曾触及或下穿5日线后拉回）">回踩确认</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='longtou') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="龙头战法综合评分 0-99">龙头评分</th><th title="近期高点回调幅度（-8%~-22%为佳）">回调幅度</th><th title="回调期缩量（量缩率 0-1）">量缩率</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="有效支撑位 = max(MA5,MA10)">支撑</th><th title="是否出现大阴/跌停信号">风险信号</th><th title="AI 判定：板块龙头+主线有赚钱效应">AI判定</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='rsi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="RSI&尾盘战法综合评分 0-99">评分</th><th title="RSI6 今日值：①近N日首次脱离30下方 ②30~50回调拐头">RSI6今</th><th title="当日涨幅%（尾盘规则①锁定 3%~5%）">涨幅</th><th title="当日量 / 近3日均量（规则④量比>1）">量比</th><th title="近30日内有无涨停（规则②）">30日涨停</th><th title="总市值（亿元，规则③<200亿）">市值(亿)</th><th title="尾盘规则⑥：14:30后创日内新高且回踩不破新高">尾盘新高</th><th title="RSI6 昨日值（情形②需今日>昨日 拐头向上）">RSI6昨</th><th title="只筛选换手率5%~10%（规则⑤）">换手</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='yuce') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI预测综合评分 0-99">预测分</th><th title="AI 预测次日方向：看多/看空">方向</th><th title="模型置信度 0-1">置信度</th><th title="量价/技术/资金/大盘板块等因子摘要">主要因子</th><th title="模型判断理由/操作建议">AI 判断</th><th title="所属概念板块">概念</th><th>操作</th>';
@@ -3319,7 +3324,7 @@ function renderRecState(){
 /* rec tab 视图切换时刷新表头（rec/zao） */
 function refreshRecHeader(){
   const h=document.getElementById('hotHead'); if(!h) return;
-  h.innerHTML=headerFor(recView==='zao'?'zao':(recView==='dixi'?'dixi':(recView==='longtou'?'longtou':(recView==='rsi'?'rsi':(recView==='yuce'?'yuce':(recView==='ai4'?'ai4':'rec'))))));
+  h.innerHTML=headerFor(recView==='zao'?'zao':(recView==='dixi'?'dixi':(recView==='qiangle'?'qiangle':(recView==='longtou'?'longtou':(recView==='rsi'?'rsi':(recView==='yuce'?'yuce':(recView==='ai4'?'ai4':'rec')))))));
   bindHeaderSort();
 }
 /* 荐股扫描主入口 */
@@ -3948,6 +3953,139 @@ function renderDixi(tb){
   }).join('');
   bindRowClicks(tb);
   if(st) st.textContent='低吸命中：'+rows.length+' 只（缩量回调+趋势+净流入+支撑）';
+}
+/* =====================================================================
+ * 强势回调低吸（纯规则，无需 AI）
+ *  ① 当前热门板块成分股（kmBoardStocks 池，来自最近3日板块涨幅榜 TOP3）
+ *  ② 连续强势上涨且有涨停次>2：近10个交易日内涨停(涨≥9.5%)次数>2
+ *  ③ 连续回调回踩5日线附近或下穿5日线立即拉回5日线上方：
+ *     近5日内存在连续≥2个下跌日，期间最低点触到/跌破 MA5，且现价已拉回 MA5 上方
+ *  ④ 回调后首次上涨：今日为回调结束后的第一根阳线（收>开 且 收>昨收）
+ *  ⑤ 考虑主力资金流入：当日主力净流入>0
+ *  ⑥ 不考虑缩量（区别于低吸战法的缩量硬条件）
+ *  止盈止损：成本*1.05 止盈 / 成本*0.95 止损
+ * ===================================================================== */
+function bindQiangleSweep(){
+  const b=document.getElementById('qiangleSweepBtn');
+  if(b&&!b.dataset.bound){ b.dataset.bound='1'; b.addEventListener('click',()=>{ recView='qiangle'; refreshRecHeader(); runQiangleScan(true); }); }
+}
+/* 涨停判定：涨跌幅>=9.5% 视为涨停（覆盖沪深10%，规避ST约束） */
+function qiIsLimit(k, i){
+  if(i<=0) return false;
+  const pc=k[i-1].c, c=k[i].c;
+  if(!(pc>0)) return false;
+  return (c/pc-1)*100>=9.5;
+}
+/* 单股强势回调评估：返回 {pass, detail} 或 null */
+function qiEval(sym, x, k){
+  if(!k || k.length<15) return null;
+  const n=k.length, i=n-1;
+  const closes=k.map(v=>v.c), lows=k.map(v=>v.l), opens=k.map(v=>v.o);
+  const ma5arr=sma(closes,5);
+  const ma5=ma5arr[i], ma5Prev=ma5arr[i-1];
+  if(!(ma5&&ma5Prev)) return null;
+  // ② 近10交易日涨停次数>2（今日为回调后首涨日，涨停须在回调前）
+  const from=Math.max(1, i-10);
+  let zts=0; for(let j=from;j<i;j++){ if(qiIsLimit(k,j)) zts++; }
+  if(zts<=2) return null;
+  // 近10日累计涨幅（回调前强势上涨背景护栏）
+  const chg10=closes[i-1]>0?(closes[i-1]/closes[from]-1)*100:0;
+  if(chg10<8) return null;
+  // ③ 连续回调：今日之前的连续下跌日≥2
+  let downRun=0;
+  for(let j=i-1;j>=Math.max(1,i-5);j--){ if(closes[j]<closes[j-1]) downRun++; else break; }
+  if(downRun<2) return null;
+  // 回踩5日线：回调段内最低点触到/跌破当日MA5
+  let touchedMa5=false;
+  for(let j=i-downRun;j<i;j++){ const mj=ma5arr[j]; if(mj!=null && lows[j]<=mj) touchedMa5=true; }
+  // ④ 回调后首次上涨：今日阳线（收>开 且 收>昨收）
+  const todayUp = opens[i]!=null && opens[i]>0 && closes[i]>opens[i] && closes[i]>closes[i-1];
+  if(!(touchedMa5 && todayUp && closes[i]>ma5)) return null;   // 且现价拉回MA5上方
+  return { sym, name:x?x.name:null, zts, c10:chg10, ma5, todayUp };
+}
+async function runQiangleScan(force){
+  const st=document.getElementById('recState');
+  if(qiangleBusy){ if(st) st.textContent='强势回调低吸扫描中… 请稍候'; return; }
+  if(!force && qiangleResults.length && (Date.now()-qiangleTS)<120000){ recView='qiangle'; refreshRecHeader(); renderQiangle(); return; }
+  qiangleBusy=true; recView='qiangle'; refreshRecHeader(); renderQiangle();
+  try{
+    const progress=(msg)=>{ if(st) st.textContent=msg; };
+    if(!hotBoards.length || !kmBoardStocks.length){ progress('强势回调低吸：正在预热热门板块成分池…'); try{ await refreshKmBoardPool(); }catch(e){} }
+    let pool=kmBoardStocks.slice();
+    if(!pool.length){
+      qiangleBusy=false;
+      if(st) st.textContent='暂无热门板块成分股，请稍候或先点「买卖点扫描」预热';
+      renderQiangle(); return;
+    }
+    progress('强势回调低吸：分析 '+pool.length+' 只热门板块成分股…');
+    // 补齐日K（热门板块成分池可能只预取了 top 80，这里逐只保证）
+    const syms=pool.map(p=>p.sym);
+    await Promise.all(syms.map(s=>getKlines(s,'day',40).then(k=>{ if(k&&k.length){ rowKline[s]=k; } }).catch(()=>{})));
+    // 主力净流入
+    try{
+      while(fundFetching || (Date.now()-lastFundFetch)<5200) await new Promise(r=>setTimeout(r,300));
+      const fl=await fetchFundFlow(syms); Object.assign(fundFlow, fl);
+    }catch(e){}
+    const results=[];
+    for(const p of pool){
+      const e=qiEval(p.sym, p, rowKline[p.sym]);
+      if(!e) continue;
+      const fl=fundFlow[p.sym];
+      const main=fl&&typeof fl.main==='number'?fl.main:null;
+      if(!(typeof main==='number'&&main>0)) continue;          // ⑤ 主力净流入>0
+      let score=60;
+      score+=Math.min(15, e.zts*2);                            // 涨停越多分越高
+      score+=e.c10>=35?15:(e.c10>=20?10:5);
+      if(main>0) score+=5;
+      const cost=getKlineLastPrice(p.sym)||(quotes[p.sym]&&quotes[p.sym].price);
+      results.push({ sym:p.sym, name:e.name||(quotes[p.sym]&&quotes[p.sym].name)||p.name, score:Math.round(Math.min(99,score)),
+        zts:e.zts, chg10:e.c10, firstUp:e.todayUp, main, ma5:e.ma5, q:quotes[p.sym],
+        take1:cost*1.05, take2:cost*1.08, stop:cost*0.95 });
+    }
+    results.sort((a,b)=>b.score-a.score);
+    qiangleResults=results; qiangleTS=Date.now(); qiangleBusy=false;
+    if(st) st.textContent=results.length?('强势回调低吸命中 '+results.length+' 只（热门板块+涨停>2+回踩5日线首涨+主力净流入，不考虑缩量）'):'强势回调低吸：候选均未同时满足 热门板块/涨停>2/回踩5日线首涨/主力净流入 条件';
+    renderQiangle();
+  }catch(e){
+    qiangleBusy=false;
+    if(st) st.textContent=aiErrMsg(e);
+    renderQiangle();
+  }
+}
+function getKlineLastPrice(sym){ const k=rowKline[sym]||dipCache[sym]; return (k&&k.length&&typeof k[k.length-1].c==='number')?k[k.length-1].c:0; }
+function renderQiangle(tb){
+  tb = tb || document.getElementById('hotList');
+  afterListRender();
+  const st=document.getElementById('recState');
+  if(!qiangleResults.length){
+    if(qiangleBusy){ tb.innerHTML='<tr><td colspan="15" class="emptys" style="padding:20px">正在扫描强势回调低吸候选…（热门板块→涨停>2→回踩5日线首涨）</td></tr>'; }
+    else{ tb.innerHTML='<tr><td colspan="15" class="emptys" style="padding:20px">暂无强势回调低吸命中，点击「💪 强势回调低吸」开始扫描（纯规则，无需 AI 配置）</td></tr>'; }
+    return;
+  }
+  const rows=qiangleResults.slice().sort((a,b)=>b.score-a.score);
+  tb.innerHTML=rows.map((r,i)=>{
+    const q=r.q;
+    const actCell=`<span class="op-cell">${bakBtn(r.sym)}${watchBtn(r.sym)}</span>`;
+    const up=(q&&q.change>=0);
+    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="强势回调低吸命中：热门板块 / 近10日涨停${r.zts}次 / 连续回调回踩5日线后首次上涨 / 主力净流入">
+      <td style="font-weight:700;color:#ffd27d">#${i+1}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${r.name||(q&&q.name)||r.sym}</td>
+      <td style="font-size:0.72rem">${r.sym}</td>
+      <td class="${up?'red':'green'}" style="font-weight:600">${q?q.price.toFixed(2):'--'}</td>
+      <td class="${up?'red':'green'}" style="font-weight:700">${q?rowChg({up,q}):'--'}</td>
+      <td><span class="tg ${r.score>=70?'tg-up':r.score>=55?'tg-o':'tg-b'}" style="font-weight:700">${r.score}</span></td>
+      <td style="font-weight:700;color:#ffd27d">${r.zts}</td>
+      <td class="${r.chg10>=0?'red':'green'}" style="font-weight:600">${r.chg10.toFixed(1)}%</td>
+      <td class="red" style="font-weight:700">${r.firstUp?'✓':'—'}</td>
+      <td style="font-weight:600;color:${r.main>0?'var(--red)':'var(--text)'}">${r.main>0?(r.main/10000).toFixed(2)+'亿':'--'}</td>
+      <td style="font-size:0.55rem">现价 ${q?q.price.toFixed(2):'--'}<br><span style="color:var(--text)">MA5 ${r.ma5.toFixed(2)}</span></td>
+      <td class="green" style="font-weight:600">回踩拉回</td>
+      ${conceptCell(r.sym)}
+      <td>${actCell}</td>
+    </tr>`;
+  }).join('');
+  bindRowClicks(tb);
+  if(st) st.textContent='强势回调低吸命中：'+rows.length+' 只（热门板块+涨停>2+回踩5日线首涨+主力净流入）';
 }
 /* =====================================================================
  * 龙头战法：板块龙头回调低吸（AI筛选龙头身份 + 量化入场条件）
@@ -9230,6 +9368,7 @@ function init(){
   bindZaoSweep();
   loadZaoLearn();
   bindDixiSweep();
+  bindQiangleSweep();
   bindLongtouSweep();
   bindRsiSweep();
   bindYuceSweep();
