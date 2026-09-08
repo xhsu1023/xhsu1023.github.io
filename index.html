@@ -8002,7 +8002,7 @@ document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 document.getElementById('kmRemindClear').addEventListener('click',()=>{
   if(!kmReminds.length) return;
-  if(confirm('纭娓呯┖鍏ㄩ儴涔板崠鎻愰啋璁板綍锛?)){ kmReminds=[]; kmUnread=0; saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite(); }
+  if(confirm('纭娓呯┖鍏ㄩ儴涔板崠鎻愰啋璁板綍锛?)){ kmReminds=[]; kmUnread=0; saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite([]); }
 });
 loadKmReminds(); kmUpdCnt();
 
@@ -8437,7 +8437,7 @@ function _cloudPayload(){
 }/* 鍚堝苟浜戠鎻愰啋鍒楄〃锛氭寜 sym|side|ts 鍘婚噸鍙栧苟闆嗭紝鎸夋椂闂撮檷搴忎繚鐣欐渶杩?300 鏉?*/
 function _kmMergeReminds(remote){
   if(!Array.isArray(remote)) return false;
-  const seen=new Set();
+  if(_cloudKmOw>0) return false;   // 瑕嗙洊鍐欒繘琛屼腑锛氱姝簯绔棫璁板綍骞跺洖鏈湴锛堟竻绌虹殑"澶嶆椿"婧愬ご锛?  const seen=new Set();
   kmReminds.forEach(x=>{ if(x && x.ts!=null && x.sym) seen.add(x.sym+'|'+(x.side==='S'?'S':'B')+'|'+x.ts); });
   let added=0;
   const merged=kmReminds.slice();
@@ -8628,6 +8628,7 @@ function _cloudFundTick(force){
 /* =====================================================================
  * 涔板崠鎻愰啋浜戝悓姝ワ細鐙珛鏂囦欢 km_remind.json锛坰chema {t, r:[...]}锛? * 绛栫暐锛氭媺鍙?鍚堝苟杩涙湰鍦帮紱涓婁紶=鍏堝悎骞惰繙绔啀涓婁紶鏈湴骞堕泦 鈫?鍙屽悜鍚屽寲锛? * 浠绘剰涓€绔惎鍔ㄥ嵆 pull鈫抪ush 鏀舵暃锛屽巻鍙茶褰曚篃鑳借法璁惧浜掗€? * ===================================================================== */
 let _cloudKmSha=null, _cloudKmBusy=false, _cloudKmTimer=null, _cloudKmForce=false;
+let _cloudKmOw=0, _cloudKmOwRetry=0;   // overwrite 杩涜涓鏁帮細鍐荤粨鍚堝苟寮?pull 鍥炵亴鏈湴
 function _cloudKmPull(){
   if(!_cloudEnabled()) return Promise.resolve();
   return _cloudApi('GET','/contents/km_remind.json').then(r=>{
@@ -8640,7 +8641,7 @@ function _cloudKmPull(){
   }).catch(e=>{ /* 404=浜戠灏氭湭鍒涘缓锛屾甯?*/ });
 }
 function _cloudKmPush(){
-  if(!_cloudEnabled() || _cloudKmBusy) return Promise.resolve();
+  if(!_cloudEnabled() || _cloudKmBusy || _cloudKmOw>0) return Promise.resolve();
   _cloudKmBusy=true;
   /* 涓婁紶鍓嶅厛鍚堝苟杩滅鍐嶇敓鎴愯浇鑽凤紝淇濊瘉杩滅▼宸叉湁璁板綍涓嶈瑕嗙洊 */
   return _cloudKmPull().then(()=>{
@@ -8663,30 +8664,41 @@ function _cloudKmPush(){
   }).catch(e=>{ _cloudKmBusy=false; });
 }
 function _cloudKmTick(force){
-  if(!_cloudEnabled() || _cloudKmBusy || _cloudKmTimer) return;
+  if(!_cloudEnabled() || _cloudKmBusy || _cloudKmTimer || _cloudKmOw>0) return;
   _cloudKmForce=!!force;
   _cloudKmTimer=setTimeout(()=>{ _cloudKmTimer=null; _cloudKmPush(); }, force?800:2500);
 }
-/* 寮哄埗瑕嗙洊鍐欙細涓嶅厛鍚堝苟杩滅锛堢敤浜庢竻绌?鍒犻櫎鎻愰啋锛岄伩鍏嶄簯绔棫璁板綍琚悎骞跺洖鏈湴鑰屸€滃垹涓嶆帀鈥濓級 */
-function _cloudKmPushOverwrite(){
-  if(!_cloudEnabled() || _cloudKmBusy) return Promise.resolve();
+/* 寮哄埗瑕嗙洊鍐欙細涓嶅厛鍚堝苟杩滅锛堢敤浜庢竻绌?鍒犻櫎鎻愰啋锛岄伩鍏嶄簯绔棫璁板綍琚悎骞跺洖鏈湴鑰?鍒犱笉鎺?锛夈€?   閬囧湪閫斿悎骞跺紡 push锛坃cloudKmBusy锛夆啋 绋嶇瓑閲嶈瘯鐩磋嚦鐙珛鍐欑洏锛況eminds 鏄惧紡浼犲叆鍗虫寜璇ュ揩鐓ц鐩栵紙娓呯┖浼?[]锛夈€?*/
+function _cloudKmPushOverwrite(reminds){
+  if(!_cloudEnabled()) return Promise.resolve();
+  if(_cloudKmBusy){
+    if(_cloudKmOwRetry>25){ _cloudKmOwRetry=0; return Promise.resolve(); }
+    _cloudKmOwRetry++;
+    _cloudKmOw=1;   // 绛夊緟鏈熼棿涔熷喕缁撳悎骞跺啓锛堥槻鍦ㄩ€?push 鎶婁簯绔棫璁板綍骞跺洖鏈湴锛?    return new Promise(res=>setTimeout(()=>{ _cloudKmOw=0; res(_cloudKmPushOverwrite(reminds)); },400));
+  }
+  _cloudKmOwRetry=0;
+  const list=(reminds===undefined)? kmReminds : reminds;   // 鍙栧€煎揩鐓э紝闃叉鏈熼棿琚苟鍙戝悎骞跺洖鐏屾薄鏌?  const content=btoa(unescape(encodeURIComponent(JSON.stringify({t:Date.now(), r:list}))));
+  _cloudKmOw++;
   _cloudKmBusy=true;
-  const payload=JSON.stringify({t:Date.now(), r:kmReminds});
-  const content=btoa(unescape(encodeURIComponent(payload)));
-  const doPut=()=>{
+  const done=()=>{ _cloudKmOw--; if(_cloudKmOw<0)_cloudKmOw=0; _cloudKmBusy=false; };
+  const put=()=>{
     const p={message:'kmremind', content:content};
     if(_cloudKmSha) p.sha=_cloudKmSha;
     return _cloudApi('PUT','/contents/km_remind.json',p).then(r=>{
       _cloudKmSha=(r.json && r.json.content) ? r.json.content.sha : null;
+      done();
     }).catch(e=>{
-      if(e.code===409 || e.code===412 || e.code===422){ _cloudKmSha=null; _cloudKmBusy=false; return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return _cloudKmPushOverwrite(); }).catch(()=>{ _cloudKmBusy=false; }); }
-      _cloudKmBusy=false;
+      if(e.code===409 || e.code===412 || e.code===422){
+        _cloudKmSha=null;
+        return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return put(); }).catch(()=>done());
+      }
+      done();
     });
   };
-  if(_cloudKmSha) return doPut();
-  return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return doPut(); }).catch(e=>{
-    if(e.code===404 || e.code===409 || e.code===422){ _cloudKmSha=null; return doPut(); }
-    _cloudKmBusy=false;
+  if(_cloudKmSha) return put();
+  return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return put(); }).catch(e=>{
+    if(e.code===404 || e.code===409 || e.code===422){ _cloudKmSha=null; return put(); }
+    done();
   });
 }
 ['saveWatch','saveAddedExt','savePinned','saveBak'].forEach(function(name){
