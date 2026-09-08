@@ -8191,7 +8191,12 @@ function loadKmChart(force){
   // force=true（双击新开弹窗/切周期）：强制拉最新K线并重算买卖点，避免复用陈旧缓存
   if(!force){
     const use=(Array.isArray(cache)&&cache.length)?cache:null;
-    if(use){ kmWaitLc(8000).then(()=>{ kmRenderChart(use, sym); renderKmVol(); renderKmTech(); renderKmFund(sym); }); return; }
+    if(use){
+      /* 缓存命中（滚轮切股 preserve=true / 切周期）：预取与主页写入的日K不含今日 → 同样补出今日柱再渲染 */
+      let d=use;
+      if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=d; }catch(e){} }
+      kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); renderKmFund(sym); }); return;
+    }
   }
   fetchKline(sym, period, count).then(async data=>{
     if(sym!==kmSym) return;
@@ -8205,7 +8210,7 @@ function loadKmChart(force){
     renderKmVol();
     renderKmTech();
     renderKmFund(sym);
-  }).catch(()=>{ if(!force){ const use=(Array.isArray(cache)&&cache.length)?cache:null; if(use&&kmSym===sym){ kmWaitLc(8000).then(()=>{ kmRenderChart(use, sym); renderKmVol(); renderKmTech(); }); } } });
+  }).catch(()=>{ if(!force){ const use=(Array.isArray(cache)&&cache.length)?cache:null; if(use&&kmSym===sym){ let d=use; if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} } kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); }); } } });
 }
 document.getElementById('klineModalClose').addEventListener('click',closeKmModal);
 (function(){
