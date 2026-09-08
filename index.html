@@ -2117,7 +2117,7 @@ async function fetchFundFlow(syms, force){
     for(const it of diff){
       const sym=symBySec.get((it.f13||0)+'.'+it.f12);
       if(!sym||typeof it.f62!=='number') continue;
-      out[sym]={main:it.f62, xl:typeof it.f66==='number'?it.f66:0};
+      out[sym]={main:it.f62, xl:typeof it.f66==='number'?it.f66:0, dl:typeof it.f72==='number'?it.f72:0};
     }
     return out;
   }catch(e){
@@ -2131,13 +2131,13 @@ async function fetchFundFlow(syms, force){
       for(const it of diff){
         const sym=symBySec.get((it.f13||0)+'.'+it.f12);
         if(!sym||typeof it.f62!=='number') continue;
-        out[sym]={main:it.f62, xl:typeof it.f66==='number'?it.f66:0};
+        out[sym]={main:it.f62, xl:typeof it.f66==='number'?it.f66:0, dl:typeof it.f72==='number'?it.f72:0};
       }
       return out;
     }catch(e2){ console.error(e2); return {}; }
   }finally{ fundFetching=false; }
 }
-/* 弹窗暗盘资金：拉取每日 超大单净流入(f56=每日暗盘资金) 历史（旧→新），带 10 分钟缓存 */
+/* 弹窗暗盘资金：拉取每日 超大单净流入(f56=每日暗盘资金) + 大单净流入(f55=游资) 历史（旧→新），带 10 分钟缓存 */
 async function fetchKmFundDays(sym){
   const now=Date.now();
   const c=kmFundCache[sym];
@@ -2146,12 +2146,12 @@ async function fetchKmFundDays(sym){
   const hosts=['push2his.eastmoney.com','push2delay.eastmoney.com'];
   for(const host of hosts){
     try{
-      const url='https://'+host+'/api/qt/stock/fflow/daykline/get?lmt=20&klt=101&secid='+secid+'&fields1=f1,f2,f3,f7&fields2=f51,f52,f56&ut=b2884a393a59ad64002292a3e90d46a5';
+      const url='https://'+host+'/api/qt/stock/fflow/daykline/get?lmt=20&klt=101&secid='+secid+'&fields1=f1,f2,f3,f7&fields2=f51,f52,f55,f56&ut=b2884a393a59ad64002292a3e90d46a5';
       const res=await fetch(url);
       const j=await res.json();
       const kl=(j&&j.data&&j.data.klines)||[];
       if(!kl.length) continue;
-      const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], main:+p[1], xl:+p[2]}; });
+      const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], main:+p[1], dl:+p[2], xl:+p[3]}; });
       kmFundCache[sym]={ts:now, days};
       _fundHistAdd(sym, days.map(d=>({date:d.date, dark:d.xl, main:d.main})));
       return days;
@@ -8350,7 +8350,22 @@ function kmRenderChart(data, sym){
   const W=Math.max(60, d.length-125);
   sig.buys.forEach(i=>{ if(i>=W) markers.push({time:times[i], position:'belowBar', color:'#ff3355', shape:'arrowUp', text:'买', size:1}); });
   sig.sells.forEach(i=>{ if(i>=W) markers.push({time:times[i], position:'aboveBar', color:'#00ff88', shape:'arrowDown', text:'卖', size:1}); });
-  try{ candle.setMarkers(markers); }catch(e){}
+  /* 机构+游资资金共振标注：当日 超大单净流入(机构,f56历史/f66实时)>0 且 大单净流入(游资,f55历史/f72实时)>0 → 紫色圆点"机游" */
+  const resoFor=()=>{ const out=[]; const kc2=kmFundCache&&kmFundCache[kmSym]; const kd2=(kc2&&kc2.days)||[];
+    if(!kd2.length) return out;
+    const fmap={}; kd2.forEach(x=>{ if(x&&x.date) fmap[x.date]=x; });
+    let todayStr=''; try{ const dt2=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); todayStr=dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-'+String(dt2.getDate()).padStart(2,'0'); }catch(e){}
+    const fl=fundFlow&&fundFlow[kmSym];
+    d.forEach((x,i)=>{ const key=String(times[i]); const f=fmap[key]; if(!f) return;
+      const xl=Number.isFinite(+f.xl)?+f.xl : (fl&&key===todayStr&&Number.isFinite(+fl.xl)? +fl.xl:0);
+      const dl=Number.isFinite(+f.dl)?+f.dl : (fl&&key===todayStr&&Number.isFinite(+fl.dl)? +fl.dl:0);
+      if(i>=W && xl>0 && dl>0) out.push({time:times[i], position:'aboveBar', color:'#c084fc', shape:'circle', text:'机游', size:1});
+    }); return out; };
+  const applyMk=()=>{ try{ candle.setMarkers(markers.concat(resoFor())); }catch(e){} };
+  applyMk();
+  if(!(kmFundCache[sym]&&kmFundCache[sym].days&&kmFundCache[sym].days.length)){
+    fetchKmFundDays(sym).then(days=>{ if(sym!==kmSym || !days) return; applyMk(); }).catch(()=>{});
+  }
 kmRenderMainInds(d, ch);
     if(kmSyncFrom==null || kmSyncTo==null){
       const n=d.length;
