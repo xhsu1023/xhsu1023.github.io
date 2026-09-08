@@ -135,7 +135,7 @@ let usCache={ts:0, list:null};
 async function fetchUsTop10(){
   if(usCache.list && Date.now()-usCache.ts<600000) return usCache.list;   // 美股收盘行情极少变动，10分钟缓存
   const secs=Object.keys(US_MAP).filter(k=>US_MAP[k]&&US_MAP[k].mkt).map(k=>US_MAP[k].mkt+'.'+k).join(',');
-  const url='https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&secids='+secs+'&fields=f2,f3,f12,f13,f14';
+  const url='https://push2delay.eastmoney.com/api/qt/ulist.np/get?fltt=2&invt=2&secids='+secs+'&fields=f2,f3,f12,f13,f14';
   const j=JSON.parse(decodeText(await (await fetch(url)).arrayBuffer()));
   const arr=(j&&j.data&&j.data.diff)||[];
   const list=arr.map(x=>({
