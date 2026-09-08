@@ -2159,14 +2159,16 @@ function _renderKmBars(box, t, rows, label){
     } else {
       const d2=kmTechData()||base;
       times=d2.map(x=>_kmDt(x));
-      el._n=times.length;
       const dates=d2.map(x=>x.date);
       const idxMap={} ; dates.forEach((d,i)=>{ idxMap[d]=i; });
       vals=new Array(dates.length).fill(null);
-      sorted.forEach(d=>{ if(idxMap[d.date]!=null) vals[idxMap[d.date]]=d.xl; });
-      if(!vals.some(v=>v!=null)){ // 日期未匹配 → 靠右对齐，最新数据贴K线最新日
-        for(let i=0;i<sorted.length;i++){ const ix=dates.length-sorted.length+i; if(ix>=0) vals[ix]=sorted[i].xl; }
+      const unmatched=[];
+      sorted.forEach(d=>{ if(idxMap[d.date]!=null) vals[idxMap[d.date]]=d.xl; else unmatched.push(d); });
+      if(unmatched.length){ /* 未匹配日期（如盘中今日/退市日）右对齐追加，保证不丢任何一根柱 */
+        unmatched.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+        unmatched.forEach(d=>{ times.push(_kmTs(d.date)); vals.push(d.xl); });
       }
+      el._n=times.length;
     }
     const ch=_kmNewChart(el); if(!ch) return;
     if(d1Mode) ch._noSync=true;
@@ -2206,7 +2208,8 @@ function renderKmFund(sym){
     if(rv!=null){ try{ fundFlow[sym]=fundFlow[sym]||{}; fundFlow[sym].xl=rv; }catch(e){} _fundHistAdd(sym,[{date:todayStr, dark:rv}]); }
     /* 近一月归档（本地+云端）为底，接口历史覆盖同日期；实时覆盖今日 */
     const map={};
-    const feed=(list)=>{ (list||[]).forEach(d=>{ if(d.date && Number.isFinite(+d.xl)) map[d.date]=+d.xl; }); };
+    /* 归档优先取暗盘(dark/xl)；归档仅含主力(main)时回退用主力当作柱子值，保证昨天/历史柱不因接口被拦而消失 */
+    const feed=(list)=>{ (list||[]).forEach(d=>{ if(!d||!d.date) return; const v=Number.isFinite(+d.xl)? +d.xl : (Number.isFinite(+d.dark)? +d.dark : (Number.isFinite(+d.main)? +d.main : NaN)); if(Number.isFinite(v)) map[d.date]=v; }); };
     feed(_fundHistDays(sym));
     feed(days0);
     if(rv!=null) map[todayStr]=rv;
