@@ -2166,7 +2166,7 @@ function _renderKmBars(box, t, rows, label){
       sorted.forEach(d=>{ if(idxMap[d.date]!=null) vals[idxMap[d.date]]=d.xl; else unmatched.push(d); });
       if(unmatched.length){ /* 未匹配日期（如盘中今日/退市日）右对齐追加，保证不丢任何一根柱 */
         unmatched.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-        unmatched.forEach(d=>{ times.push(_kmTs(d.date)); vals.push(d.xl); });
+        unmatched.forEach(d=>{ const tm=/^\d{4}-\d{2}-\d{2}$/.test(d.date)? d.date : _kmTs(d.date); times.push(tm); vals.push(d.xl); });
       }
       el._n=times.length;
     }
@@ -8195,10 +8195,13 @@ function loadKmChart(force){
   }
   fetchKline(sym, period, count).then(async data=>{
     if(sym!==kmSym) return;
-    if(data&&data.length){ try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=data; }catch(e){} }
+    /* 日K：sina 收盘前不含今日 → 用实时行情补出今日柱写入缓存，保证 Vol/副图/资金监控在开盘前/午休也能显示今日 */
+    let store=data;
+    if(kmRange==='day' && data && data.length){ try{ const live=_liveCandles(data, quotes[sym]); if(live) store=live; }catch(e){} }
+    if(store&&store.length){ try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=store; }catch(e){} }
     await kmWaitLc(8000);
     if(sym!==kmSym) return;
-    kmRenderChart(data, sym);
+    kmRenderChart(store, sym);
     renderKmVol();
     renderKmTech();
     renderKmFund(sym);
