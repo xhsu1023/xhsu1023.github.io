@@ -2068,11 +2068,12 @@ function emSecid(sym){
 /* 批量实时资金流（东方财富 ulist，含 CORS 头）：
    f62=主力净流入, f66=超大单净流入(暗盘资金), f72=大单净流入，单位:元 */
 let lastFundFetch=0, fundFetching=false;
-async function fetchFundFlow(syms){
+async function fetchFundFlow(syms, force){
   if(!syms.length) return {};
-  // 节流：5 秒内有并发在途/刚拉过则跳过（init 多处并发触发+10s 轮询去重，避免突发）
+  // 节流：5 秒内有并发在途/刚拉过则跳过（init 多处并发触发+10s 轮询去重，避免突发）；
+  // force=true（弹窗 30s 周期）跳过该节流，保证盘中资金监控能拿到最新值
   const now=Date.now();
-  if(fundFetching || now-lastFundFetch<5000) return {};
+  if((!force) && (fundFetching || now-lastFundFetch<5000)) return {};
   fundFetching=true;
   lastFundFetch=now;
   const symBySec=new Map(syms.map(s=>[emSecid(s),s]));
@@ -2200,7 +2201,7 @@ function renderKmFund(sym){
   };
   // 并发取：历史 + 实时
   const pDays=fetchKmFundDays(sym).catch(()=>null);
-  const pRt=realtime()!=null? Promise.resolve(realtime()) : fetchFundFlow([sym]).then(fl=>(fl&&fl[sym]&&Number.isFinite(+fl[sym].xl)? +fl[sym].xl : null)).catch(()=>null);
+  const pRt=realtime()!=null? Promise.resolve(realtime()) : fetchFundFlow([sym], true).then(fl=>(fl&&fl[sym]&&Number.isFinite(+fl[sym].xl)? +fl[sym].xl : null)).catch(()=>null);
   Promise.all([pDays, pRt]).then(([days0, rv])=>{
     if(rv!=null){ try{ fundFlow[sym]=fundFlow[sym]||{}; fundFlow[sym].xl=rv; }catch(e){} _fundHistAdd(sym,[{date:todayStr, dark:rv}]); }
     /* 近一月归档（本地+云端）为底，接口历史覆盖同日期；实时覆盖今日 */
@@ -7086,7 +7087,7 @@ function _kmLiveTick(){
   /* 顶部报价条（实时价/涨跌/成交额） */
   fetchQuotes([sym]).then(qs=>{ if(sym===kmSym && qs && qs[sym]){ quotes[sym]=qs[sym]; kmRenderQuoteBar(); } }).catch(()=>{});
   /* 资金监控：今日柱取最新实时资金流（历史栏继续吃 10min 日线缓存） */
-  fetchFundFlow([sym]).then(fl=>{
+  fetchFundFlow([sym], true).then(fl=>{
     if(sym!==kmSym) return;
     if(fl && fl[sym]) fundFlow[sym]=fl[sym];
     renderKmFund(sym);
@@ -7126,6 +7127,8 @@ function _kmLiveTick(){
       const live=_liveCandles(data, quotes[sym]); const d=live||data;
       const mainEl=document.getElementById('kmChart'); if(!mainEl) return;
       mainEl._data=d; mainEl._n=d.length;
+      // 关键：把最新K线写回缓存，renderKmVol/renderKmTech 从 kmTechData() 读同一份，量图与副图才能实时更新
+      try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=d; }catch(e){}
       if(mainEl._candS){
         const times=d.map(x=>_kmDt(x));
         mainEl._candS.setData(d.map((x,i)=>({time:times[i], open:x.o, high:x.h, low:x.l, close:x.c})));
