@@ -2116,7 +2116,7 @@ function _renderKmBars(box, t, rows, label){
       sorted.forEach(d=>{ if(idxMap[d.date]!=null) vals[idxMap[d.date]]=d.xl; else unmatched.push(d); });
       if(unmatched.length){ /* 鏈尮閰嶆棩鏈燂紙濡傜洏涓粖鏃?閫€甯傛棩锛夊彸瀵归綈杩藉姞锛屼繚璇佷笉涓换浣曚竴鏍规煴 */
         unmatched.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-        unmatched.forEach(d=>{ times.push(_kmTs(d.date)); vals.push(d.xl); });
+        unmatched.forEach(d=>{ const tm=/^\d{4}-\d{2}-\d{2}$/.test(d.date)? d.date : _kmTs(d.date); times.push(tm); vals.push(d.xl); });
       }
       el._n=times.length;
     }
@@ -7820,10 +7820,13 @@ function loadKmChart(force){
   }
   fetchKline(sym, period, count).then(async data=>{
     if(sym!==kmSym) return;
-    if(data&&data.length){ try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=data; }catch(e){} }
+    /* 鏃锛歴ina 鏀剁洏鍓嶄笉鍚粖鏃?鈫?鐢ㄥ疄鏃惰鎯呰ˉ鍑轰粖鏃ユ煴鍐欏叆缂撳瓨锛屼繚璇?Vol/鍓浘/璧勯噾鐩戞帶鍦ㄥ紑鐩樺墠/鍗堜紤涔熻兘鏄剧ず浠婃棩 */
+    let store=data;
+    if(kmRange==='day' && data && data.length){ try{ const live=_liveCandles(data, quotes[sym]); if(live) store=live; }catch(e){} }
+    if(store&&store.length){ try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=store; }catch(e){} }
     await kmWaitLc(8000);
     if(sym!==kmSym) return;
-    kmRenderChart(data, sym);
+    kmRenderChart(store, sym);
     renderKmVol();
     renderKmTech();
     renderKmFund(sym);
