@@ -8344,7 +8344,7 @@ function renderKmRemindList(){
   }).join('');
   tb.querySelectorAll('.rm-remind').forEach(b=>b.addEventListener('click',e=>{
     const i=+e.currentTarget.dataset.i; if(!(i>=0&&i<kmReminds.length)) return;
-    kmReminds.splice(i,1); saveKmReminds(); kmUpdCnt(); renderKmRemindList();
+    kmReminds.splice(i,1); saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite();
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
@@ -8352,7 +8352,7 @@ document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 document.getElementById('kmRemindClear').addEventListener('click',()=>{
   if(!kmReminds.length) return;
-  if(confirm('确认清空全部买卖提醒记录？')){ kmReminds=[]; kmUnread=0; saveKmReminds(); kmUpdCnt(); renderKmRemindList(); }
+  if(confirm('确认清空全部买卖提醒记录？')){ kmReminds=[]; kmUnread=0; saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite(); }
 });
 loadKmReminds(); kmUpdCnt();
 
@@ -9032,6 +9032,28 @@ function _cloudKmTick(force){
   if(!_cloudEnabled() || _cloudKmBusy || _cloudKmTimer) return;
   _cloudKmForce=!!force;
   _cloudKmTimer=setTimeout(()=>{ _cloudKmTimer=null; _cloudKmPush(); }, force?800:2500);
+}
+/* 强制覆盖写：不先合并远端（用于清空/删除提醒，避免云端旧记录被合并回本地而“删不掉”） */
+function _cloudKmPushOverwrite(){
+  if(!_cloudEnabled() || _cloudKmBusy) return Promise.resolve();
+  _cloudKmBusy=true;
+  const payload=JSON.stringify({t:Date.now(), r:kmReminds});
+  const content=btoa(unescape(encodeURIComponent(payload)));
+  const doPut=()=>{
+    const p={message:'kmremind', content:content};
+    if(_cloudKmSha) p.sha=_cloudKmSha;
+    return _cloudApi('PUT','/contents/km_remind.json',p).then(r=>{
+      _cloudKmSha=(r.json && r.json.content) ? r.json.content.sha : null;
+    }).catch(e=>{
+      if(e.code===409 || e.code===412 || e.code===422){ _cloudKmSha=null; _cloudKmBusy=false; return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return _cloudKmPushOverwrite(); }).catch(()=>{ _cloudKmBusy=false; }); }
+      _cloudKmBusy=false;
+    });
+  };
+  if(_cloudKmSha) return doPut();
+  return _cloudApi('GET','/contents/km_remind.json').then(r=>{ _cloudKmSha=r.json.sha; return doPut(); }).catch(e=>{
+    if(e.code===404 || e.code===409 || e.code===422){ _cloudKmSha=null; return doPut(); }
+    _cloudKmBusy=false;
+  });
 }
 ['saveWatch','saveAddedExt','savePinned','saveBak'].forEach(function(name){
   const orig=window[name];
