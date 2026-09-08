@@ -8374,6 +8374,8 @@ function kmRenderChart(data, sym){
   }
   const live=_liveCandles(data, quotes[sym]); const d=live||data;
   el._data=d; el._n=d.length;
+  el._todyReso=null;   // 重置今日实时判定缓存（防切股残留）
+  el._resoYz=false;
   if(kmChart){ try{ kmChart.remove(); }catch(e){} kmChart=null; }
   el.innerHTML='';
   const ch=_kmNewChart(el); if(!ch) return;
@@ -8406,18 +8408,25 @@ function kmRenderChart(data, sym){
   const resoFor=()=>{ const out=[]; const kd2=(kmFundCache&&kmFundCache[kmSym]&&kmFundCache[kmSym].days)||[]; const yz=(kmYzhuCache&&kmYzhuCache[kmSym]&&kmYzhuCache[kmSym].map)||{};
     let todayStr=''; try{ const dt2=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); todayStr=dt2.getFullYear()+'-'+String(dt2.getMonth()+1).padStart(2,'0')+'-'+String(dt2.getDate()).padStart(2,'0'); }catch(e){}
     const fl=fundFlow&&fundFlow[kmSym];
+    let todayCache=(el._todyReso&&(el._todyReso.ji||el._todyReso.jio))?el._todyReso:null;   // 上次有效的今日判定（防瞬时数据清空标注）
     const hasYz=kd2.length>0 || Object.keys(yz).length>0;
-    d.forEach((x,i)=>{ const key=String(times[i]); const rec=yz[key];
+    d.forEach((x,i)=>{ const key=String(times[i]); const rec0=yz[key];
       let ji=0,jio=0,ya=0,yo=0;
-      if(rec){ ji=rec.ji||0; jio=rec.jio||0; ya=rec.ya||0; yo=rec.yo||0; }
-      /* 今日实时柱（盘中）：无龙虎榜当日数据时用实时资金流方向识别 */
+      if(rec0){ ji=rec0.ji||0; jio=rec0.jio||0; ya=rec0.ya||0; yo=rec0.yo||0; }
+      /* 今日实时柱（盘中）：无龙虎榜当日时用实时资金流方向识别；数据缺失/为零时沿用上次判定 */
       const isToday=(key===todayStr);
-      if(isToday && (!rec || ji===0&&ya===0) && fl && Number.isFinite(+fl.xl)&&Number.isFinite(+fl.dl)){
-        const inXl=+fl.xl>0, inDl=+fl.dl>0;
-        if(inXl&&inDl){ ji++; ya++; }            // 机构+游资 均流入
-        else if(!inXl&&!inDl){ jio++; yo++; }    // 机构+游资 均流出
-        else if(inXl&&!inDl){ ji++; }            // 仅机构流入
-        else { jio++; }                          // 仅机构流出
+      if(isToday && (!rec0 || ji===0&&ya===0)){
+        let tr=null;
+        if(fl && Number.isFinite(+fl.xl)&&Number.isFinite(+fl.dl) && (Math.abs(+fl.xl)+Math.abs(+fl.dl))>0){
+          const inXl=+fl.xl>0, inDl=+fl.dl>0;
+          tr={ji:0,jio:0,ya:0,yo:0};
+          if(inXl&&inDl){ tr.ji++; tr.ya++; }            // 机构+游资 均流入
+          else if(!inXl&&!inDl){ tr.jio++; tr.yo++; }    // 机构+游资 均流出
+          else if(inXl&&!inDl){ tr.ji++; }               // 仅机构流入
+          else { tr.jio++; }                             // 仅机构流出
+          el._todyReso=tr;                               // 有有效实时数据 → 更新缓存
+        } else if(todayCache){ tr=todayCache; }          // 无有效数据 → 沿用上次判定，避免标注闪没
+        if(tr){ ji=tr.ji; jio=tr.jio; ya=tr.ya; yo=tr.yo; }
       }
       if(i<W) return;
       /* 机构+游资 共振：同向（均流入 或 均流出）→ 标注 */
