@@ -7898,6 +7898,18 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
                     && dif!=null&&dea!=null&&dif>dea&&dif>0
                     && dev20Pct<=60 && notAdrift
                     && (r==null||r<=92) && (kd.j[i]==null||kd.j[i]<=120);
+    /* ——C17「资金上攻·放量涨5柱」（用户规则 2026-09-08新增）——
+       今日涨幅>5% 且 主力资金与暗盘(超大单)资金明显流入→ 资金驱动型上攻买入。
+       仅判定当前实时柱（i===n-1，fundFlow 仅含当日实时资金）；历史K线标记跳过资金检查。
+       "明显流入"=主力净流入>0 且 暗盘(超大单)净流入>0。 */
+    const fl17=fundFlow&&fundFlow[sym]?fundFlow[sym]:null;
+    const isLatest17=(i===n-1);
+    const mainIn17=fl17&&typeof fl17.main==='number'&&fl17.main>0;
+    const xlIn17=fl17&&typeof fl17.xl==='number'&&fl17.xl>0;
+    const abnIn17=isLatest17?(mainIn17&&xlIn17):false;   // 双资金明显流入（仅今日实时判定）
+    const c17_fundpush = isLatest17 && chgNow>5 && upBar && notAdrift
+                      && abnIn17
+                      && (r==null||(r>=40&&r<=92)) && (kd.j[i]==null||kd.j[i]<=120);
     /* ——C14「回踩10日线·K线上穿5日线·温和放量」（用户规则）——
        回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
        量能较昨日温和放大(1~4倍)、MACD dif>dea → 回踩10线后放量上攻日买入。 */
@@ -7932,6 +7944,7 @@ addB(cPriceAbove10_5,3.0,'回踩20上穿5/10');       // C13：回踩20日线后
 addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K线上穿5日线+温量，单键可触发
     addB(c15_buynow,3.0,'连跌首阳穿5');             // C15：连续下跌后首次上穿5日线+站稳红柱+主力流入，单因子可触发
     addB(c16_strong,3.0,'强势突破');                 // C16：强势股放量主升突破前高，单因子可触发
+    addB(c17_fundpush,3.0,'资金上攻');                 // C17：今日涨>5%+主力&暗盘双资金流入，单因子可触发
     addB(f.triple_cross,3.2,'三金叉');
     addB(lowDead?false:f.lowbase_launch,3.0,'低位启动');
     addB(f.macd_cross&&(f.deep_oversold||(rP!=null&&r6[i]!=null&&rP<=30&&r6[i]>rP)),3.0,'超跌金叉');
@@ -7947,7 +7960,7 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     const pat=kmCandles(d, i);
     const patConfB=pat.b.length>0&&Math.max.apply(null,pat.b.map(x=>x.w))>=2.6;
     const bKeySet=bKeys.length;
-    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
+    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='资金上攻'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
     /* ——AI四因子 末根置信加成—— 模型存在时，仅对"最后一根K线"(实时决策)按 AI4 买/卖分加减：
        与规则共振(买分≥60 或 卖分≥60)时，把 buyOk/sellOk 判定所需强度放宽 0.5；强反向则收紧。 */
     let ai4b=0, ai4s=0;
