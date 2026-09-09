@@ -1210,12 +1210,28 @@ function sntEndOfNth(startStr, N){
   while(n<N){ d++; const dim=new Date(y,m-1,d).getDate(); if(d>dim){ d=1; m++; if(m>12){m=1;y++;} } if(sntIsTrade(y,m,d)) n++; }
   return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
 }
+/* snt 触发数据内存缓存：sym -> {res, ts}；盘中5分钟、收盘后1小时生效 */
+const sntDCache={}, SNT_DC_TTL=5*60*1000;
+function sntKline(sym){
+  /* 优先复用页面已有日K缓存，避免重复JSONP */
+  const c=klineCache[sym]&&Array.isArray(klineCache[sym].day)?klineCache[sym].day:null;
+  if(c&&c.length>=12) return c.length?c:null;
+  const r=rowKline[sym];
+  if(r&&r.length>=12) return r;
+  return null;
+}
 /* 计算触发数据：普通=最近 SNT_DEV3(3) 日逐日偏离值累计；严重=最近 10 个交易日区间偏离值。
    返回 {d3cum, d10dev, date, level, label}；level: 3=严重150%, 2=严重100%, 1=普通(±20%), 0=未触发 */
 async function sntDevCum(sym){
+  const now=Date.now();
+  const hit=sntDCache[sym];
+  const inSession=(()=>{ const h=new Date().getHours(); return h>=9&&h<15; })();
+  if(hit && now-hit.ts<(inSession?SNT_DC_TTL:60*60*1000)) return hit.res;
   const idx=sntBoardIdx(sym);
-  const [ks,ix]=await Promise.all([getKlines(sym,'day',40), getKlines(idx,'day',40)]);
-  if(!ks||!ix||ks.length<12||ix.length<12) return null;
+  let ks=sntKline(sym);
+  let ix=sntKline(idx);
+  if(!ks||!ix){ const [a,b]=await Promise.all([ks?null:getKlines(sym,'day',40), ix?null:getKlines(idx,'day',40)]); if(ks){}else if(a&&a.length) ks=a; if(ix){}else if(b&&b.length) ix=b; }
+  if(!ks||!ix||ks.length<12||ix.length<12){ sntDCache[sym]={res:null, ts:now}; return null; }
   const byD=new Map(ix.map(x=>[String(x.date).slice(0,10), x.c]));
   const devs=[];
   for(let i=1;i<ks.length;i++){
@@ -1244,7 +1260,9 @@ async function sntDevCum(sym){
     else if(d10dev>=SNT_LV2){ level=2; label='10天涨幅偏离值超100%'; }
   }
   if(level===0 && Math.abs(d3cum)>=SNT_LV1){ level=1; label='重点监控'; }
-  return {d3cum, d10dev, date, start10:startDate, level, label};
+  const res={d3cum, d10dev, date, start10:startDate, level, label};
+  sntDCache[sym]={res, ts:now};
+  return res;
 }
 /* 触发判定+状态更新：返回状态变化描述或 null */
 async function sntEval(sym){
@@ -1274,22 +1292,36 @@ function sntMark(sym){
   const lvTxt=name+' '+String(m.start).slice(5)+' ~ '+String(m.end).slice(5);
   return `<span class="abn-dot ${m.level>=2?'red':'yel'}" data-tip="${lvTxt}（触发日）"></span>`;
 }
-/* 懒加载：对当前列表可见股票执行触发判定（带并行上限） */
+/* 懒加载：对当前列表可见股票执行触发判定。数据级缓存(sntDCache)命中且新鲜则跳过；
+   串行改小批并发(每批6)提速，避免一次性 60 个 JSONP 平铺。仅状态发生变更才触发重绘 */
 let sntBusy={};
 async function kickSnt(){
   sntLoad();
   const syms=currentListSyms();
   if(!syms.length) return;
   await sntEnsureCal();
-  const todo=syms.filter(s=>!sntBusy[s]).slice(0,30);
+  const nowC=Date.now();
+  const fresh=s=>(sntDCache[s] && (nowC-(sntDCache[s].ts||0) < 5*60*1000));
+  let todo=syms.filter(s=>!sntBusy[s]&&!fresh(s)).slice(0,30);
   if(!todo.length) return;
   const run=async()=>{
-    for(const s of todo){
-      sntBusy[s]=true;
-      try{ await sntEval(s); }catch(e){}
-      finally{ delete sntBusy[s]; }
+    let changed=false;
+    for(let k=0;k<todo.length;k+=6){
+      const chunk=todo.slice(k,k+6);
+      await Promise.all(chunk.map(async s=>{
+        sntBusy[s]=true;
+        try{
+          const before=sntM[s]&&(sntM[s].active+'|'+sntM[s].start+'|'+sntM[s].end);
+          await sntEval(s);
+          const after=sntM[s]&&(sntM[s].active+'|'+sntM[s].start+'|'+sntM[s].end);
+          if(before!==after) changed=true;
+        }catch(e){}
+        finally{ delete sntBusy[s]; }
+      }));
+      const tail=todo.slice(k+6);
+      if(tail.length && tail.some(s=>!fresh(s))) await new Promise(r=>setTimeout(r,200)); // 错峰
     }
-    renderHot();
+    if(changed) renderHot();
   };
   run().catch(()=>{});
 }
