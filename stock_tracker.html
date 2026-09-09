@@ -1306,8 +1306,135 @@ function abnDot(sym){
 }
 
 /* =====================================================================
- * 技术指标
+ * 交易所重点监控（自算偏离值触发）—— 2026-09-09 新增
+ * 触发：连续 N(3) 个交易日收盘涨跌幅偏离值累计 ≥ 阈值
+ *       偏离值 = 个股当日涨跌幅 − 对应指数当日涨跌幅（板块折算：上证综指/深证成指/创业板指/科创50）
+ *       普通异动阈值 = 20%，严重异动阈值 = 30%（ |devCum| 与绝对值同口径，反向-20%/-30% 亦可触发）
+ * 监控期：开始日 = 触发日（交易所纳入当日）；结束日 = 开始日起第 10 个交易日（含开始日，周末/节假日跳过）
+ * 顺延：监控期内再次触发 → 重新从再次触发日顺延 10 个交易日
+ * 解除：到期日过后无新触发 → 自动解除（结束日锁定）
+ * 存储：localStorage stock_pulse_abn_mon_v1：{ sym: {start:'YYYY-MM-DD', end:'YYYY-MM-DD', level:1|2, active:bool, lastTrigger:'YYYY-MM-DD', ts} }
  * ===================================================================== */
+const SNT_KEY='stock_pulse_abn_mon_v1', SNT_N=10, SNT_DEV3=3, SNT_LV1=20, SNT_LV2=30;
+let sntM={};            // 内存态
+let sntIdxTradeDays=null, sntIdxTs=0;   // 交易日历
+const SNT_HOLIDAYS=new Set(['2026-09-25','2026-10-01','2026-10-02','2026-10-05','2026-10-06','2026-10-07','2026-10-08','2027-01-01']); // 近似休市（中秋/国庆/元旦；待交易所年度安排正式核对）
+function sntBoardIdx(sym){
+  if(/^(sh600|sh601|sh603|sh605)/.test(sym)) return 'sh000001';
+  if(/^(sz000|sz001|sz002|sz003)/.test(sym)) return 'sz399001';
+  if(/^(sz300|sz301)/.test(sym)) return 'sz399006';
+  if(/^sh688/.test(sym)) return 'sh000688';
+  if(/^bj/.test(sym)) return '899050';
+  return 'sh000001';
+}
+function sntLoad(){ try{ const r=localStorage.getItem(SNT_KEY); if(r){ const o=JSON.parse(r); if(o&&typeof o==='object') sntM=o; } }catch(e){} }
+function sntSave(){ try{ localStorage.setItem(SNT_KEY, JSON.stringify(sntM)); }catch(e){} }
+/* 交易日历：从指数K线抽取日期；不足时用「工作日跳过周末+休市表」推算未来 */
+async function sntEnsureCal(){
+  const now=Date.now();
+  if(sntIdxTradeDays && now-sntIdxTs<30*60*1000) return;
+  try{
+    const kl=await getKlines('sh000001','day',260)||[];
+    if(kl&&kl.length) sntIdxTradeDays=kl.map(x=>String(x.date).slice(0,10));
+  }catch(e){}
+  sntIdxTs=now;
+}
+function sntIsTrade(y,m,d){
+  const w=new Date(y,m-1,d).getDay();
+  if(w===0||w===6) return false;
+  const s=y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  return !SNT_HOLIDAYS.has(s);
+}
+/* 从 start(含)数第 N 个交易日（自然日）。历史用K线日历保证精确；未来用规则推算 */
+function sntEndOfNth(startStr, N){
+  const p=String(startStr).split('-').map(Number);
+  if(p.length!==3) return startStr;
+  let y=p[0],m=p[1],d=p[2];
+  const ds=new Date(y,m-1,d); if(ds.getDay()===0||ds.getDay()===6){ ds.setDate(ds.getDate()- (ds.getDay()===6?1:2)); y=ds.getFullYear(); m=ds.getMonth()+1; d=ds.getDate(); }
+  /* 优先用K线日历（覆盖历史+近今日） */
+  if(sntIdxTradeDays){
+    const cur=y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const i=sntIdxTradeDays.indexOf(cur);
+    if(i>=0 && i+N-1<sntIdxTradeDays.length) return sntIdxTradeDays[i+N-1];
+    /* 起点在日历内但N超出末尾 → 从末尾继续用规则推剩余 */
+    let remain=(i>=0)?(N-(sntIdxTradeDays.length-i)):(N-1);
+    if(i>=0){ y=parseInt(sntIdxTradeDays[sntIdxTradeDays.length-1].slice(0,4),10); m=parseInt(sntIdxTradeDays[sntIdxTradeDays.length-1].slice(5,7),10); d=parseInt(sntIdxTradeDays[sntIdxTradeDays.length-1].slice(8,10),10); }
+    while(remain>0){ d++; const dim=new Date(y,m-1,d).getDate(); if(d>dim){ d=1; m++; if(m>12){m=1;y++;} } if(sntIsTrade(y,m,d)) remain--; }
+    return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  }
+  /* 无K线日历：纯规则 */
+  let n=1;
+  while(n<N){ d++; const dim=new Date(y,m-1,d).getDate(); if(d>dim){ d=1; m++; if(m>12){m=1;y++;} } if(sntIsTrade(y,m,d)) n++; }
+  return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+/* 计算最近 SNT_DEV3 日偏离值累计（用股/指数日K收盘，逐日 dev=个股涨幅-指数涨幅，累计）。返回 {cum, level, date} */
+async function sntDevCum(sym){
+  const idx=sntBoardIdx(sym);
+  const [ks,ix]=await Promise.all([getKlines(sym,'day',40), getKlines(idx,'day',40)]);
+  if(!ks||!ix||ks.length<SNT_DEV3+1||ix.length<SNT_DEV3+1) return null;
+  const byD=new Map(ix.map(x=>[String(x.date).slice(0,10), x.c]));
+  const devs=[];
+  for(let i=ks.length-SNT_DEV3;i<ks.length;i++){
+    const st=ks[i], pv=ks[i-1];
+    const d=String(st.date).slice(0,10);
+    const ic=byD.get(d), ipc=byD.get(String(pv.date).slice(0,10));
+    if(ic==null||ipc==null||!ipc||!pv.c) continue;
+    const chg=(st.c/pv.c-1)*100;
+    const ichg=(ic/ipc-1)*100;
+    devs.push({date:d, dev:chg-ichg});
+  }
+  if(devs.length<SNT_DEV3) return null;
+  const cum=devs.reduce((a,b)=>a+b.dev,0);
+  const date=devs[devs.length-1].date;
+  return {cum, date, level: Math.abs(cum)>=SNT_LV2?2:(Math.abs(cum)>=SNT_LV1?1:0)};
+}
+/* 触发判定+状态更新：返回状态变化描述或 null */
+async function sntEval(sym){
+  const r=await sntDevCum(sym);
+  if(!r) return null;
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const cur=sntM[sym];
+  /* 到期解除检查 */
+  if(cur&&cur.active&&todayStr>cur.end){ cur.active=false; cur.endsLocked=cur.end; sntSave(); }
+  if(!r.level) return {ok:true, touched:false, level:0, date:r.date, cum:+r.cum.toFixed(2)};
+  /* 重复判定窗口：触发日必须为最新交易日（避免冷启动复读历史异动） */
+  if(r.date!==todayStr) return {ok:true, touched:false, level:r.level, date:r.date, cum:+r.cum.toFixed(2), stale:true};
+  if(!cur){ sntM[sym]={start:r.date,end:sntEndOfNth(r.date,SNT_N),level:r.level,active:true,lastTrigger:r.date,ts:Date.now()}; }
+  else{ cur.start=r.date; cur.end=sntEndOfNth(r.date,SNT_N); cur.level=r.level; cur.active=true; cur.lastTrigger=r.date; cur.ts=Date.now(); }
+  sntSave();
+  return {ok:true, touched:true, level:r.level, date:r.date, cum:+r.cum.toFixed(2), start:sntM[sym].start, end:sntM[sym].end};
+}
+/* 列表渲染用：返回监控标签/圆点 HTML */
+function sntMark(sym){
+  const m=sntM[sym];
+  if(!m||!m.active||!m.end) return '';
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayStr=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  if(todayStr>m.end) return '';
+  const lvTxt=(m.level===2?'严重异动':'重点监控')+' '+String(m.start).slice(5)+' ~ '+String(m.end).slice(5);
+  const per=Math.max(0,Math.min(100,Math.round((todayStr-m.start)/(m.end-m.start)*100)));
+  return `<span class="abn-dot ${m.level===2?'red':'yel'}" data-tip="${lvTxt}（触发日）"></span>`;
+}
+/* 懒加载：对当前列表可见股票执行触发判定（带并行上限） */
+let sntBusy={};
+async function kickSnt(){
+  sntLoad();
+  const syms=currentListSyms();
+  if(!syms.length) return;
+  await sntEnsureCal();
+  const todo=syms.filter(s=>!sntBusy[s]).slice(0,30);
+  if(!todo.length) return;
+  const run=async()=>{
+    for(const s of todo){
+      sntBusy[s]=true;
+      try{ await sntEval(s); }catch(e){}
+      finally{ delete sntBusy[s]; }
+    }
+    renderHot();
+  };
+  run().catch(()=>{});
+}
 function sma(arr, n){ const r=[]; for(let i=0;i<arr.length;i++){ if(i<n-1){r.push(null);continue;} let s=0; for(let j=i-n+1;j<=i;j++)s+=arr[j]; r.push(s/n);} return r; }
 function ema(arr, n){ const r=[]; const k=2/(n+1); let prev=arr[0]; for(let i=0;i<arr.length;i++){ const v=(i===0)?arr[0]:arr[i]*k+prev*(1-k); r.push(v); prev=v;} return r; }
 
@@ -1757,7 +1884,7 @@ function renderHot(tb){
 /* 渲染完成后懒加载概念板块（每次重绘后调用，含防抖） */
 function afterListRender(){
   clearTimeout(afterListRender._t);
-  afterListRender._t=setTimeout(()=>{ kickSectors(); kickAbn(); },120);
+  afterListRender._t=setTimeout(()=>{ kickSectors(); kickAbn(); kickSnt(); },120);
 }
 /* 同时刷新内嵌列表与（若打开的）弹窗列表 */
 function refreshPoolAll(){
@@ -1976,13 +2103,13 @@ function renderWatch(tb){
     const dragHandle=`<span class="drag-h" title="拖拽调整顺序" draggable="false">⠿</span>`;
     const actCell=`<span class="op-cell">${bakBtn(r.sym)}<button class="btn btn-sm pin-btn" data-sym="${r.sym}" style="padding:1px 7px;font-size:0.45rem;${pin?'border-color:var(--cyan);color:var(--cyan)':''}" title="${pin?'取消置顶':'置顶'}">${pin?'📌 取消置顶':'📌 置顶'}</button><button class="btn btn-red btn-sm rm-btn" data-sym="${r.sym}" style="padding:1px 7px;font-size:0.45rem">移除</button></span>`;
     if(!q) return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}${pin?' pin-row':''}" draggable="true" style="opacity:0.55">
-      <td>${dragHandle}${r.sym}${abnDot(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
+      <td>${dragHandle}${r.sym}${abnDot(r.sym)}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
       <td colspan="12" style="font-size:0.72rem;color:var(--text)">等待行情…</td>
       ${conceptCell(r.sym)}
       <td>${actCell}</td></tr>`;
     const up=q.change>=0; const st=strength(q);
     return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}${pin?' pin-row':''}" draggable="true">
-      <td>${dragHandle}<span style="font-weight:600;color:var(--text-bright)">${pin?'📌 ':''}${q.name||r.sym}</span>${abnDot(r.sym)}</td>
+      <td>${dragHandle}<span style="font-weight:600;color:var(--text-bright)">${pin?'📌 ':''}${q.name||r.sym}</span>${abnDot(r.sym)}${sntMark(r.sym)}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -2015,7 +2142,7 @@ function renderHotList(tb){
     const q=quotes[r.sym]||null;
     if(!q) return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" style="opacity:0.55">
       <td style="font-weight:700;color:var(--orange)">#${r.rk}</td>
-      <td style="font-weight:600;color:var(--orange)">${r.sym}${abnDot(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
+      <td style="font-weight:600;color:var(--orange)">${r.sym}${abnDot(r.sym)}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
       <td colspan="12" style="color:var(--text)">待行情</td>
       <td>${rankChg(r)}</td>
       ${conceptCell(r.sym)}
@@ -2024,7 +2151,7 @@ function renderHotList(tb){
     const added=isDefault(r.sym)||watchList.includes(r.sym);
     return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}">
       <td style="font-weight:700;color:var(--orange)">#${r.rk}</td>
-      <td style="font-weight:600;color:var(--text-bright)">${q.name||r.sym}${abnDot(r.sym)}${added?'<span class="tg tg-p" style="margin-left:4px">自选</span>':''}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${q.name||r.sym}${abnDot(r.sym)}${sntMark(r.sym)}${added?'<span class="tg tg-p" style="margin-left:4px">自选</span>':''}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -2618,13 +2745,13 @@ function renderBacList(tb){
     const q=quotes[r]||null;
     const actCell=`<span class="op-cell">${watchBtn(r)}<button class="btn btn-red btn-sm bak-rm" data-sym="${r}" style="padding:1px 7px;font-size:0.45rem">移除</button></span>`;
     if(!q) return `<tr data-sym="${r}" class="${selected===r?'sel':''}" draggable="true" style="opacity:0.55">
-      <td style="font-weight:600;color:var(--text-bright)">${r}${abnDot(r)}</td><td style="font-size:0.72rem">${r}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${r}${abnDot(r)}${sntMark(r)}</td><td style="font-size:0.72rem">${r}</td>
       <td colspan="13" style="font-size:0.72rem;color:var(--text)">等待行情…</td>
       ${conceptCell(r)}
       <td>${actCell}</td></tr>`;
     const up=q.change>=0;
     return `<tr data-sym="${r}" class="${selected===r?'sel':''}" draggable="true">
-      <td style="font-weight:600;color:var(--text-bright)">${q.name||r}${abnDot(r)}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${q.name||r}${abnDot(r)}${sntMark(r)}</td>
       <td style="font-size:0.72rem">${r}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -9483,6 +9610,7 @@ function init(){
   loadPinned();
   loadBak();
   abnLoad();
+  sntLoad();
   /* 首次使用（本机无任何本地数据）：把默认股池预置进「自选」与「备选股」，保证各列表首次即可见 */
   try{
     if(!localStorage.getItem(STK_KEY) && !localStorage.getItem(ADD_KEY) && !localStorage.getItem(BAK_KEY)){
