@@ -488,7 +488,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         <button class="btn btn-sm" id="zaoSweepBtn" style="border-color:var(--gold);color:var(--gold)" title="竞价战法：AI 已学习实战竞价框架（看环境/板块/位置/竞价量价/形态/风险）→ 本地规则引擎全市场评分 + 可选 AI 复核">🌅 早选 · 竞价挑强</button>
         <button class="btn btn-sm" id="zaoLearnBtn" style="border-color:#00e5ff;color:#00e5ff" title="AI 学习竞价战法：把实战竞价框架喂给大模型，归纳可执行规则与因子权重并缓存 → 应用于早选评分">🧠 AI学习竞价</button>
         <button class="btn btn-sm" id="dixiSweepBtn" style="border-color:var(--purple);color:var(--purple)" title="缩量回调低吸：日线趋势向上+缩量回调15%+日内跌幅1-4%+主力净流入为正+支撑不破">💧 低吸战法</button>
-        <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+回调后首次上涨+主力净流入（不考虑缩量）">💪 强势回调低吸</button>
+        <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+RSI6较昨日回落转头+主力与暗盘(超大单)均净流入（不考虑缩量）">💪 强势回调低吸</button>
         <button class="btn btn-sm" id="longtouSweepBtn" style="border-color:#ff5252;color:#ff5252" title="龙头回调低吸：板块龙头+回调8-22%+缩量+MA支撑+日内-7%~-3%+缩量承接">🐉 龙头战法</button>
         <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
         <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：先扫 A股全市场(5000+)，用 K线图买入逻辑预筛触发买点的个股，再综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率">🔮 预测</button>
@@ -4056,7 +4056,10 @@ function qiEval(sym, x, q, k){
   if(!(price>ma5)) return null;
   // ② 今日回踩5日线：今日K最低点触及/跌破今日MA5，且现价已拉回MA5上方（低吸于回踩当日）
   if(!(lows[i]<=ma5)) return null;
-  return { sym, name:x?x.name:null, zts, ma5, touched:(lows[i]<=ma5), lowToday:lows[i], price };
+  // ③ RSI6 已转头向下（较昨日回落，确认超买动能衰减→回踩低吸而非追涨）
+  const r6a=rsi(closes,6);
+  if(!(r6a[i]!=null&&r6a[i-1]!=null&&r6a[i]<r6a[i-1])) return null;
+  return { sym, name:x?x.name:null, zts, ma5, touched:(lows[i]<=ma5), lowToday:lows[i], price, r6:r6a[i] };
 }
 async function runQiangleScan(force){
   const st=document.getElementById('recState');
@@ -4094,7 +4097,9 @@ async function runQiangleScan(force){
       if(!e) continue;
       const fl=fundFlow[p.sym];
       const main=fl&&typeof fl.main==='number'?fl.main:null;
+      const xl=fl&&typeof fl.xl==='number'?fl.xl:null;
       if(!(typeof main==='number'&&main>0)) continue;          // ③ 主力净流入>0
+      if(!(typeof xl==='number'&&xl>0)) continue;              // ③b 暗盘(超大单)净流入>0 不流出
       let score=60;
       score+=Math.min(20, e.zts*2);                            // 涨停越多越强势
       const price=e.price||((q&&typeof q.price==='number')?q.price:(rowKline[p.sym]&&rowKline[p.sym].length?rowKline[p.sym][rowKline[p.sym].length-1].c:0));
@@ -4106,7 +4111,7 @@ async function runQiangleScan(force){
     }
     results.sort((a,b)=>b.score-a.score);
     qiangleResults=results; qiangleTS=Date.now(); qiangleBusy=false;
-    if(st) st.textContent=results.length?('强势回调低吸命中 '+results.length+' 只（热门板块+涨停>1+今日回踩5日线拉回+主力净流入，不考虑缩量）'):'强势回调低吸：候选均未同时满足 热门板块/涨停>1/今日回踩5日线拉回/主力净流入 条件';
+    if(st) st.textContent=results.length?('强势回调低吸命中 '+results.length+' 只（热门板块+涨停>1+今日回踩5日线拉回+主力/暗盘双流入+RSI回落，不考虑缩量）'):'强势回调低吸：候选均未同时满足 热门板块/涨停>1/今日回踩5日线拉回/主力与暗盘净流入/RSI回落 条件';
     renderQiangle();
   }catch(e){
     qiangleBusy=false;
@@ -4128,7 +4133,7 @@ function renderQiangle(tb){
     const q=r.q;
     const actCell=`<span class="op-cell">${bakBtn(r.sym)}${watchBtn(r.sym)}</span>`;
     const up=(q&&q.change>=0);
-    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="强势回调低吸命中：热门板块 / 近10日涨停${r.zts}次 / 今日回踩5日线低吸 / 主力净流入">
+    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="强势回调低吸命中：热门板块 / 近10日涨停${r.zts}次 / 今日回踩5日线低吸 / 主力+暗盘净流入 / RSI回落">
       <td style="font-weight:700;color:#ffd27d">#${i+1}</td>
       <td style="font-weight:600;color:var(--text-bright)">${r.name||(q&&q.name)||r.sym}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
@@ -4144,7 +4149,7 @@ function renderQiangle(tb){
     </tr>`;
   }).join('');
   bindRowClicks(tb);
-  if(st) st.textContent='强势回调低吸命中：'+rows.length+' 只（热门板块+涨停>1+今日回踩5日线拉回+主力净流入）';
+  if(st) st.textContent='强势回调低吸命中：'+rows.length+' 只（热门板块+涨停>1+今日回踩5日线拉回+主力/暗盘双流入+RSI回落）';
 }
 /* =====================================================================
  * 龙头战法：板块龙头回调低吸（AI筛选龙头身份 + 量化入场条件）
@@ -8107,24 +8112,29 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     const c17_fundpush = isLatest17 && chgNow>5 && upBar && notAdrift
                       && abnIn17
                       && (r==null||(r>=40&&r<=92)) && (kd.j[i]==null||kd.j[i]<=120);
-    /* ——C18「回踩MA5低吸·突破启动」（用户规则 2026-09-08新增）——
+    /* ——C18「回踩MA5低吸·突破启动」（用户规则 2026-09-08新增，2026-09-09加固）——
        强势股（近10日涨停>1 强势背景）今日盘中回踩/下穿5日线后立即拉回站上MA5
-       （今日最低≤MA5 且 收盘/现价站稳MA5上方→回踩当日低吸），主力资金净流入>0
-       （仅今日实时判定，历史K线跳过资金检查）→ 回踩启动日买入。
+       （今日最低≤MA5 且 收盘/现价站稳MA5上方→回踩当日低吸），且：
+       ① 主力资金净流入>0 且 暗盘(超大单)净流入>0（资金真金不流出，仅今日实时判定；
+          历史K线跳过资金检查；若超大单/暗盘在流出说明主力在借拉高派发，不打点）
+       ② RSI6 已转头向下（今日 RSI6 < 昨日 RSI6，确认超买动能回落、回踩而非追涨）→ 回踩启动日买入。
        覆盖远东股份2026-05-28：5/28盘中低点20.72回踩MA5(21.19)后收21.91站上MA5整理后
        放量突破启动；vs C2需5/10金叉前夜粘合、C7需回踩贴身20日线、C14需昨收仍在MA5之下
        首日上穿(05-28前日20.70已回踩后站稳)等错位 → 日K最低触MA5再拉回的场景统一覆盖。
-       与强势回调低吸按钮共用同套判定（涨停>1+今日回踩MA5+资金流入，不考虑缩量）。 */
+       与强势回调低吸按钮共用同套判定（涨停>1+今日回踩MA5+主力/暗盘双流入+RSI回落，不考虑缩量）。 */
     let qiZts=0;
     for(let j=Math.max(1,i-10);j<i;j++){ const pj=closes[j-1]; if(pj!=null&&closes[j]>pj&&((closes[j]/pj-1)*100)>=9.5) qiZts++; }
     const fl18=fundFlow&&fundFlow[sym]?fundFlow[sym]:null;
     const isLatest18=(i===n-1);
     const mainIn18=fl18&&typeof fl18.main==='number'&&fl18.main>0;
+    const xlIn18=fl18&&typeof fl18.xl==='number'&&fl18.xl>0;             // 暗盘(超大单)净流入>0
+    const rsiTurnDown18 = r6[i-1]==null||r6[i]==null||r6[i]<r6[i-1];      // RSI6 往下转头
     const c18_qilow = qiZts>1
                    && d[i].l!=null && ma5i!=null && d[i].l<=ma5i          // 今日盘中回踩/下穿5日线
                    && closes[i]>ma5i                                      // 收盘/现价拉回MA5上方
                    && upBar && notAdrift
-                   && (!isLatest18 || mainIn18)                           // 实时柱需主力净流入>0
+                   && (!isLatest18 || (mainIn18&&xlIn18))                 // 实时柱需主力+暗盘双净流入
+                   && rsiTurnDown18                                       // RSI6 已转头向下
                    && (r==null||(r>=30&&r<=95)) && (kd.j[i]==null||kd.j[i]<=120);
     /* ——C14「回踩10日线·K线上穿5日线·温和放量」（用户规则）——
        回踩贴身10日线后反转：今日收盘站上 MA5（昨日收盘仍位于 MA5 之下），涨幅>3%、
