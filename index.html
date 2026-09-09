@@ -1174,12 +1174,13 @@ function abnHideAfter(endMMDD, pubYmd){
   while(n>0){ d.setDate(d.getDate()+1); const w=d.getDay(); if(w!==0&&w!==6) n--; }
   return d.getTime();
 }
-/* 该条异动是否仍应显示（今天 <= 异动期最后一天+3交易日） */
+/* 该条异动是否仍应显示：今天 < 异动期最后一天+3交易日；结束观察日当天起即隐藏（不再提醒），
+   新异动公告刷新缓存后重新进入显示期，直到新异动结束 */
 function abnActive(a){
   if(!a||!a.end||!a.pub) return false;
   const lim=abnHideAfter(a.end, a.pub);
   const now=new Date(); now.setHours(0,0,0,0);
-  return now.getTime()<=lim;
+  return now.getTime()<lim;
 }
 /* 解析公告正文中的异动时间段：取“偏离值累计/异常波动”等关键词附近的所有日期，取最早~最晚 */
 function abnParsePeriod(body){
@@ -1290,7 +1291,8 @@ function kickAbn(){
   };
   run().catch(()=>{});
 }
-/* 列表名称旁的异动圆点：异动期最后一天+3交易日后自动隐藏；若后续再次触发异动(新公告)则重新显示到新异动期结束 */
+/* 列表名称旁的异动圆点：异动期最后一天+3交易日观察截止日当天起自动隐藏（不再提醒）；
+   若后续再次触发异动(新公告)则重新显示到新异动期结束 */
 function abnDot(sym){
   const a=abnCache[sym];
   if(!a||!a.level||!a.end) return '';
