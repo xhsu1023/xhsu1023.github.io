@@ -1275,6 +1275,7 @@ async function abnFetchOne(sym){
 }
 /* 懒加载：仅当前列表可见股票，未缓存/过期1小时 的拉取异动公告 */
 function kickAbn(){
+  return; // 异动监控已结束（2026-09-09）：不再拉取公告异动数据，保留实现备日后恢复
   const syms=currentListSyms();
   if(!syms.length) return;
   const todo=syms.filter(s=>!abnFetching[s] && (!abnCache[s] || (Date.now()-abnCache[s].ts)>ABN_TTL || abnCache[s].err)).slice(0,20);
@@ -1290,8 +1291,9 @@ function kickAbn(){
   };
   run().catch(()=>{});
 }
-/* 列表名称旁的异动圆点：异动期结束后隐藏 */
+/* 列表名称旁的异动圆点：异动期结束后隐藏（异动监控已结束 2026-09-09：固定不显示） */
 function abnDot(sym){
+  return '';
   const a=abnCache[sym];
   if(!a||!a.level||!a.end) return '';
   if(!abnActive(a)) return '';
