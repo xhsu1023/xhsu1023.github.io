@@ -1256,9 +1256,11 @@ async function abnFetchOne(sym){
     const anns=list.filter(x=>x&&x.title&&/异常波动|严重异常/.test(x.title));
     if(!anns.length){ abnCache[sym]={level:0, none:true, ts:Date.now()}; abnSave(); return; }
     // 取最新的公告
-    anns.sort((a,b)=>String(b.notice_date||'').localeCompare(String(a.notice_date||'')));
+    anns.sort((a,b)=>String(b.display_time||b.notice_date||'').localeCompare(String(a.display_time||a.notice_date||'')));
     const h=anns[0];
-    const pub=(h.notice_date||'').slice(0,10);
+    // 用实际发布时间(display_time) 而非披露日(notice_date)：盘后公告(如21:48)的异动期截至披露前一日收盘，
+    // 若用披露日(次日)作为基准 + 日K已含当日柱，会把异动期顺延/含进当天，导致结束时间与观察期错位
+    const pub=(h.display_time||h.notice_date||'').slice(0,10);
     let start=null,end=null,approx=false;
     const j2=await abnJson('https://np-cnotice-stock.eastmoney.com/api/content/ann?art_code='+h.art_code+'&client_source=web&page_index=1', 3);
     const body=(j2&&j2.data&&j2.data.notice_content)||'';
@@ -1299,7 +1301,7 @@ function abnDot(sym){
   if(!abnActive(a)) return '';
   const lv=a.level===2?'严重异动':'普通异动';
   const approx=a.approx?'约 ':'';
-  const tip=lv+' '+approx+(a.start||'')+' ~ '+approx+(a.end||'')+'';
+  const tip=lv+' '+approx+(a.start||'')+' ~ '+approx+(a.end||'')+(a.pub?' · 公告'+a.pub.slice(5):'');
   return `<span class="abn-dot ${a.level===2?'red':'yel'}" data-tip="${tip}"></span>`;
 }
 
