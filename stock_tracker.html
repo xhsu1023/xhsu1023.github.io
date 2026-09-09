@@ -1146,166 +1146,6 @@ async function kickSectors(){
 }
 
 /* =====================================================================
- * 个股异动公告：从东方财富公告接口抓取“异常波动/严重异常波动”公告，
- * 解析公告正文中的异动时间段，在列表名称旁显示圆点
- *  （黄色=普通异动，红色=严重异动；鼠标悬浮显示该次异动时间段；
- *    异动期+3个交易日后圆点自动隐藏）
- * ===================================================================== */
-let abnCache={};      // sym -> {level(1普通/2严重), start:'MM-DD', end:'MM-DD', title, pub, approx(正文解析失败、日K反推时为true), ts}
-let abnFetching={};   // sym -> in-flight 标记
-const ABN_KEY='stock_pulse_abn_v1';
-const ABN_TTL=3600000; // 1小时命中缓存
-function abnLoad(){
-  try{
-    const r=localStorage.getItem(ABN_KEY); if(r){ const o=JSON.parse(r); if(o&&typeof o==='object') abnCache=o; }
-  }catch(e){}
-}
-function abnSave(){ try{ localStorage.setItem(ABN_KEY, JSON.stringify(abnCache)); }catch(e){} }
-/* 计算异动期最后一天 +3个交易日后的日期（跳过周末，粗近似） */
-function abnHideAfter(endMMDD, pubYmd){
-  const base=(pubYmd||'').slice(0,4)||String(new Date().getFullYear());
-  const mm=parseInt(endMMDD.slice(0,2),10), dd=parseInt(endMMDD.slice(3,5),10);
-  let y=parseInt(base,10);
-  // 异动期可能跨年（如12月底公告、1月异动），用公告年作为基准；若异动月>公告月+2 视为前一年
-  const pm=parseInt((pubYmd||'').slice(5,7),10);
-  if(!isNaN(pm) && mm-pm>2) y=y-1;
-  const d=new Date(y, mm-1, dd);
-  let n=3;
-  while(n>0){ d.setDate(d.getDate()+1); const w=d.getDay(); if(w!==0&&w!==6) n--; }
-  return d.getTime();
-}
-/* 该条异动是否仍应显示：今天 < 异动期最后一天+3交易日；结束观察日当天起即隐藏（不再提醒），
-   新异动公告刷新缓存后重新进入显示期，直到新异动结束 */
-function abnActive(a){
-  if(!a||!a.end||!a.pub) return false;
-  const lim=abnHideAfter(a.end, a.pub);
-  const now=new Date(); now.setHours(0,0,0,0);
-  return now.getTime()<lim;
-}
-/* 解析公告正文中的异动时间段：取“偏离值累计/异常波动”等关键词附近的所有日期，取最早~最晚 */
-function abnParsePeriod(body){
-  const text=String(body||'').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,'');
-  let anchor=-1;
-  for(const kw of ['偏离值累计','偏离值','异常波动','严重异常波动','连续三个交易日','连续两个交易日']){
-    const i=text.indexOf(kw);
-    if(i>=0){ anchor=i; break; }
-  }
-  if(anchor<0) return null;
-  const seg=text.slice(Math.max(0,anchor-150), anchor+80);
-  const dates=[];
-  const re=/(?:(\d{4})\s*年)?\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/g;
-  let m, curYear=null;
-  const fallbackY=new Date().getFullYear();
-  while((m=re.exec(seg))!==null){
-    const y=m[1]?parseInt(m[1],10):(curYear||fallbackY);
-    curYear=y;
-    const mo=parseInt(m[2],10), dd=parseInt(m[3],10);
-    if(mo>=1&&mo<=12&&dd>=1&&dd<=31) dates.push(y*10000+mo*100+dd);
-  }
-  if(!dates.length) return null;
-  dates.sort((a,b)=>a-b);
-  const p=n=>String(n).padStart(2,'0');
-  const mk=v=>p(Math.floor((v%10000)/100))+'-'+p(v%100);
-  return { start:mk(dates[0]), end:mk(dates[dates.length-1]) };
-}
-/* 公告标题 → 等级：含“严重”=严重异动(红)，否则普通异动(黄) */
-function abnLevel(title){
-  const t=String(title||'');
-  if(/严重.*(异常波动|异动|波动)|(异常波动|异动|波动).*严重/.test(t)) return 2;
-  return 1;
-}
-/* 公告正文解析失败（东财正文接口被 WAF 拦）时的回退：用日K反推异动期。
- * 规则：异动期为公告日（或其前最近交易日）往前共3个交易日；
- *  K线失败再退化为纯日历工作日落回。返回 {start:'MM-DD', end:'MM-DD'} */
-async function abnFallbackPeriod(sym, noticeYmd){
-  if(!noticeYmd) return null;
-  let out=null;
-  try{
-    const k=await getKlines(sym,'day',60)||[];
-    let idx=-1;
-    for(let i=0;i<k.length;i++){ if(String(k[i].date)<=noticeYmd) idx=i; else break; }
-    if(idx>=2) out={ start:String(k[idx-2].date).slice(5), end:String(k[idx].date).slice(5) };
-  }catch(e){}
-  if(out) return out;
-  const d=new Date(parseInt(noticeYmd.slice(0,4),10), parseInt(noticeYmd.slice(5,7),10)-1, parseInt(noticeYmd.slice(8,10),10));
-  while(d.getDay()===0||d.getDay()===6) d.setDate(d.getDate()-1);
-  const end=new Date(d);
-  for(let n=2;n>0;){ d.setDate(d.getDate()-1); if(d.getDay()!==0&&d.getDay()!==6) n--; }
-  const p=n=>String(n).padStart(2,'0');
-  return { start:p(d.getMonth()+1)+'-'+p(d.getDate()), end:p(end.getMonth()+1)+'-'+p(end.getDate()) };
-}
-/* 带重试的 JSON 拉取（东财公告接口偶发 WAF 拦截，重试2次并错峰） */
-async function abnJson(url, tries){
-  for(let i=0;i<(tries||3);i++){
-    try{
-      const res=await fetch(url,{referrerPolicy:'no-referrer'});
-      if(!res.ok){ await new Promise(r=>setTimeout(r,400)); continue; }
-      const txt=await res.text();
-      if(/[\u4e00-\u9fa5]{2,}/.test(txt)&&txt.indexOf('"data"')<0){ await new Promise(r=>setTimeout(r,400)); continue; } // WAF 返回的是 HTML，跳过
-      return JSON.parse(txt);
-    }catch(e){ await new Promise(r=>setTimeout(r,400)); }
-  }
-  return null;
-}
-/* 单只股票：查公告列表 → 找最新“异常波动”公告 → 拉正文解析异动时间段 */
-async function abnFetchOne(sym){
-  const code=sym.replace(/^(sh|sz|bj)/,'');
-  try{
-    const j=await abnJson('https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=8&page_index=1&ann_type=A&client_source=web&stock_list='+code, 3);
-    const list=(j&&j.data&&j.data.list)||[];
-    const anns=list.filter(x=>x&&x.title&&/异常波动|严重异常/.test(x.title));
-    if(!anns.length){ abnCache[sym]={level:0, none:true, ts:Date.now()}; abnSave(); return; }
-    // 取最新的公告
-    anns.sort((a,b)=>String(b.display_time||b.notice_date||'').localeCompare(String(a.display_time||a.notice_date||'')));
-    const h=anns[0];
-    // 用实际发布时间(display_time) 而非披露日(notice_date)：盘后公告(如21:48)的异动期截至披露前一日收盘，
-    // 若用披露日(次日)作为基准 + 日K已含当日柱，会把异动期顺延/含进当天，导致结束时间与观察期错位
-    const pub=(h.display_time||h.notice_date||'').slice(0,10);
-    let start=null,end=null,approx=false;
-    const j2=await abnJson('https://np-cnotice-stock.eastmoney.com/api/content/ann?art_code='+h.art_code+'&client_source=web&page_index=1', 3);
-    const body=(j2&&j2.data&&j2.data.notice_content)||'';
-    const p=abnParsePeriod(body);
-    if(p){ start=p.start; end=p.end; }
-    else{
-      // 正文解析失败（WAF）→ 用日K反推异动期
-      const fb=await abnFallbackPeriod(sym, pub);
-      if(fb){ start=fb.start; end=fb.end; approx=true; }
-    }
-    if(!start){ abnCache[sym]={level:0, none:true, ts:Date.now()}; abnSave(); return; } // 既解析不出正文也拿不到K线就不显示
-    abnCache[sym]={ level:abnLevel(h.title), start:start, end:end, title:h.title, pub:pub, approx:approx, ts:Date.now() };
-    abnSave();
-  }catch(e){}
-}
-/* 懒加载：仅当前列表可见股票，未缓存/过期1小时 的拉取异动公告 */
-function kickAbn(){
-  const syms=currentListSyms();
-  if(!syms.length) return;
-  const todo=syms.filter(s=>!abnFetching[s] && (!abnCache[s] || (Date.now()-abnCache[s].ts)>ABN_TTL || abnCache[s].err)).slice(0,20);
-  if(!todo.length) return;
-  const run=async()=>{
-    for(const s of todo){
-      abnFetching[s]=true;
-      try{ await abnFetchOne(s); }catch(e){}
-      finally{ delete abnFetching[s]; }
-      await new Promise(r=>setTimeout(r,150)); // 错峰，避免并发被 WAF 拦截
-    }
-    renderHot();
-  };
-  run().catch(()=>{});
-}
-/* 列表名称旁的异动圆点：异动期最后一天+3交易日观察截止日当天起自动隐藏（不再提醒）；
-   若后续再次触发异动(新公告)则重新显示到新异动期结束 */
-function abnDot(sym){
-  const a=abnCache[sym];
-  if(!a||!a.level||!a.end) return '';
-  if(!abnActive(a)) return '';
-  const lv=a.level===2?'严重异动':'普通异动';
-  const approx=a.approx?'约 ':'';
-  const tip=lv+' '+approx+(a.start||'')+' ~ '+approx+(a.end||'')+(a.pub?' · 公告'+a.pub.slice(5):'');
-  return `<span class="abn-dot ${a.level===2?'red':'yel'}" data-tip="${tip}"></span>`;
-}
-
-/* =====================================================================
  * 交易所重点监控（自算偏离值触发）—— 2026-09-09 新增
  * 触发：连续 N(3) 个交易日收盘涨跌幅偏离值累计 ≥ 阈值
  *       偏离值 = 个股当日涨跌幅 − 对应指数当日涨跌幅（板块折算：上证综指/深证成指/创业板指/科创50）
@@ -1884,7 +1724,7 @@ function renderHot(tb){
 /* 渲染完成后懒加载概念板块（每次重绘后调用，含防抖） */
 function afterListRender(){
   clearTimeout(afterListRender._t);
-  afterListRender._t=setTimeout(()=>{ kickSectors(); kickAbn(); kickSnt(); },120);
+  afterListRender._t=setTimeout(()=>{ kickSectors(); kickSnt(); },120);
 }
 /* 同时刷新内嵌列表与（若打开的）弹窗列表 */
 function refreshPoolAll(){
@@ -2103,13 +1943,13 @@ function renderWatch(tb){
     const dragHandle=`<span class="drag-h" title="拖拽调整顺序" draggable="false">⠿</span>`;
     const actCell=`<span class="op-cell">${bakBtn(r.sym)}<button class="btn btn-sm pin-btn" data-sym="${r.sym}" style="padding:1px 7px;font-size:0.45rem;${pin?'border-color:var(--cyan);color:var(--cyan)':''}" title="${pin?'取消置顶':'置顶'}">${pin?'📌 取消置顶':'📌 置顶'}</button><button class="btn btn-red btn-sm rm-btn" data-sym="${r.sym}" style="padding:1px 7px;font-size:0.45rem">移除</button></span>`;
     if(!q) return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}${pin?' pin-row':''}" draggable="true" style="opacity:0.55">
-      <td>${dragHandle}${r.sym}${abnDot(r.sym)}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
+      <td>${dragHandle}${r.sym}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
       <td colspan="12" style="font-size:0.72rem;color:var(--text)">等待行情…</td>
       ${conceptCell(r.sym)}
       <td>${actCell}</td></tr>`;
     const up=q.change>=0; const st=strength(q);
     return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}${pin?' pin-row':''}" draggable="true">
-      <td>${dragHandle}<span style="font-weight:600;color:var(--text-bright)">${pin?'📌 ':''}${q.name||r.sym}</span>${abnDot(r.sym)}${sntMark(r.sym)}</td>
+      <td>${dragHandle}<span style="font-weight:600;color:var(--text-bright)">${pin?'📌 ':''}${q.name||r.sym}</span>${sntMark(r.sym)}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -2142,7 +1982,7 @@ function renderHotList(tb){
     const q=quotes[r.sym]||null;
     if(!q) return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" style="opacity:0.55">
       <td style="font-weight:700;color:var(--orange)">#${r.rk}</td>
-      <td style="font-weight:600;color:var(--orange)">${r.sym}${abnDot(r.sym)}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
+      <td style="font-weight:600;color:var(--orange)">${r.sym}${sntMark(r.sym)}</td><td style="font-size:0.72rem">${r.sym}</td>
       <td colspan="12" style="color:var(--text)">待行情</td>
       <td>${rankChg(r)}</td>
       ${conceptCell(r.sym)}
@@ -2151,7 +1991,7 @@ function renderHotList(tb){
     const added=isDefault(r.sym)||watchList.includes(r.sym);
     return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}">
       <td style="font-weight:700;color:var(--orange)">#${r.rk}</td>
-      <td style="font-weight:600;color:var(--text-bright)">${q.name||r.sym}${abnDot(r.sym)}${sntMark(r.sym)}${added?'<span class="tg tg-p" style="margin-left:4px">自选</span>':''}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${q.name||r.sym}${sntMark(r.sym)}${added?'<span class="tg tg-p" style="margin-left:4px">自选</span>':''}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -2745,13 +2585,13 @@ function renderBacList(tb){
     const q=quotes[r]||null;
     const actCell=`<span class="op-cell">${watchBtn(r)}<button class="btn btn-red btn-sm bak-rm" data-sym="${r}" style="padding:1px 7px;font-size:0.45rem">移除</button></span>`;
     if(!q) return `<tr data-sym="${r}" class="${selected===r?'sel':''}" draggable="true" style="opacity:0.55">
-      <td style="font-weight:600;color:var(--text-bright)">${r}${abnDot(r)}${sntMark(r)}</td><td style="font-size:0.72rem">${r}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${r}${sntMark(r)}</td><td style="font-size:0.72rem">${r}</td>
       <td colspan="13" style="font-size:0.72rem;color:var(--text)">等待行情…</td>
       ${conceptCell(r)}
       <td>${actCell}</td></tr>`;
     const up=q.change>=0;
     return `<tr data-sym="${r}" class="${selected===r?'sel':''}" draggable="true">
-      <td style="font-weight:600;color:var(--text-bright)">${q.name||r}${abnDot(r)}${sntMark(r)}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${q.name||r}${sntMark(r)}</td>
       <td style="font-size:0.72rem">${r}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${rowChg({up,q})}</td>
@@ -9609,7 +9449,6 @@ function init(){
   loadAddedExt();
   loadPinned();
   loadBak();
-  abnLoad();
   sntLoad();
   /* 首次使用（本机无任何本地数据）：把默认股池预置进「自选」与「备选股」，保证各列表首次即可见 */
   try{
