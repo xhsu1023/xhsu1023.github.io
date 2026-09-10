@@ -9573,6 +9573,16 @@ function init(){
   fitViewport();
 }
 init();
+/* 外部页面（如隔夜美股映射页）通过 ?kline=sh600519 嵌入时自动打开同款K线弹窗 */
+(function(){
+  try{
+    const p=new URLSearchParams(location.search).get('kline');
+    if(!p) return;
+    const sym=decodeURIComponent(String(p)).trim();
+    if(!/^(sh|sz|bj)\d{6}$/i.test(sym)) return;
+    setTimeout(()=>{ try{ openKmModal(sym); }catch(e){ console.error(e); } }, 900);
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
