@@ -2720,7 +2720,8 @@ function _sigTxt(ls){
 function renderDipAdvice(results, scannedN){
   const adv=document.getElementById('dipAdvice');
   if(results.length){
-    const top=results[0], tq=quotes[top.sym]||top.q;
+    const buys=results.filter(r=>r.dir!=='S');                        // 最优只推荐买入（排除卖出信号）
+    const top=buys[0]||null, tq=top?(quotes[top.sym]||top.q):null;
     const nA=results.filter(r=>r.strategy==='多头初升放量').length;
     const nB=results.filter(r=>r.strategy==='多头强势背离').length;
     const nAI=results.filter(r=>r.src).length;
@@ -2729,9 +2730,10 @@ function renderDipAdvice(results, scannedN){
     const aiTxt=nAI?` ｜ <b style="color:#c084fc">AI 命中 ${nAI} 只</b>`:'';
     const oTxt=nO?` · <b style="color:var(--gold)">AI 精选 ${nO} 只</b>`:'';
     const bsTxt=(nBS+nSS)?` · <b style="color:var(--red)">买点 ${nBS} 只</b>/<b style="color:var(--green)">卖点 ${nSS} 只</b>`:'';
-    const src=top.src?top.src:'本地';
+    const src=top&&top.src?top.src:'本地';
+    const topTxt=top?`<span style="font-size:0.6rem"> ｜ 最优 </span><b style="color:var(--red)">${tq&&tq.name?tq.name:top.sym}</b><span style="font-size:0.6rem">（${top.strategy} · 强度 ${top.score}）</span>`:'';
     adv.style.display='';
-    adv.innerHTML=`<span style="font-size:0.6rem">${src} 量价战法扫描 ${scannedN} 只候选：</span><b style="color:var(--cyan)">多头初升放量 ${nA} 只</b><span style="font-size:0.6rem"> · </span><b style="color:var(--purple)">多头强势背离 ${nB} 只</b>${bsTxt}${oTxt}${aiTxt}<span style="font-size:0.6rem"> ｜ 最优 </span><b style="color:var(--red)">${tq&&tq.name?tq.name:top.sym}</b><span style="font-size:0.6rem">（${top.strategy} · 强度 ${top.score}）</span>`;
+    adv.innerHTML=`<span style="font-size:0.6rem">${src} 量价战法扫描 ${scannedN} 只候选：</span><b style="color:var(--cyan)">多头初升放量 ${nA} 只</b><span style="font-size:0.6rem"> · </span><b style="color:var(--purple)">多头强势背离 ${nB} 只</b>${bsTxt}${oTxt}${aiTxt}${topTxt}`;
   }else{ adv.style.display='none'; }
 }
 /* =====================================================================
