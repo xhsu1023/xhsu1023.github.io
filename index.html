@@ -490,7 +490,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         <button class="btn btn-sm" id="dixiSweepBtn" style="border-color:var(--purple);color:var(--purple)" title="缩量回调低吸：日线趋势向上+缩量回调15%+日内跌幅1-4%+主力净流入为正+支撑不破">💧 低吸战法</button>
         <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+RSI6较昨日回落转头+主力与暗盘(超大单)均净流入（不考虑缩量）">💪 强势回调低吸</button>
         <button class="btn btn-sm" id="longtouSweepBtn" style="border-color:#ff5252;color:#ff5252" title="龙头回调低吸：板块龙头+回调8-22%+缩量+MA支撑+日内-7%~-3%+缩量承接">🐉 龙头战法</button>
-        <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场低位(60日位置<45%)+距高点回撤>20%+启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+AI 标注未来事件与板块龙头 → 未启动前提前埋伏">🌀 潜伏</button>
+        <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场低位(60日位置<45%)+距高点回撤>20%+启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+AI 匹配未来7天大事件核心受益个股 → 事件兑现前提前埋伏">🌀 潜伏</button>
         <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
         <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：先扫 A股全市场(5000+)，用 K线图买入逻辑预筛触发买点的个股，再综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率">🔮 预测</button>
         <button class="btn btn-sm" id="ai4ScanBtn" style="border-color:#7c5cff;color:#a78bfa" title="AI 四因子选股：基本面+技术面+情绪面+消息面 逻辑回归模型扫描全市场，输出买/卖概率分（先点「🧠 训练AI4」积累模型）">🧠 AI四因子</button>
@@ -1703,7 +1703,7 @@ function headerFor(t){
   if(t==='dixi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="低吸综合评分 0-99">低吸评分</th><th title="今日量/昨日同时刻（<0.85 缩量15%+）">量比</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="支撑=max(昨收,MA20)，现价需在其上方">支撑</th><th title="较30日最低位置%">位置</th><th title="参考止盈区间">止盈</th><th title="参考止损">止损</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='qiangle') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="强势回调低吸评分 0-99">评分</th><th title="近10交易日涨停次数（>1 强势背景）">10日涨停</th><th title="今日最低 与 MA5/现价（今日低吸回踩拉回）">今低/MA5</th><th title="今日回踩MA5确认（今日最低触及或下穿5日线、现价拉回上方）">今日回踩</th><th title="当日主力净流入(万元)">主力净流入</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='longtou') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="龙头战法综合评分 0-99">龙头评分</th><th title="近期高点回调幅度（-8%~-22%为佳）">回调幅度</th><th title="回调期缩量（量缩率 0-1）">量缩率</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="有效支撑位 = max(MA5,MA10)">支撑</th><th title="是否出现大阴/跌停信号">风险信号</th><th title="AI 判定：板块龙头+主线有赚钱效应">AI判定</th><th title="所属概念板块">概念</th><th>操作</th>';
-  if(t==='qianfu') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="潜伏综合评分 0-99">潜伏评分</th><th title="60日相对位置%（<45 低位）">位置</th><th title="距60日高点回撤">距高点</th><th title="启动迹象：缩量止跌/温和放量/均线粘合/RSI回升/MACD多头">启动迹象</th><th title="当日主力净流入(万元)">主力净流入</th><th title="AI 标注未来1-3个月事件催化">事件催化</th><th title="AI 判定板块龙头">龙头</th><th title="所属概念板块">概念</th><th>操作</th>';
+  if(t==='qianfu') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="潜伏综合评分 0-99">潜伏评分</th><th title="60日相对位置%（<45 低位）">位置</th><th title="距60日高点回撤">距高点</th><th title="启动迹象：缩量止跌/温和放量/均线粘合/RSI回升/MACD多头">启动迹象</th><th title="当日主力净流入(万元)">主力净流入</th><th title="AI 匹配未来7天（MM-DD）大事件 → 核心受益个股">未来7天事件</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='rsi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="RSI&尾盘战法综合评分 0-99">评分</th><th title="RSI6 今日值：①近N日首次脱离30下方 ②30~50回调拐头">RSI6今</th><th title="当日涨幅%（尾盘规则①锁定 3%~5%）">涨幅</th><th title="当日量 / 近3日均量（规则④量比>1）">量比</th><th title="近30日内有无涨停（规则②）">30日涨停</th><th title="总市值（亿元，规则③<200亿）">市值(亿)</th><th title="尾盘规则⑥：14:30后创日内新高且回踩不破新高">尾盘新高</th><th title="RSI6 昨日值（情形②需今日>昨日 拐头向上）">RSI6昨</th><th title="只筛选换手率5%~10%（规则⑤）">换手</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='yuce') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI预测综合评分 0-99">预测分</th><th title="AI 预测次日方向：看多/看空">方向</th><th title="模型置信度 0-1">置信度</th><th title="量价/技术/资金/大盘板块等因子摘要">主要因子</th><th title="模型判断理由/操作建议">AI 判断</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='ai4') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI四因子买入分 0-99">买入分</th><th title="AI四因子卖出分 0-99">卖出分</th><th title="模型看多概率">概率</th><th title="判断：看多/看空/中性">方向</th><th title="主要驱动因子">因子</th><th title="所属概念板块">概念</th><th>操作</th>';
@@ -4113,17 +4113,18 @@ function _qfEval(p, k, q){
     main:(typeof fl.main==='number')?fl.main:null,
     take1:cur*1.2, take2:cur*1.3, stop:cur*0.92, q };
 }
-/* 潜伏 AI 标注：未来事件 + 板块龙头 */
+/* 潜伏 AI 匹配：未来7天大事件 → 核心受益个股 */
 function buildQianfuPrompt(results){
   const rows=results.slice(0,18).map(r=>{
     const sec=sectorCache[r.sym]&&sectorCache[r.sym].names;
     const sc=sec?sec.slice(0,3).join('/'):'--';
     return r.sym+' '+(r.name||'')+' 现价'+r.price.toFixed(2)+' 今日'+r.pct.toFixed(2)+'% 位置'+r.pos60+'% 距高点-'+r.drop60+'% 迹象:'+r.keys+' 板块:'+sc;
   }).join('\n');
-  return '以下候选均为 A股【低位 + 刚出现启动迹象】的个股（量价筛选：60日位置<45%、距60日高点回撤>20%、出现缩量止跌/温和放量/均线粘合/RSI回升等其一，今日未大涨）。请判断每只：\n'+
-    '1) leader：是否行业/板块龙头（市值地位、题材代表性、资金关注度）\n'+
-    '2) event：未来1~3个月可能兑现的事件催化（如业绩预增、政策落地、行业涨价、新品/重组/订单等）；无法确定给空字符串\n\n'+rows+
-    '\n\n仅输出 {"hits":[{"sym":"代码","leader":true或false,"event":"一句话事件"}]}，只从候选中选，不要输出其它内容。';
+  const d0s=new Date().toLocaleDateString('zh-CN');
+  const d1s=new Date(Date.now()+7*864e5).toLocaleDateString('zh-CN');
+  return '现在是北京时间 '+d0s+'。请列出【未来7天（'+d0s+' ~ '+d1s+'）】A股市场最可能驱动行情/点燃题材的【重大事件】，例如：重要财报披露或业绩预增、美联储议息与重要经济数据、国内月度经济数据、产业政策发布会、重大会议/展会、行业涨价、新品发布、重要解禁等；并【为每个事件匹配其核心受益/受影响个股】（A股，务必给出准确代码+名称+一句话受益逻辑）。\n'+
+    '优先从下方量价候选（已筛低位+启动迹象）中匹配，也允许补充候选之外你确知的龙头/核心股。候选如下：\n'+rows+
+    '\n\n仅输出 {"hits":[{"sym":"代码","date":"MM-DD","event":"事件一句话","core":true或false}]}，core 标注是否为事件核心受益股。只输出 JSON，不要输出其它内容。';
 }
 function runQianfuScan(force){
   const st=document.getElementById('recState');
@@ -4182,20 +4183,48 @@ function runQianfuScan(force){
         const names=sectorCache[r.sym]&&sectorCache[r.sym].names;
         if(names&&names.some(n=>hotNames.has(n))) r.score=Math.min(99,r.score+6);
       });
-      // 4) AI 标注：未来事件 + 行业龙头（可选，未配置 AI 则纯量价）
+      // 4) AI 匹配：未来7天大事件 → 核心受益个股（可选，未配置 AI 则纯量价）
       let aiMap=null;
       let cfg=llmCfg; const frm=aiCfgFromInputs(); if(frm) cfg=frm;
       if(cfg&&cfg.base&&cfg.model&&cfg.key&&results.length){
-        progress('AI 标注未来事件/龙头地位…');
+        progress('AI 匹配未来7天事件核心个股…');
         try{
           const ai=await callOpenAI(cfg, buildQianfuPrompt(results), 60000);
-          aiMap={}; (ai||[]).forEach(h=>{ if(h.sym) aiMap[h.sym]={leader:!!h.leader, event:h.event||''}; });
+          aiMap={}; (ai||[]).forEach(h=>{ if(h.sym) aiMap[h.sym]={event:h.event||'', date:h.date||'', core:!!h.core}; });
         }catch(e){}
       }
-      results.forEach(r=>{ const a=aiMap&&aiMap[r.sym]; if(a){ r.leader=!!a.leader; r.event=a.event; } });
-      results.sort((a,b)=>(b.leader?1:0)-(a.leader?1:0)||b.score-a.score);
+      // 命中量价候选的事件核心股 → 直接标注
+      results.forEach(r=>{ const a=aiMap&&aiMap[r.sym]; if(a){ r.event=a.event; r.date=a.date; r.core=!!a.core; } });
+      // AI 补充的事件核心股（不在量价候选内）→ 拉行情/日K 补入（事件股按事件定价，不强制低位）
+      if(aiMap){
+        const extra=[...new Set(Object.keys(aiMap).filter(s=>!results.some(r=>r.sym===s)&&/^(sh|sz|bj)\d{6}$/i.test(s)))].slice(0,12);
+        if(extra.length){
+          progress('核验事件核心个股行情（'+extra.length+' 只）…');
+          const missingQ=extra.filter(s=>!quotes[s]);
+          if(missingQ.length){ try{ const q=await fetchQuotes(missingQ); Object.assign(quotes,q); }catch(e){} }
+          await Promise.all(extra.map(s=>getKlines(s,'day',70).then(k=>{ if(k&&k.length) rowKline[s]=k; }).catch(()=>{})));
+          for(const s of extra){
+            const q=quotes[s]; if(!q||typeof q.price!=='number') continue;
+            const k=rowKline[s]; if(!k||k.length<40) continue;
+            const closes=k.map(v=>v.c), n=k.length, cur=closes[n-1];
+            if(!(cur>0)) continue;
+            const k60=k.slice(-60); const cHi=Math.max.apply(null,k60.map(v=>v.c)), cLo=Math.min.apply(null,k60.map(v=>v.c));
+            const pos60=(cHi>cLo)?(cur-cLo)/(cHi-cLo)*100:null;
+            const drop60=cHi>0?(cHi-cur)/cHi*100:null;
+            const sk=qfStartup(k).keys;
+            const fl=fundFlow[s];
+            results.push({ sym:s, name:q.name||s, price:q.price, pct:(typeof q.pct==='number'?q.pct:0),
+              pos60:pos60!=null?Math.round(pos60):null, drop60:drop60!=null?Math.round(drop60):null,
+              keys:(sk&&sk.length)?sk.join('+'):'--', score:60,
+              main:(fl&&typeof fl.main==='number')?fl.main:null,
+              evtOnly:true, event:aiMap[s].event, date:aiMap[s].date, core:!!aiMap[s].core, q });
+          }
+        }
+      }
+      // 列表优先级：事件核心股优先 → 再按评分
+      results.sort((a,b)=>(b.core||b.event?1:0)-(a.core||a.event?1:0)||b.score-a.score);
       qianfuResults=results.slice(0,20); qianfuTS=Date.now(); qianfuBusy=false;
-      if(st) st.textContent=qianfuResults.length?('潜伏战法命中 '+qianfuResults.length+' 只（全市场低位+启动迹象'+(aiMap?' · AI 标注事件/龙头':' · 纯量价')+'）'):'潜伏战法：无命中';
+      if(st) st.textContent=qianfuResults.length?('潜伏命中 '+qianfuResults.length+' 只（全市场低位+启动迹象'+(aiMap?' · AI 匹配未来7天事件':' · 纯量价')+'）'):'潜伏战法：无命中';
       renderQianfu();
     }catch(e){
       qianfuBusy=false;
@@ -4209,28 +4238,27 @@ function renderQianfu(tb){
   afterListRender();
   const st=document.getElementById('recState');
   if(!qianfuResults.length){
-    if(qianfuBusy){ tb.innerHTML='<tr><td colspan="14" class="emptys" style="padding:20px">正在扫描潜伏候选：全市场低位粗筛 → 日K计算启动迹象 → AI 标注事件/龙头…</td></tr>'; }
-    else{ tb.innerHTML='<tr><td colspan="14" class="emptys" style="padding:20px">暂无潜伏命中，点击「🌀 潜伏」开始扫描（低位+启动迹象，纯规则；AI 事件标注可选）</td></tr>'; }
+    if(qianfuBusy){ tb.innerHTML='<tr><td colspan="13" class="emptys" style="padding:20px">正在扫描潜伏候选：全市场低位粗筛 → 日K计算启动迹象 → AI 匹配未来7天事件核心个股…</td></tr>'; }
+    else{ tb.innerHTML='<tr><td colspan="13" class="emptys" style="padding:20px">暂无潜伏命中，点击「🌀 潜伏」开始扫描（低位+启动迹象，纯规则；AI 事件匹配可选）</td></tr>'; }
     return;
   }
   tb.innerHTML=qianfuResults.map((r,i)=>{
     const q=r.q; const up=q&&q.change>=0;
-    const ev=r.event?`<span style="color:var(--gold)">${esc(r.event)}</span>`:'--';
-    const lead=r.leader!==undefined?`<span class="tg ${r.leader?'tg-up':'tg-o'}">${r.leader?'龙头':'非龙头'}</span>`:'--';
+    const ev=r.event?`<span>${r.date?`<b style="color:#ff5252">${esc(r.date)}</b> `:''}<span style="color:var(--gold)">${esc(r.event)}</span></span>`:'--';
+    const evTag=r.core?'<span class="tg tg-up" style="margin-right:3px">🎯事件核心</span>':(r.evtOnly?'<span class="tg tg-o" style="margin-right:3px">事件股</span>':'');
     const actCell=`<span class="op-cell">${bakBtn(r.sym)}${watchBtn(r.sym)}</span>`;
-    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="60日位置${r.pos60}% · 距高点-${r.drop60}% · 启动迹象:${r.keys} · 止盈+20~30%/止损-8%">
+    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="60日位置${r.pos60=='--'?'--':r.pos60+'%'} · 距高点${r.drop60==null?'--':'-'+r.drop60+'%'} · 启动迹象:${r.keys} · 止盈+20~30%/止损-8%">
       <td style="font-weight:700;color:#00e5ff">#${i+1}</td>
       <td style="font-weight:600;color:var(--text-bright)">${r.name||(q&&q.name)||r.sym}</td>
       <td style="font-size:0.72rem">${r.sym}</td>
       <td class="${up?'red':'green'}" style="font-weight:600">${q?(q.price||r.price).toFixed(2):r.price.toFixed(2)}</td>
       <td class="${up?'red':'green'}" style="font-weight:700">${q?rowChg({up,q}):r.pct.toFixed(2)+'%'}</td>
       <td><span class="tg ${r.score>=70?'tg-up':r.score>=55?'tg-o':'tg-b'}" style="font-weight:700">${r.score}</span></td>
-      <td style="font-size:0.55rem">${r.pos60}%</td>
-      <td style="font-size:0.55rem;color:var(--green)">-${r.drop60}%</td>
+      <td style="font-size:0.55rem">${r.pos60==null||r.pos60=='--'?'--':r.pos60+'%'}</td>
+      <td style="font-size:0.55rem;color:var(--green)">${r.drop60==null?'--':'-'+r.drop60+'%'}</td>
       <td style="font-size:0.5rem;color:#00e5ff">${esc(r.keys)}</td>
       <td style="font-size:0.55rem;color:${r.main>0?'var(--red)':'var(--text)'}">${r.main!=null?(r.main/10000).toFixed(2)+'亿':'--'}</td>
-      <td style="font-size:0.52rem">${ev}</td>
-      <td style="text-align:center">${lead}</td>
+      <td style="font-size:0.52rem">${evTag}${ev}</td>
       ${conceptCell(r.sym)}
       <td>${actCell}</td>
     </tr>`;
