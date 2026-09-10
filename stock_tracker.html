@@ -4048,6 +4048,7 @@ function renderDixi(tb){
 let qianfuResults=[];     // 潜伏命中 [{sym,name,price,pct,pos60,drop60,keys,score,main,event,leader}]
 let qianfuBusy=false;
 let qianfuTS=0;
+let qianfuEvents=[];      // 未被候选股映射的未来7天行业事件（列表顶部横幅展示）
 function bindQianfuSweep(){
   const b=document.getElementById('qianfuSweepBtn');
   if(b&&!b.dataset.bound){ b.dataset.bound='1'; b.addEventListener('click',()=>{ recView='qianfu'; refreshRecHeader(); runQianfuScan(true); }); }
@@ -4192,7 +4193,6 @@ function runQianfuScan(force){
       });
       // 4) AI 匹配：未来7天【行业】大事件 → 本地板块名映射候选股（可选，未配置 AI 则纯量价）
       let aiUsed=false;
-      let qianfuEvents=[];   // 未被候选股映射的行业事件（展示提示）
       let cfg=llmCfg; const frm=aiCfgFromInputs(); if(frm) cfg=frm;
       if(cfg&&cfg.base&&cfg.model&&cfg.key&&results.length){
         progress('AI 匹配未来7天行业事件 → 板块映射个股…');
