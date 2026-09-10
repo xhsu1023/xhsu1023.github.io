@@ -4207,9 +4207,11 @@ async function qfBoardTable(){
   return out;
 }
 /* 事件受益股补入列表：命中事件主题词的【板块全表】成分【核心龙头】（按市值取每板块前 10），
-   标记 mappedOnly（事件·补入），总体最多补 20 只。已在列表中的股升级 core/events 但不重复建行 */
+   跳过当天事件，只补未来2~7天事件受益股；每事件配额 10 只、总体最多 80 只。
+   标记 mappedOnly（事件·补入）+ evDate（按事件日期排序置顶）。已在列表中的股升级 core/events 但不重复建行 */
 async function qfFetchBoardStocksByEvents(events, results){
   if(!events||!events.length) return 0;
+  const todayMd=qfMmdd(qfDateStr(new Date()));
   let boards=[];
   try{ boards=await qfBoardTable(); }catch(e){}
   if(!boards.length) boards=(hotBoards||[]).filter(b=>b&&b.code&&b.name);
@@ -4217,26 +4219,30 @@ async function qfFetchBoardStocksByEvents(events, results){
   const exist=new Set(results.map(r=>r.sym)), used=new Set(), done=new Set();
   let added=0;
   for(const ev of events){
-    if(added>=20) break;
+    if(added>=80) break;
+    if(!ev.md||ev.md<=todayMd) continue;                    // 只补未来事件受益股（当天事件已在发生/结束）
+    const perEvStart=added;
     const tags=qfTopics(ev.title).filter(t=>QF_FILL_TOPICS.includes(t)); if(!tags.length) continue;
     for(const b of boards){
-      if(added>=20) break;
+      if(added-perEvStart>=10) break;                       // 每事件配额 10 只核心
+      if(added>=80) break;
       if(used.has(b.code)) continue;
       if(!tags.some(t=>qfBoardHit(t,b.name))) continue;
       used.add(b.code);
       let st=[];
       try{ st=await qfBoardStocksPure(b.code,10); }catch(e){ continue; }
       for(const x of st){
-        if(added>=20) break;
+        if(added-perEvStart>=10) break;
+        if(added>=80) break;
         if(done.has(x.sym)) continue; done.add(x.sym);
         if(/^(N|C|U)/.test(x.name||'')||/ST/i.test(x.name||'')) continue;
         if(exist.has(x.sym)){
           const r=results.find(r=>r.sym===x.sym);
-          if(r){ r.core=true; (r.events=r.events||[]).push(ev); }
+          if(r){ r.core=true; (r.events=r.events||[]).push(ev); r.evDate=ev.date; }
           continue;
         }
         results.push({ sym:x.sym, name:x.name, price:(x.price!=null)?x.price:0, pct:(x.pct!=null)?x.pct:0,
-          pos60:null, drop60:null, keys:'事件催化', score:60, main:null, events:[ev], core:true, mappedOnly:true });
+          pos60:null, drop60:null, keys:'事件催化', score:60, main:null, events:[ev], core:true, mappedOnly:true, evDate:ev.date });
         added++;
       }
       await new Promise(r=>setTimeout(r,50));
@@ -4334,10 +4340,18 @@ function runQianfuScan(force){
       }catch(e){}
       // 事件受益股补入：命中主题词的板块成分【核心龙头】加入列表（标事件·补入）
       try{ if(evs.length) addedEv=await qfFetchBoardStocksByEvents(evs, results); }catch(e){}
-      // 列表优先级：事件映射股优先 → 再按评分
-      results.sort((a,b)=>(b.core?1:0)-(a.core?1:0)||b.score-a.score);
+      // 列表优先级：事件受益股（mappedOnly，按事件日期升序）置顶 → 普通候选按评分
+      results.sort((a,b)=>{
+        if(a.mappedOnly||b.mappedOnly){
+          if(!!a.mappedOnly!==!!b.mappedOnly) return (b.mappedOnly?1:0)-(a.mappedOnly?1:0);
+          const ad=a.evDate||'', bd=b.evDate||'';
+          if(ad!==bd) return ad<bd?-1:1;                    // 未来7天事件受益股按事件日期升序置顶
+          return (b.score||0)-(a.score||0);
+        }
+        return (b.core?1:0)-(a.core?1:0)||b.score-a.score;
+      });
       qianfuEvents=qianfuEvents.slice(0,6);
-      qianfuResults=results.slice(0,20); qianfuTS=Date.now(); qianfuBusy=false;
+      qianfuResults=results.slice(0,40); qianfuTS=Date.now(); qianfuBusy=false;
       const suf=(calOk?['财联社→板块']:[]).concat(liftOk?['东财解禁']:[]).join(' · ');
       if(st) st.textContent=qianfuResults.length?('潜伏命中 '+qianfuResults.length+' 只（启动迹象'+(suf?' · '+suf:' · 纯量价')+(addedEv?(' · 事件受益补入'+addedEv):'')+'）'):'潜伏战法：无命中';
       renderQianfu();
