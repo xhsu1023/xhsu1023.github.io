@@ -8637,12 +8637,12 @@ function kmFireReminder(sym, side, reason, q){
   if(kmSeen.has(key)) return;
   kmSeen.add(key); saveKmSeen();
   const d=new Date();
+  const today=d.toLocaleDateString('zh-CN');
   const rec={ ts:Date.now(), time:d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
-    date:d.toLocaleDateString('zh-CN'), sym, name:(q&&q.name)||kmStockName(sym), code:sym.replace(/^(sh|sz|bj)/i,''),
+    date:today, sym, name:(q&&q.name)||kmStockName(sym), code:sym.replace(/^(sh|sz|bj)/i,''),
     side, reason };
-  kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop();
-  saveKmReminds();
-  kmUnread++; kmUpdCnt();
+  const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);   // 当天已提醒过 → 只弹卡片，不重复入列表
+  if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
   kmShowToast(rec);
 }
 function kmUpdCnt(){
