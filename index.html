@@ -490,6 +490,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         <button class="btn btn-sm" id="dixiSweepBtn" style="border-color:var(--purple);color:var(--purple)" title="缩量回调低吸：日线趋势向上+缩量回调15%+日内跌幅1-4%+主力净流入为正+支撑不破">💧 低吸战法</button>
         <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+RSI6较昨日回落转头+主力与暗盘(超大单)均净流入（不考虑缩量）">💪 强势回调低吸</button>
         <button class="btn btn-sm" id="longtouSweepBtn" style="border-color:#ff5252;color:#ff5252" title="龙头回调低吸：板块龙头+回调8-22%+缩量+MA支撑+日内-7%~-3%+缩量承接">🐉 龙头战法</button>
+        <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场低位(60日位置<45%)+距高点回撤>20%+启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+AI 标注未来事件与板块龙头 → 未启动前提前埋伏">🌀 潜伏</button>
         <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
         <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：先扫 A股全市场(5000+)，用 K线图买入逻辑预筛触发买点的个股，再综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率">🔮 预测</button>
         <button class="btn btn-sm" id="ai4ScanBtn" style="border-color:#7c5cff;color:#a78bfa" title="AI 四因子选股：基本面+技术面+情绪面+消息面 逻辑回归模型扫描全市场，输出买/卖概率分（先点「🧠 训练AI4」积累模型）">🧠 AI四因子</button>
@@ -1128,7 +1129,7 @@ function currentListSyms(){
     case 'hot':   return hotStocks.map(x=>x.sym);
     case 'bak':   return backupList.slice();
     case 'dip':   return dipResults.map(x=>x.sym);
-    case 'rec':   return recView==='zao'?zaoResults.map(x=>x.sym):(recView==='dixi'?dixiResults.map(x=>x.sym):(recView==='longtou'?longtouResults.map(x=>x.sym):(recView==='rsi'?rsiResults.map(x=>x.sym):(recView==='yuce'?yuceResults.map(x=>x.sym):(recView==='ai4'?ai4Results.map(x=>x.sym):recResults.map(x=>x.sym))))));
+    case 'rec':   return recView==='zao'?zaoResults.map(x=>x.sym):(recView==='dixi'?dixiResults.map(x=>x.sym):(recView==='qianfu'?qianfuResults.map(x=>x.sym):(recView==='longtou'?longtouResults.map(x=>x.sym):(recView==='rsi'?rsiResults.map(x=>x.sym):(recView==='yuce'?yuceResults.map(x=>x.sym):(recView==='ai4'?ai4Results.map(x=>x.sym):recResults.map(x=>x.sym)))))));
     case 'zx':    return (zxResults||[]).map(x=>x.sym);
     case 'chan':  return (chanResults||[]).map(x=>x.sym);
     default:      return [];
@@ -1702,6 +1703,7 @@ function headerFor(t){
   if(t==='dixi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="低吸综合评分 0-99">低吸评分</th><th title="今日量/昨日同时刻（<0.85 缩量15%+）">量比</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="支撑=max(昨收,MA20)，现价需在其上方">支撑</th><th title="较30日最低位置%">位置</th><th title="参考止盈区间">止盈</th><th title="参考止损">止损</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='qiangle') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="强势回调低吸评分 0-99">评分</th><th title="近10交易日涨停次数（>1 强势背景）">10日涨停</th><th title="今日最低 与 MA5/现价（今日低吸回踩拉回）">今低/MA5</th><th title="今日回踩MA5确认（今日最低触及或下穿5日线、现价拉回上方）">今日回踩</th><th title="当日主力净流入(万元)">主力净流入</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='longtou') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="龙头战法综合评分 0-99">龙头评分</th><th title="近期高点回调幅度（-8%~-22%为佳）">回调幅度</th><th title="回调期缩量（量缩率 0-1）">量缩率</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="有效支撑位 = max(MA5,MA10)">支撑</th><th title="是否出现大阴/跌停信号">风险信号</th><th title="AI 判定：板块龙头+主线有赚钱效应">AI判定</th><th title="所属概念板块">概念</th><th>操作</th>';
+  if(t==='qianfu') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="潜伏综合评分 0-99">潜伏评分</th><th title="60日相对位置%（<45 低位）">位置</th><th title="距60日高点回撤">距高点</th><th title="启动迹象：缩量止跌/温和放量/均线粘合/RSI回升/MACD多头">启动迹象</th><th title="当日主力净流入(万元)">主力净流入</th><th title="AI 标注未来1-3个月事件催化">事件催化</th><th title="AI 判定板块龙头">龙头</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='rsi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="RSI&尾盘战法综合评分 0-99">评分</th><th title="RSI6 今日值：①近N日首次脱离30下方 ②30~50回调拐头">RSI6今</th><th title="当日涨幅%（尾盘规则①锁定 3%~5%）">涨幅</th><th title="当日量 / 近3日均量（规则④量比>1）">量比</th><th title="近30日内有无涨停（规则②）">30日涨停</th><th title="总市值（亿元，规则③<200亿）">市值(亿)</th><th title="尾盘规则⑥：14:30后创日内新高且回踩不破新高">尾盘新高</th><th title="RSI6 昨日值（情形②需今日>昨日 拐头向上）">RSI6昨</th><th title="只筛选换手率5%~10%（规则⑤）">换手</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='yuce') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI预测综合评分 0-99">预测分</th><th title="AI 预测次日方向：看多/看空">方向</th><th title="模型置信度 0-1">置信度</th><th title="量价/技术/资金/大盘板块等因子摘要">主要因子</th><th title="模型判断理由/操作建议">AI 判断</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='ai4') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI四因子买入分 0-99">买入分</th><th title="AI四因子卖出分 0-99">卖出分</th><th title="模型看多概率">概率</th><th title="判断：看多/看空/中性">方向</th><th title="主要驱动因子">因子</th><th title="所属概念板块">概念</th><th>操作</th>';
@@ -1719,6 +1721,7 @@ function _recHeaderKey(){
   if(recView==='zao') return 'zao';
   if(recView==='dixi') return 'dixi';
   if(recView==='longtou') return 'longtou';
+  if(recView==='qianfu') return 'qianfu';
   if(recView==='rsi') return 'rsi';
   if(recView==='yuce') return 'yuce';
   if(recView==='ai4') return 'ai4';
@@ -1745,6 +1748,7 @@ function setListTab(t){
     if(recView==='zao'){ runZaoScan(true); }
     else if(recView==='dixi'){ runDixiScan(true); }
     else if(recView==='longtou'){ runLongtouScan(true); }
+    else if(recView==='qianfu'){ runQianfuScan(true); }
     else if(recView==='rsi'){ runRsiScan(true); }
     else if(recView==='yuce'){ runYuceScan(true); }
     else if(recView==='ai4'){ runAI4Scan(true); }
@@ -3350,6 +3354,7 @@ function renderRec(tb){
   if(recView==='dixi'){ renderDixi(tb); return; }
   if(recView==='qiangle'){ renderQiangle(tb); return; }
   if(recView==='longtou'){ renderLongtou(tb); return; }
+  if(recView==='qianfu'){ renderQianfu(tb); return; }
   if(recView==='rsi'){ renderRsi(tb); return; }
   if(recView==='yuce'){ renderYuce(tb); return; }
   if(recView==='ai4'){ renderAI4(tb); return; }
@@ -3398,7 +3403,7 @@ function renderRecState(){
 /* rec tab 视图切换时刷新表头（rec/zao） */
 function refreshRecHeader(){
   const h=document.getElementById('hotHead'); if(!h) return;
-  h.innerHTML=headerFor(recView==='zao'?'zao':(recView==='dixi'?'dixi':(recView==='qiangle'?'qiangle':(recView==='longtou'?'longtou':(recView==='rsi'?'rsi':(recView==='yuce'?'yuce':(recView==='ai4'?'ai4':'rec')))))));
+  h.innerHTML=headerFor(recView==='zao'?'zao':(recView==='dixi'?'dixi':(recView==='qiangle'?'qiangle':(recView==='longtou'?'longtou':(recView==='qianfu'?'qianfu':(recView==='rsi'?'rsi':(recView==='yuce'?'yuce':(recView==='ai4'?'ai4':'rec'))))))));
   bindHeaderSort();
 }
 /* 荐股扫描主入口 */
@@ -4027,6 +4032,211 @@ function renderDixi(tb){
   }).join('');
   bindRowClicks(tb);
   if(st) st.textContent='低吸命中：'+rows.length+' 只（缩量回调+趋势+净流入+支撑）';
+}
+/* =====================================================================
+ * 潜伏战法：低位 + 启动迹象 + 潜力（未来事件/行业龙头）
+ *   A 低位：60日相对位置<45% 且距60日高点回撤>20%（未启动的位置优势）
+ *   B 启动迹象（左侧预伏，与买点模块相反——不追当日已涨）：
+ *     ①缩量止跌：近5日量≤前15日均量70%且近3日价格走平（振幅<5%）
+ *     ②温和放量试盘：昨缩量，今收阳且量1.2~2.5倍昨、涨幅0.5%~3%（未大涨）
+ *     ③均线粘合向上：MA5/10/20 收敛(<4%)且 MA5 拐头向上
+ *     ④RSI6 低位回升：近8日曾≤30，今日>昨日且未超买
+ *     ⑤MACD 转多：dif>dea 或 柱状收敛
+ *   C 潜力：AI 标注未来事件催化 + 板块龙头地位（无 AI 配置则纯量价潜伏）
+ *   止盈止损（右侧兑现）：启动后 +20%~+30% 止盈 / 破成本 -8% 止损
+ * ===================================================================== */
+let qianfuResults=[];     // 潜伏命中 [{sym,name,price,pct,pos60,drop60,keys,score,main,event,leader}]
+let qianfuBusy=false;
+let qianfuTS=0;
+function bindQianfuSweep(){
+  const b=document.getElementById('qianfuSweepBtn');
+  if(b&&!b.dataset.bound){ b.dataset.bound='1'; b.addEventListener('click',()=>{ recView='qianfu'; refreshRecHeader(); runQianfuScan(true); }); }
+}
+/* 潜伏启动迹象评估：返回 {keys:[...]}（无则空数组） */
+function qfStartup(k){
+  const n=k.length; if(n<35) return {keys:[]};
+  const closes=k.map(v=>v.c), vols=k.map(v=>v.v||0), lows=k.map(v=>v.l), highs=k.map(v=>v.h);
+  const cur=closes[n-1]; if(!(cur>0)) return {keys:[]};
+  const keys=[];
+  const s5=sma(closes,5), s10=sma(closes,10), s20=sma(closes,20);
+  /* ①缩量止跌：近5日均量 ≤ 前15日均量×0.7，且近3日装箱振幅<5% */
+  const v5=vols.slice(-5).reduce((a,b)=>a+b,0)/5;
+  const vPre=vols.slice(-20,-5).reduce((a,b)=>a+b,0)/15;
+  const hi3=Math.max.apply(null,highs.slice(-3)), lo3=Math.min.apply(null,lows.slice(-3));
+  if(vPre>0 && v5<=vPre*0.7 && (hi3-lo3)/cur<=0.05) keys.push('缩量止跌');
+  /* ②温和放量试盘：昨缩量、今收阳、量1.2~2.5倍昨、涨幅0.5%~3% */
+  const prev=closes[n-2], volPrev=vols[n-2]||0, volToday=vols[n-1]||0;
+  const rise=prev>0?(cur/prev-1)*100:0;
+  const prevRise=closes[n-3]>0?(prev/closes[n-3]-1)*100:0;
+  if(cur>prev && volPrev>0 && volToday/volPrev>=1.2 && volToday/volPrev<=2.5 && rise>=0.5 && rise<=3) keys.push('温和放量');
+  /* ③均线粘合向上：MA5/10/20 收敛<4% 且 MA5 拐头向上 */
+  if(s5[n-1]!=null&&s10[n-1]!=null&&s20[n-1]!=null){
+    const lo=Math.min(s5[n-1],s10[n-1],s20[n-1]), hi=Math.max(s5[n-1],s10[n-1],s20[n-1]);
+    if(lo>0 && (hi-lo)/lo<=0.04 && s5[n-1]>s5[n-2]) keys.push('均线粘合');
+  }
+  /* ④RSI6 低位回升：近8日曾≤30、今>昨、未超买 */
+  const r6=rsiSmooth(closes,6), rn=r6[n-1], rp=r6[n-2];
+  if(typeof rn==='number'&&typeof rp==='number'){
+    const wasLow=r6.slice(-8).some(v=>typeof v==='number'&&v<=30);
+    if(wasLow && rn>rp && rn<=55) keys.push('RSI回升');
+  }
+  /* ⑤MACD 转多：dif>dea 或 柱状收敛 */
+  const m=macd(closes,12,26,9);
+  if(m&&typeof m.dif[n-1]==='number'&&typeof m.dea[n-1]==='number'&&typeof m.dif[n-2]==='number'&&typeof m.dea[n-2]==='number'){
+    if(m.dif[n-1]>m.dea[n-1]) keys.push('MACD多头');
+    else if(Math.abs(m.dif[n-1]-m.dea[n-1])<Math.abs(m.dif[n-2]-m.dea[n-2])) keys.push('MACD收敛');
+  }
+  return {keys};
+}
+/* 单只潜伏评估 */
+function _qfEval(p, k, q){
+  const closes=k.map(v=>v.c);
+  const n=k.length, cur=closes[n-1];
+  if(!(cur>0)) return null;
+  const k60=k.slice(-60);
+  const cHi=Math.max.apply(null,k60.map(v=>v.c)), cLo=Math.min.apply(null,k60.map(v=>v.c));
+  if(!(cHi>cLo)) return null;
+  const pos60=(cur-cLo)/(cHi-cLo)*100;
+  const drop60=cHi>0?(cHi-cur)/cHi*100:0;
+  if(pos60>45 || drop60<20) return null;                 // A 低位硬条件
+  const s=qfStartup(k);
+  if(!s.keys.length) return null;                        // B 必须至少一个启动迹象
+  let score=Math.min(99, Math.round(
+    (pos60<=20?15:pos60<=30?10:5)
+    +(drop60>=30?10:7)
+    +s.keys.length*8
+    +(p.pct>=0?6:0)
+  ));
+  const fl=fundFlow[q.sym]||{};
+  return { sym:p.sym, name:p.name||q.name, price:q.price, pct:p.pct,
+    pos60:Math.round(pos60), drop60:Math.round(drop60), keys:s.keys.join('+'), score,
+    main:(typeof fl.main==='number')?fl.main:null,
+    take1:cur*1.2, take2:cur*1.3, stop:cur*0.92, q };
+}
+/* 潜伏 AI 标注：未来事件 + 板块龙头 */
+function buildQianfuPrompt(results){
+  const rows=results.slice(0,18).map(r=>{
+    const sec=sectorCache[r.sym]&&sectorCache[r.sym].names;
+    const sc=sec?sec.slice(0,3).join('/'):'--';
+    return r.sym+' '+(r.name||'')+' 现价'+r.price.toFixed(2)+' 今日'+r.pct.toFixed(2)+'% 位置'+r.pos60+'% 距高点-'+r.drop60+'% 迹象:'+r.keys+' 板块:'+sc;
+  }).join('\n');
+  return '以下候选均为 A股【低位 + 刚出现启动迹象】的个股（量价筛选：60日位置<45%、距60日高点回撤>20%、出现缩量止跌/温和放量/均线粘合/RSI回升等其一，今日未大涨）。请判断每只：\n'+
+    '1) leader：是否行业/板块龙头（市值地位、题材代表性、资金关注度）\n'+
+    '2) event：未来1~3个月可能兑现的事件催化（如业绩预增、政策落地、行业涨价、新品/重组/订单等）；无法确定给空字符串\n\n'+rows+
+    '\n\n仅输出 {"hits":[{"sym":"代码","leader":true或false,"event":"一句话事件"}]}，只从候选中选，不要输出其它内容。';
+}
+function runQianfuScan(force){
+  const st=document.getElementById('recState');
+  if(qianfuBusy){ if(st) st.textContent='潜伏扫描中… 请稍候'; return; }
+  if(!force && qianfuResults.length && (Date.now()-qianfuTS)<180000){ recView='qianfu'; refreshRecHeader(); renderQianfu(); return; }
+  qianfuBusy=true; recView='qianfu'; refreshRecHeader(); renderQianfu();
+  (async()=>{
+    try{
+      const progress=(msg)=>{ if(st) st.textContent='潜伏战法：'+msg; };
+      // 1) 全市场拉取 → 低位粗筛（今日未大涨未破位 + 有成交）
+      let pool=[];
+      progress('拉取全市场…');
+      try{
+        const all=await diGetAllMarket(progress);
+        const seen=new Set();
+        for(const x of all){
+          if(!x.sym||seen.has(x.sym)) continue; seen.add(x.sym);
+          if(/ST/i.test(x.name||'')) continue;
+          if(/^(N|C|U)/.test(x.name||'')) continue;
+          const p=typeof x.pct==='number'?x.pct:null;
+          if(p==null) continue;
+          if(p<-4 || p>3) continue;                     // 启动前夜的平静位：未大跌未大涨
+          if(!x.amt||x.amt<8e7) continue;               // 有资金关注：成交额>8000万
+          pool.push({sym:x.sym,name:x.name,pct:p,amt:x.amt});
+        }
+        pool.sort((a,b)=>Math.abs(a.pct)-Math.abs(b.pct));   // 越接近平盘越优先
+        pool=pool.slice(0,80);
+      }catch(e){}
+      if(!pool.length){
+        qianfuBusy=false;
+        if(st) st.textContent='潜伏战法：全市场无候选（需今日±4%~±3%区间+成交>8000万）';
+        renderQianfu(); return;
+      }
+      // 2) 补齐行情 + 日K → 验算低位/启动迹象
+      const missing=pool.filter(p=>!quotes[p.sym]).map(p=>p.sym).slice(0,25);
+      if(missing.length){ try{ const q=await fetchQuotes(missing); Object.assign(quotes,q); }catch(e){} }
+      progress('获取日K（'+pool.length+' 只）计算低位与启动迹象…');
+      await Promise.all(pool.map(p=>getKlines(p.sym,'day',70).then(k=>{ if(k&&k.length) rowKline[p.sym]=k; }).catch(()=>{})));
+      const results=[];
+      for(const p of pool){
+        const q=quotes[p.sym];
+        if(!q||typeof q.price!=='number') continue;
+        const k=rowKline[p.sym]; if(!k||k.length<40) continue;
+        const up=_qfEval(p,k,q); if(up) results.push(up);
+      }
+      if(!results.length){
+        qianfuBusy=false;
+        if(st) st.textContent='潜伏战法：候选均未满足 低位(位置<45%/回撤>20%)+启动迹象';
+        renderQianfu(); return;
+      }
+      // 3) 板块信息 → 热门板块共振加分
+      progress('获取候选板块属性…');
+      await Promise.all(results.map(r=>fetchSectors(r.sym).catch(()=>{})));
+      const hotNames=new Set((hotBoards||[]).map(b=>b.name));
+      results.forEach(r=>{
+        const names=sectorCache[r.sym]&&sectorCache[r.sym].names;
+        if(names&&names.some(n=>hotNames.has(n))) r.score=Math.min(99,r.score+6);
+      });
+      // 4) AI 标注：未来事件 + 行业龙头（可选，未配置 AI 则纯量价）
+      let aiMap=null;
+      let cfg=llmCfg; const frm=aiCfgFromInputs(); if(frm) cfg=frm;
+      if(cfg&&cfg.base&&cfg.model&&cfg.key&&results.length){
+        progress('AI 标注未来事件/龙头地位…');
+        try{
+          const ai=await callOpenAI(cfg, buildQianfuPrompt(results), 60000);
+          aiMap={}; (ai||[]).forEach(h=>{ if(h.sym) aiMap[h.sym]={leader:!!h.leader, event:h.event||''}; });
+        }catch(e){}
+      }
+      results.forEach(r=>{ const a=aiMap&&aiMap[r.sym]; if(a){ r.leader=!!a.leader; r.event=a.event; } });
+      results.sort((a,b)=>(b.leader?1:0)-(a.leader?1:0)||b.score-a.score);
+      qianfuResults=results.slice(0,20); qianfuTS=Date.now(); qianfuBusy=false;
+      if(st) st.textContent=qianfuResults.length?('潜伏战法命中 '+qianfuResults.length+' 只（全市场低位+启动迹象'+(aiMap?' · AI 标注事件/龙头':' · 纯量价')+'）'):'潜伏战法：无命中';
+      renderQianfu();
+    }catch(e){
+      qianfuBusy=false;
+      if(st) st.textContent=aiErrMsg(e);
+      renderQianfu();
+    }
+  })();
+}
+function renderQianfu(tb){
+  tb=tb||document.getElementById('hotList');
+  afterListRender();
+  const st=document.getElementById('recState');
+  if(!qianfuResults.length){
+    if(qianfuBusy){ tb.innerHTML='<tr><td colspan="14" class="emptys" style="padding:20px">正在扫描潜伏候选：全市场低位粗筛 → 日K计算启动迹象 → AI 标注事件/龙头…</td></tr>'; }
+    else{ tb.innerHTML='<tr><td colspan="14" class="emptys" style="padding:20px">暂无潜伏命中，点击「🌀 潜伏」开始扫描（低位+启动迹象，纯规则；AI 事件标注可选）</td></tr>'; }
+    return;
+  }
+  tb.innerHTML=qianfuResults.map((r,i)=>{
+    const q=r.q; const up=q&&q.change>=0;
+    const ev=r.event?`<span style="color:var(--gold)">${esc(r.event)}</span>`:'--';
+    const lead=r.leader!==undefined?`<span class="tg ${r.leader?'tg-up':'tg-o'}">${r.leader?'龙头':'非龙头'}</span>`:'--';
+    const actCell=`<span class="op-cell">${bakBtn(r.sym)}${watchBtn(r.sym)}</span>`;
+    return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="60日位置${r.pos60}% · 距高点-${r.drop60}% · 启动迹象:${r.keys} · 止盈+20~30%/止损-8%">
+      <td style="font-weight:700;color:#00e5ff">#${i+1}</td>
+      <td style="font-weight:600;color:var(--text-bright)">${r.name||(q&&q.name)||r.sym}</td>
+      <td style="font-size:0.72rem">${r.sym}</td>
+      <td class="${up?'red':'green'}" style="font-weight:600">${q?(q.price||r.price).toFixed(2):r.price.toFixed(2)}</td>
+      <td class="${up?'red':'green'}" style="font-weight:700">${q?rowChg({up,q}):r.pct.toFixed(2)+'%'}</td>
+      <td><span class="tg ${r.score>=70?'tg-up':r.score>=55?'tg-o':'tg-b'}" style="font-weight:700">${r.score}</span></td>
+      <td style="font-size:0.55rem">${r.pos60}%</td>
+      <td style="font-size:0.55rem;color:var(--green)">-${r.drop60}%</td>
+      <td style="font-size:0.5rem;color:#00e5ff">${esc(r.keys)}</td>
+      <td style="font-size:0.55rem;color:${r.main>0?'var(--red)':'var(--text)'}">${r.main!=null?(r.main/10000).toFixed(2)+'亿':'--'}</td>
+      <td style="font-size:0.52rem">${ev}</td>
+      <td style="text-align:center">${lead}</td>
+      ${conceptCell(r.sym)}
+      <td>${actCell}</td>
+    </tr>`;
+  }).join('');
+  bindRowClicks(tb);
+  if(st) st.textContent='潜伏候选：'+qianfuResults.length+' 只（低位+启动迹象）';
 }
 /* =====================================================================
  * 强势回调低吸（纯规则，无需 AI）
@@ -9540,6 +9750,7 @@ function init(){
   bindDixiSweep();
   bindQiangleSweep();
   bindLongtouSweep();
+  bindQianfuSweep();
   bindRsiSweep();
   bindYuceSweep();
   bindAI4Sweep();
