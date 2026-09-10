@@ -4116,6 +4116,8 @@ function _qfEval(p, k, q){
 }
 /* ===== 双源事件日历（替代 AI；纯确定性数据，无幻觉）：财联社投资日历 + 东财限售解禁 ===== */
 const QF_TOPICS=['算力','存储','半导体','芯片','光模块','CPO','液冷','PCB','服务器','5G','6G','卫星','低空','量子','机器人','人形机器人','汽车','新能源','电池','固态电池','光伏','储能','风电','氢','核电','电网','军工','国防','黄金','白银','有色','稀土','锂','钴','煤炭','原油','石油','天然气','化工','医药','创新药','医疗器械','中药','白酒','啤酒','食品','乳业','猪肉','养殖','农业','种业','券商','证券','银行','保险','地产','建筑','建材','水泥','钢铁','航空','航运','港口','旅游','酒店','免税','游戏','传媒','影视','元宇宙','人工智能','大模型','数据要素','数字经济','软件','信创','网络安全','工业母机','装备','消费电子','苹果','华为','鸿蒙','折叠屏','英伟达','智能眼镜','无人机'];
+/* 仅这些高价值行业主题词才允许【板块成分补入】（宽泛词如证券/银行只做池内映射，不拉成分）；白名单靠后优先 */
+const QF_FILL_TOPICS=['算力','大模型','人工智能','存储','半导体','芯片','光模块','CPO','液冷','PCB','服务器','数据中心','机器人','人形机器人','智能驾驶','汽车','新能源','电池','固态电池','光伏','储能','风电','氢','军工','国防','航空航天','黄金','有色','稀土','创新药','医药','信创','软件','6G','卫星','低空','苹果','华为','鸿蒙','折叠屏','英伟达','无人机'];
 function qfDateStr(d){ const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function qfMmdd(s){ const m=/^\d{4}-(\d{2}-\d{2})/.exec(String(s||'')); return m?m[1]:String(s||'').slice(5,10); }
 /* 财联社投资日历：未来7天事件（会议/经济数据/政策/产品发布等），无需签名 */
@@ -4182,6 +4184,67 @@ function applyQfEvents(results, events){
     if(mapped) mappedCnt++; else qianfuEvents.push(ev);
   }
   return mappedCnt;
+}
+/* 板块成分股（含实时价/涨幅/市值，过滤北交所与超大市值蓝筹）：push2delay clist */
+async function qfBoardStocksPure(code, n){
+  const url='https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz='+(n||5)+'&po=1&np=1&fltt=2&invt=2&fid=f3&fs=b:'+code+'&fields=f2,f3,f6,f12,f13,f14';
+  const j=await (await fetch(url)).json();
+  return ((j&&j.data&&j.data.diff)||[]).map(x=>{ const sym=emCode(x.f13+':'+x.f12); if(!sym||sym.slice(0,2)==='bj') return null; if(x.f6!=null&&+x.f6>2.5e11) return null; return {sym, name:x.f14||'', price:(x.f2!=null)?+x.f2:null, pct:(x.f3!=null)?+x.f3:null}; }).filter(Boolean);
+}
+/* 东财概念+行业板块全量（name→code，10 分钟缓存）；供事件受益股补入用，不依赖当日热门榜 */
+let qfBoardPoolCache={ts:0, arr:[]};
+async function qfBoardTable(){
+  const now=Date.now();
+  if(qfBoardPoolCache.arr.length && now-qfBoardPoolCache.ts<600000) return qfBoardPoolCache.arr;
+  const out=[], seen=new Set();
+  for(let pn=1; pn<=8; pn++){
+    const url='https://push2delay.eastmoney.com/api/qt/clist/get?pn='+pn+'&pz=200&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:3+f:!50,m:90+t:2+f:!50&fields=f12,f14';
+    let arr=[];
+    try{ const j=await (await fetch(url)).json(); arr=((j&&j.data&&j.data.diff)||[]); }catch(e){}
+    let any=false;
+    for(const x of arr){ if(!x.f12||!x.f14) continue; any=true; const c=String(x.f12); if(seen.has(c)) continue; seen.add(c); out.push({code:c, name:x.f14}); }
+    if(!any) break;
+  }
+  if(out.length) qfBoardPoolCache={ts:now, arr:out};
+  return out;
+}
+/* 事件受益股补入列表：命中事件主题词的【板块全表】成分股，即使未过低位硬条件也入列，
+   标记 mappedOnly（非低位·事件催化），最多补 10 只。已在列表中的股升级 core/events 但不重复建行 */
+async function qfFetchBoardStocksByEvents(events, results){
+  if(!events||!events.length) return 0;
+  let boards=[];
+  try{ boards=await qfBoardTable(); }catch(e){}
+  if(!boards.length) boards=(hotBoards||[]).filter(b=>b&&b.code&&b.name);
+  if(!boards.length) return 0;
+  const exist=new Set(results.map(r=>r.sym)), used=new Set(), done=new Set();
+  let added=0;
+  for(const ev of events){
+    if(added>=10) break;
+    const tags=qfTopics(ev.title).filter(t=>QF_FILL_TOPICS.includes(t)); if(!tags.length) continue;
+    for(const b of boards){
+      if(added>=10) break;
+      if(used.has(b.code)) continue;
+      if(!tags.some(t=>qfBoardHit(t,b.name))) continue;
+      used.add(b.code);
+      let st=[];
+      try{ st=await qfBoardStocksPure(b.code,5); }catch(e){ continue; }
+      for(const x of st){
+        if(added>=10) break;
+        if(done.has(x.sym)) continue; done.add(x.sym);
+        if(/^(N|C|U)/.test(x.name||'')||/ST/i.test(x.name||'')) continue;
+        if(exist.has(x.sym)){
+          const r=results.find(r=>r.sym===x.sym);
+          if(r){ r.core=true; (r.events=r.events||[]).push(ev); }
+          continue;
+        }
+        results.push({ sym:x.sym, name:x.name, price:(x.price!=null)?x.price:0, pct:(x.pct!=null)?x.pct:0,
+          pos60:null, drop60:null, keys:'事件催化', score:60, main:null, events:[ev], core:true, mappedOnly:true });
+        added++;
+      }
+      await new Promise(r=>setTimeout(r,50));
+    }
+  }
+  return added;
 }
 /* 潜伏 AI 匹配：未来7天【行业】大事件 → 本地板块名映射候选股（已弃用，改用上方双源日历） */
 function buildQianfuPrompt(results){
@@ -4261,21 +4324,24 @@ function runQianfuScan(force){
         if(names&&names.some(n=>hotNames.has(n))) r.score=Math.min(99,r.score+6);
       });
       // 4) 双源事件日历（确定性数据，无需 AI）：财联社投资日历事件→板块映射 + 东财限售解禁→个股标记
-      let calOk=false, liftOk=false;
+      let calOk=false, liftOk=false, addedEv=0;
+      let evs=[];
       qianfuEvents=[];
       progress('获取财联社投资日历 + 东财限售解禁…');
-      try{ const evs=await qfFetchClsEvents(); if(evs.length){ calOk=true; applyQfEvents(results, evs); } }catch(e){}
+      try{ evs=await qfFetchClsEvents(); if(evs.length){ calOk=true; applyQfEvents(results, evs); } }catch(e){}
       { const seenT=new Set(); qianfuEvents=qianfuEvents.filter(e=>{ if(seenT.has(e.title)) return false; seenT.add(e.title); return true; }).slice(0,8); }
       try{
         const lifts=await qfFetchLiftEvents();
         if(lifts.length){ liftOk=true; const lm={}; lifts.forEach(l=>lm[l.code]=l); for(const r of results){ if(lm[r.sym]) r.lift=lm[r.sym]; } }
       }catch(e){}
+      // 事件受益股补入：即使未过低位硬条件，也把命中主题词的当日热门板块成分股加入列表（标非低位·事件催化）
+      try{ if(evs.length) addedEv=await qfFetchBoardStocksByEvents(evs, results); }catch(e){}
       // 列表优先级：事件映射股优先 → 再按评分
       results.sort((a,b)=>(b.core?1:0)-(a.core?1:0)||b.score-a.score);
       qianfuEvents=qianfuEvents.slice(0,6);
       qianfuResults=results.slice(0,20); qianfuTS=Date.now(); qianfuBusy=false;
       const suf=(calOk?['财联社→板块']:[]).concat(liftOk?['东财解禁']:[]).join(' · ');
-      if(st) st.textContent=qianfuResults.length?('潜伏命中 '+qianfuResults.length+' 只（全市场低位+启动迹象'+(suf?' · '+suf:' · 纯量价')+'）'):'潜伏战法：无命中';
+      if(st) st.textContent=qianfuResults.length?('潜伏命中 '+qianfuResults.length+' 只（低位+启动迹象'+(suf?' · '+suf:' · 纯量价')+(addedEv?(' · 事件受益补入'+addedEv):'')+'）'):'潜伏战法：无命中';
       renderQianfu();
     }catch(e){
       qianfuBusy=false;
@@ -4300,7 +4366,7 @@ function renderQianfu(tb){
     const evsArr=r.events||[];
     const evStr=evsArr.length?evsArr.slice(0,2).map(e=>'<div>'+'<b style="color:#ff5252">'+esc(e.md||e.date)+'</b> <span style="color:var(--gold)">'+esc((e.title||'').length>24?e.title.slice(0,24)+'…':e.title)+'</span></div>').join('')+(evsArr.length>2?('<span class="tg tg-up">共'+evsArr.length+'件</span>'):''):'--';
     const liftTag=r.lift?('<span class="tg tg-o" style="margin-right:3px">'+((r.lift.cap!=null&&r.lift.cap>=5e8)||(r.lift.ratio!=null&&r.lift.ratio>=0.1)?'⚠':'')+'解禁'+esc(r.lift.md)+((r.lift.cap!=null&&r.lift.cap>0)?(' '+(r.lift.cap/1e8).toFixed(0)+'亿'):'')+'</span>'):'';
-    const evTag=r.core?'<span class="tg tg-up" style="margin-right:3px">🎯事件映射</span>':'';
+    const evTag=(r.core?'<span class="tg tg-up" style="margin-right:3px">🎯事件映射</span>':'')+(r.mappedOnly?'<span class="tg tg-b" style="margin-right:3px">事件·非低位</span>':'');
     const actCell=`<span class="op-cell">${bakBtn(r.sym)}${watchBtn(r.sym)}</span>`;
     return `<tr data-sym="${r.sym}" class="${selected===r.sym?'sel':''}" title="60日位置${r.pos60=='--'?'--':r.pos60+'%'} · 距高点${r.drop60==null?'--':'-'+r.drop60+'%'} · 启动迹象:${r.keys} · 止盈+20~30%/止损-8%">
       <td style="font-weight:700;color:#00e5ff">#${i+1}</td>
