@@ -50,6 +50,15 @@ td .bd{font-size:12px;color:var(--gold)}
 .op:hover{border-color:var(--cyan)}
 .op.watching{border-color:var(--gold);color:var(--gold)}
 .empty{padding:22px;text-align:center;color:var(--dim);font-size:13px}
+/* A股弹窗：嵌入式 iframe 复用主监控页 K线弹窗 */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(3,5,10,.82);display:flex;align-items:center;justify-content:center;padding:14px}
+.kl-box{width:min(1500px,98vw);height:96vh;background:#0b0e14;border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.kl-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.03)}
+.kl-head span{font-weight:700;color:var(--text-bright)}
+.kl-head .modal-close{background:#202430;border:1px solid #3a4160;color:var(--text);border-radius:4px;padding:4px 12px;cursor:pointer}
+.kl-head .modal-close:hover{border-color:var(--red);color:#fff}
+#usKlFrame{width:100%;flex:1;border:0;background:#07090f}
+tr[data-sym]{cursor:pointer}
 .foot{color:var(--dim);font-size:11px;line-height:1.8;padding:0 2px;max-width:1000px}
 @media(max-width:640px){body{padding:8px}.hd{flex-direction:column;align-items:flex-start}}
 @media (max-width:640px){
@@ -101,6 +110,13 @@ td .bd{font-size:12px;color:var(--gold)}
   数据来源：东方财富（美股知名股隔夜涨幅 · 东财接口；A股概念板块实时行情/主力净流入）。「推荐买卖」为本地规则信号（现价涨跌 + 主力净流入 + 量比），仅供研究参考，不构成任何投资建议。
   隔夜美股 = 知名股（英伟达/特斯拉/苹果/微软/台积电/超微等）按隔夜涨幅 TOP10；映射 = 每只知名股对应 A股概念板块（英伟达→PCB/CPO/算力，AMD/台积电→半导体/先进封装，特斯拉→一体化压铸/锂电池等）按主力净流入取核心个股 Top10。
 </footer>
+
+<div class="modal-overlay" id="usKlModal" style="display:none">
+  <div class="kl-box">
+    <div class="kl-head"><span id="usKlName">--</span><button class="modal-close" id="usKlClose">✕ 关闭</button></div>
+    <iframe id="usKlFrame" src="about:blank" title="K线分析"></iframe>
+  </div>
+</div>
 
 <script>
 /* ---------- 工具 ---------- */
@@ -285,7 +301,7 @@ function renderCn(rows, usDatetime){
   tb.innerHTML=rows.map(r=>{
     const w=isWatching(r.sym);
     const mkt=r.sym.slice(0,2);
-    return '<tr>'+
+    return '<tr data-sym="'+r.sym+'" data-name="'+esc(r.name)+'">'+
       '<td class="nm">'+esc(r.name)+'</td>'+
       '<td class="code">'+r.code+'</td>'+
       '<td>'+(r.price!=null?r.price.toFixed(2):'--')+'</td>'+
@@ -319,7 +335,18 @@ async function refreshAll(){
 function pctHtml0(v){ return (v>0?'+':'')+v.toFixed(2)+'%'; }
 
 /* 按钮事件（委托）：自选切换 / 详情 */
+function openUsKline(sym, name){
+  const f=$id('usKlFrame'); if(!f) return;
+  f.src='index.html?kline='+encodeURIComponent(sym);
+  $id('usKlName').textContent=(name||sym)+' · K线分析（复用主监控弹窗）';
+  $id('usKlModal').style.display='flex';
+  document.body.style.overflow='hidden';
+}
+function closeUsKline(){ $id('usKlModal').style.display='none'; $id('usKlFrame').src='about:blank'; document.body.style.overflow=''; }
 document.addEventListener('click',(e)=>{
+  if(e.target.id==='usKlModal'||e.target.id==='usKlClose'||e.target.closest('#usKlModal .modal-close')){ closeUsKline(); return; }
+  const row=e.target.closest('tr[data-sym]');
+  if(row && !e.target.closest('button.op')){ openUsKline(row.dataset.sym, row.dataset.name); return; }
   const b=e.target.closest('button.op'); if(!b) return;
   const act=b.dataset.act;
   if(act==='detail'&&b.dataset.url){ window.open(b.dataset.url,'_blank'); return; }
