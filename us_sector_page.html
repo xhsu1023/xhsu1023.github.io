@@ -148,7 +148,8 @@ const US_MAP={
   GOOGL:{name:'谷歌',mkt:105,concepts:['AIGC概念','AI应用','数据中心']},
   NFLX:{name:'奈飞',mkt:105,concepts:['AI应用','AIGC概念']},
   BAC:{name:'美国银行',mkt:106,concepts:['银行']},
-  XOM:{name:'埃克森美孚',mkt:106,concepts:['石油石化']}
+  XOM:{name:'埃克森美孚',mkt:106,concepts:['石油石化']},
+  SPACEX:{name:'SpaceX',mkt:null,concepts:['商业航天','航天航空','卫星互联网','卫星导航']}
 };
 let usCache={ts:0, list:null};
 async function fetchUsTop10(){
@@ -162,6 +163,10 @@ async function fetchUsTop10(){
     price:x.f2, pct:x.f3, time:new Date().toLocaleString('zh-CN',{hour12:false})
   })).filter(x=>US_MAP[x.code]);
   list.sort((a,b)=>b.pct-a.pct);
+  // SpaceX 未上市，无可交易行情：固定置顶展示，仅作航天/商业航天板块映射
+  if(US_MAP.SPACEX && !list.some(x=>x.code==='SPACEX')){
+    list.unshift({code:'SPACEX', mkt:null, name:US_MAP.SPACEX.name, price:null, pct:null, time:list.length?list[0].time:new Date().toLocaleString('zh-CN',{hour12:false})});
+  }
   usCache={ts:Date.now(), list};
   return list.slice(0,10);
 }
@@ -286,7 +291,7 @@ function renderUs(top){
       return '<tr><td>#'+(i+1)+'</td>'+
         '<td class="nm">'+esc(e.name)+'</td>'+
         '<td><span class="code">'+esc(e.code)+'</span></td>'+
-        '<td>'+(mktName[e.mkt]||e.mkt)+'</td>'+
+        '<td>'+(mktName[e.mkt]||(e.mkt?'市'+e.mkt:'未上市'))+'</td>'+
         '<td>'+(e.price!=null?e.price.toFixed(2):'--')+'</td>'+
         '<td>'+pctHtml(e.pct)+'</td>'+
         '<td>'+mpHtml+'</td></tr>';
@@ -332,7 +337,7 @@ async function refreshAll(){
     console.error(e);
   }finally{ busy=false; }
 }
-function pctHtml0(v){ return (v>0?'+':'')+v.toFixed(2)+'%'; }
+function pctHtml0(v){ if(v==null||!isFinite(v)) return '--'; return (v>0?'+':'')+v.toFixed(2)+'%'; }
 
 /* 按钮事件（委托）：自选切换 / 详情 */
 function openUsKline(sym, name){
