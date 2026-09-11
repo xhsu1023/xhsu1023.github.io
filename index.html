@@ -1703,7 +1703,7 @@ function headerFor(t){
   if(t==='dixi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="低吸综合评分 0-99">低吸评分</th><th title="今日量/昨日同时刻（<0.85 缩量15%+）">量比</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="支撑=max(昨收,MA20)，现价需在其上方">支撑</th><th title="较30日最低位置%">位置</th><th title="参考止盈区间">止盈</th><th title="参考止损">止损</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='qiangle') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="强势回调低吸评分 0-99">评分</th><th title="近10交易日涨停次数（>1 强势背景）">10日涨停</th><th title="今日最低 与 MA5/现价（今日低吸回踩拉回）">今低/MA5</th><th title="今日回踩MA5确认（今日最低触及或下穿5日线、现价拉回上方）">今日回踩</th><th title="当日主力净流入(万元)">主力净流入</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='longtou') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="龙头战法综合评分 0-99">龙头评分</th><th title="近期高点回调幅度（-8%~-22%为佳）">回调幅度</th><th title="回调期缩量（量缩率 0-1）">量缩率</th><th title="(现价-今开)/今开">日内跌幅</th><th title="当日主力净流入(万元)">主力净流入</th><th title="有效支撑位 = max(MA5,MA10)">支撑</th><th title="是否出现大阴/跌停信号">风险信号</th><th title="AI 判定：板块龙头+主线有赚钱效应">AI判定</th><th title="所属概念板块">概念</th><th>操作</th>';
-  if(t==='qianfu') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="潜伏综合评分 0-99">潜伏评分</th><th title="60日相对位置%（仅展示与加分，不做硬过滤）">位置</th><th title="距60日高点回撤">距高点</th><th title="启动迹象：缩量止跌/温和放量/均线粘合/RSI回升/MACD多头">启动迹象</th><th title="当日主力净流入(万元)">主力净流入</th><th title="财联社日历未来7天事件 → 受益个股">未来7天事件</th><th title="所属概念板块">概念</th><th>操作</th>';
+  if(t==='qianfu') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="潜伏综合评分 0-99">潜伏评分</th><th title="60日相对位置%（仅展示与加分，不做硬过滤）">位置</th><th title="距60日高点回撤">距高点</th><th title="启动迹象：缩量止跌/温和放量/均线粘合/RSI回升/MACD多头">启动迹象</th><th title="当日主力净流入(万元)">主力净流入</th><th title="财联社日历未来两周事件 → 受益个股">未来两周事件</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='rsi') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="RSI&尾盘战法综合评分 0-99">评分</th><th title="RSI6 今日值：①近N日首次脱离30下方 ②30~50回调拐头">RSI6今</th><th title="当日涨幅%（尾盘规则①锁定 3%~5%）">涨幅</th><th title="当日量 / 近3日均量（规则④量比>1）">量比</th><th title="近30日内有无涨停（规则②）">30日涨停</th><th title="总市值（亿元，规则③<200亿）">市值(亿)</th><th title="尾盘规则⑥：14:30后创日内新高且回踩不破新高">尾盘新高</th><th title="RSI6 昨日值（情形②需今日>昨日 拐头向上）">RSI6昨</th><th title="只筛选换手率5%~10%（规则⑤）">换手</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='yuce') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI预测综合评分 0-99">预测分</th><th title="AI 预测次日方向：看多/看空">方向</th><th title="模型置信度 0-1">置信度</th><th title="量价/技术/资金/大盘板块等因子摘要">主要因子</th><th title="模型判断理由/操作建议">AI 判断</th><th title="所属概念板块">概念</th><th>操作</th>';
   if(t==='ai4') return '<th>#</th><th>名称</th><th>代码</th><th>现价</th><th>涨跌幅</th><th title="AI四因子买入分 0-99">买入分</th><th title="AI四因子卖出分 0-99">卖出分</th><th title="模型看多概率">概率</th><th title="判断：看多/看空/中性">方向</th><th title="主要驱动因子">因子</th><th title="所属概念板块">概念</th><th>操作</th>';
@@ -4047,7 +4047,7 @@ function renderDixi(tb){
 let qianfuResults=[];     // 潜伏命中 [{sym,name,price,pct,pos60,drop60,keys,score,main,events,core,lift}]
 let qianfuBusy=false;
 let qianfuTS=0;
-let qianfuEvents=[];      // 未被候选股映射的未来7天日历事件（列表顶部横幅展示，{md,date,title}）
+let qianfuEvents=[];      // 未被候选股映射的未来两周日历事件（列表顶部横幅展示，{md,date,title}）
 function bindQianfuSweep(){
   const b=document.getElementById('qianfuSweepBtn');
   if(b&&!b.dataset.bound){ b.dataset.bound='1'; b.addEventListener('click',()=>{ recView='qianfu'; refreshRecHeader(); runQianfuScan(true); }); }
@@ -4118,14 +4118,15 @@ const QF_TOPICS=['算力','存储','半导体','芯片','光模块','CPO','液�
 const QF_FILL_TOPICS=['算力','大模型','人工智能','存储','半导体','芯片','光模块','CPO','液冷','PCB','服务器','数据中心','机器人','人形机器人','智能驾驶','汽车','新能源','电池','固态电池','光伏','储能','风电','氢','军工','国防','航空航天','黄金','有色','稀土','创新药','医药','信创','软件','6G','卫星','低空','苹果','华为','鸿蒙','折叠屏','英伟达','无人机','白银','铜','铝','锌','锂','钴','煤炭','石油','天然气','化工','钢铁','水泥','白酒','乳业','猪肉','养殖','航空','航运','港口','旅游','免税','游戏','传媒','贵金属','核电','电网','数据要素','半导体设备','先进封装','存储芯片','光刻机','军工电子','卫星互联网','商业航天'];
 function qfDateStr(d){ const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
 function qfMmdd(s){ const m=/^\d{4}-(\d{2}-\d{2})/.exec(String(s||'')); return m?m[1]:String(s||'').slice(5,10); }
-/* 财联社投资日历：未来7天事件（会议/经济数据/政策/产品发布等），无需签名 */
+/* 财联社投资日历：未来14天事件（会议/经济数据/政策/产品发布等），无需签名；
+   接口一次性返回近两周全量，避免窗口截断漏掉下周事件 */
 async function qfFetchClsEvents(){
   const url='https://www.cls.cn/api/calendar/web/list?app=CailianpressWeb&flag=0&os=web&sv=8.7.9&type=0';
   const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64)','Referer':'https://www.cls.cn/'}});
   if(!r.ok) throw new Error('cls http '+r.status);
   const j=await r.json();
   if(!(j&&Array.isArray(j.data))) throw new Error('cls payload');
-  const now=new Date(), start=qfDateStr(now), endD=new Date(now.getTime()+7*864e5), end=qfDateStr(endD);
+  const now=new Date(), start=qfDateStr(now), endD=new Date(now.getTime()+14*864e5), end=qfDateStr(endD);
   const out=[];
   for(const d of j.data){
     const day=String(d&&d.calendar_day||''); if(!day||day<start||day>end) continue;
@@ -4192,7 +4193,7 @@ async function qfBoardTable(){
   return out;
 }
 /* 事件受益股补入列表：命中事件主题词的【板块全表】成分【核心龙头】（按市值取每板块前 10），
-   当天与未来7天事件受益股均可补入（当天产业事件最受关注）；每事件配额 10 只、总体最多 80 只。
+   当天与未来两周事件受益股均可补入（当天产业事件最受关注）；每事件配额 10 只、总体最多 80 只。
    标记 mappedOnly（事件·补入）+ evDate（按事件日期排序置顶）。已在列表中的股升级 core/events 但不重复建行 */
 async function qfFetchBoardStocksByEvents(events, results){
   if(!events||!events.length) return 0;
@@ -4326,7 +4327,7 @@ function runQianfuScan(force){
         if(a.mappedOnly||b.mappedOnly){
           if(!!a.mappedOnly!==!!b.mappedOnly) return (b.mappedOnly?1:0)-(a.mappedOnly?1:0);
           const ad=a.evDate||'', bd=b.evDate||'';
-          if(ad!==bd) return ad<bd?-1:1;                    // 未来7天事件受益股按事件日期升序置顶
+          if(ad!==bd) return ad<bd?-1:1;                    // 未来两周事件受益股按事件日期升序置顶
           return (b.score||0)-(a.score||0);
         }
         return (b.core?1:0)-(a.core?1:0)||b.score-a.score;
@@ -4352,7 +4353,7 @@ function renderQianfu(tb){
     else{ tb.innerHTML='<tr><td colspan="13" class="emptys" style="padding:20px">暂无潜伏命中，点击「🌀 潜伏」开始扫描（启动迹象；财联社事件日历标注）</td></tr>'; }
     return;
   }
-  const banner=(qianfuEvents&&qianfuEvents.length)?('<tr><td colspan="13" style="padding:6px 8px;background:rgba(255,191,71,.06)"><span style="font-size:0.52rem;color:var(--dim)">📅 未来7天日历事件（财联社，候选池暂无映射股）：</span>'+
+  const banner=(qianfuEvents&&qianfuEvents.length)?('<tr><td colspan="13" style="padding:6px 8px;background:rgba(255,191,71,.06)"><span style="font-size:0.52rem;color:var(--dim)">📅 未来两周日历事件（财联社，候选池暂无映射股）：</span>'+
     qianfuEvents.map(e=>'<span style="font-size:0.52rem;color:var(--gold);margin-right:8px">'+'<b style="color:#ff5252">'+esc(e.md||e.date)+'</b> '+esc(((e.title||'').length>34)?e.title.slice(0,34)+'…':e.title)+'</span>').join(''))+'</td></tr>':'';
   tb.innerHTML=banner+qianfuResults.map((r,i)=>{
     const q=r.q; const up=q&&q.change>=0;
