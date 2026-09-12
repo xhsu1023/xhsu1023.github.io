@@ -296,6 +296,13 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRemindModal .modal-body{overflow:auto}
 #kmRemindModal table{min-width:520px}
 #kmRemindModal td{white-space:normal;word-break:break-word}
+/* 买卖提醒列表 · 放大视图：全屏弹窗 + 表格缩放 */
+#kmRemindModal .modal-box.full{width:100vw;height:100vh;max-width:none;border:none;border-radius:0;box-shadow:none}
+#kmRemindModal .modal-box.full .modal-head{padding:12px 18px}
+#kmRemindModal .modal-box.full .modal-body{padding:14px 18px;overflow:auto}
+#kmRemindModal .modal-box.full table{min-width:720px;font-size:0.7rem}
+#kmRemindModal .modal-box.full th,#kmRemindModal .modal-box.full td{padding:10px 14px}
+#kmRemindModal .modal-box.full #kmStatsBox,#kmRemindModal .modal-box.full #kmScanScope,#kmRemindModal .modal-box.full #kmBoardTags{font-size:0.62rem}
 /* ---------- K线弹窗（klineModal）重新布局：通达信式 四面板 + 固定高度 ---------- */
 #klineModal{padding:0;align-items:stretch;justify-content:stretch;background:#07090f}
 #klineModal .modal-box{width:100vw;height:100vh;max-width:none;border:none;border-radius:0;box-shadow:none}
@@ -662,10 +669,12 @@ tr:hover td{background:rgba(0,240,255,0.025)}
     <div class="modal-head">
       <h2>🔔 买卖提醒列表</h2>
       <button class="modal-close" id="kmRemindClear" style="border-color:var(--red,#ff3355);color:var(--red,#ff3355)">🗑 一键清空</button>
+      <button class="modal-close" id="kmRemindZoom" style="border-color:var(--cyan,#00e5ff);color:var(--cyan,#00e5ff)">⛶ 放大</button>
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；卡片 2 分钟后自动关闭，本列表永久保留，可手动删除。</div>
+      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买入提醒 14:30 后收盘确认（过滤盘中追高噪音），上证跌超 1.5% 自动静默；卡片 2 分钟后自动关闭，列表永久保留。</div>
+      <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
         <thead><tr>
@@ -8484,7 +8493,7 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     const mainIn17=fl17&&typeof fl17.main==='number'&&fl17.main>0;
     const xlIn17=fl17&&typeof fl17.xl==='number'&&fl17.xl>0;
     const abnIn17=isLatest17?(mainIn17&&xlIn17):false;   // 双资金明显流入（仅今日实时判定）
-    const c17_fundpush = isLatest17 && chgNow>5 && upBar && notAdrift
+    const c17_fundpush = isLatest17 && chgNow>5 && chgNow<=7 && upBar && notAdrift
                       && abnIn17
                       && (r==null||(r>=40&&r<=92)) && (kd.j[i]==null||kd.j[i]<=120);
     /* ——C18「回踩MA5低吸·突破启动」（用户规则 2026-09-08新增，2026-09-09加固）——
@@ -8527,6 +8536,13 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     const lowDead = dif!=null && dea!=null && dif<0 && dea<0
                   && closes[i]!=null && ma20i!=null && ma20p!=null
                   && closes[i]<ma20i && ma20i<ma20p;
+    /* ——P2 追高守卫（2026-09-12 优化）——
+       ① 近5日累计涨幅>15%：已连拉加速，追涨类买点一律不报（低吸/超跌类不受限）；
+       ② 当日涨幅≥9.7%（涨停/准涨停）：无法买入且次日炸板/回落风险高，追涨类不报；
+       ③ C17 资金上攻另限 chgNow≤7%（见条件处）。 */
+    let sum5=0; for(let j=Math.max(1,i-4);j<=i;j++){ if(closes[j-1]>0) sum5+=(closes[j]/closes[j-1]-1)*100; }
+    const gain5Ok=sum5<=15;
+    const notLimitNow=chgNow<9.7;
     let bS=0; const bKeys=[];
     const addB=(ok,w,k)=>{ if(ok){ bS+=w; bKeys.push(k); } };
     addB(limitF,3.0,'涨停加速');          // C4：连续涨停加速金叉首日，单因子可触发
@@ -8562,6 +8578,8 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     const pat=kmCandles(d, i);
     const patConfB=pat.b.length>0&&Math.max.apply(null,pat.b.map(x=>x.w))>=2.6;
     const bKeySet=bKeys.length;
+    const CHASE_KEYS2=['涨停加速','回踩反攻','平台突破涨停','V型回封','强势突破','资金上攻','5穿10/20金叉','三线突破','回踩20上穿5/10','回踩10上穿5','回踩再攻','回踩上攻'];
+    const bHasChase=bKeys.some(k=>CHASE_KEYS2.includes(k));   // P2：是否含追涨类买点（受追高守卫约束）
     const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='资金上攻'||bKeys[0]==='回踩低吸'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
     /* ——AI四因子 末根置信加成—— 模型存在时，仅对"最后一根K线"(实时决策)按 AI4 买/卖分加减：
        与规则共振(买分≥60 或 卖分≥60)时，把 buyOk/sellOk 判定所需强度放宽 0.5；强反向则收紧。 */
@@ -8569,7 +8587,7 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     if(i===n-1 && ai4 && ai4.w && sym){
       try{ const a4=ai4Predict(sym); if(a4&&a4.feat!=null){ ai4b=(a4.buy>=60)?1:(a4.sell>=70?-1:0); ai4s=(a4.sell>=60)?1:(a4.buy>=70?-1:0); } }catch(e){}
     }
-    const buyOk=(bKeySet>=2&&bS>=(ai4b>0?2.9:3.4))||(bKeySet===1&&bS>=(ai4b>0?2.6:3.0)&&strongSingle)||(ai4b>0&&bKeySet>=1&&bS>=1.5)||(patConfB&&bKeySet>=1&&bS>=2.0);   // 形态确认：已有规则信号 + 强反转形态 → 阈值放宽
+    const buyOk=((bKeySet>=2&&bS>=(ai4b>0?2.9:3.4))||(bKeySet===1&&bS>=(ai4b>0?2.6:3.0)&&strongSingle)||(ai4b>0&&bKeySet>=1&&bS>=1.5)||(patConfB&&bKeySet>=1&&bS>=2.0))&&(!bHasChase||(gain5Ok&&notLimitNow));   // 形态确认：已有规则信号 + 强反转形态 → 阈值放宽；P2追高守卫：追涨类须近5日累计涨幅≤15%且当日未涨停
     const c6Rebuy=bKeys.includes('回踩再攻');
     const c8Reentry=bKeys.includes('平台突破涨停');
     const c9Reentry=bKeys.includes('V型回封');
@@ -8970,6 +8988,102 @@ function loadKmReminds(){
 }
 function saveKmReminds(){ try{ localStorage.setItem(KM_REM_KEY, JSON.stringify(kmReminds.slice(-300))); }catch(e){} }
 function saveKmSeen(){ try{ localStorage.setItem(KM_SEEN_KEY, JSON.stringify([...kmSeen].slice(-3000))); }catch(e){} }
+/* =====================================================================
+ * P0 优化（2026-09-12）：买点提醒 → 次日表现统计闭环
+ *   收盘后自动回填每条买入提醒的次日涨跌（口径：次日收盘/提醒日收盘-1），
+ *   按买点类型（buyKeys）统计真实胜率，驱动低胜率信号降权/关闭。
+ * ===================================================================== */
+const KM_STAT_KEY='stock_pulse_km_stat_v1';
+let kmStat={ byKey:{}, total:{n:0,win:0,sum:0}, updated:0 };
+function loadKmStat(){
+  try{ const r=localStorage.getItem(KM_STAT_KEY); if(r){ const j=JSON.parse(r); if(j&&j.byKey&&j.total) kmStat=j; } }catch(e){}
+}
+function saveKmStat(){ try{ localStorage.setItem(KM_STAT_KEY, JSON.stringify(kmStat)); }catch(e){} }
+/* 解析提醒 reason 里的买点类型（"K线买入信号：回踩低吸 + 低位启动" → ['回踩低吸','低位启动']） */
+function kmKeysFromReason(reason){
+  const out=[];
+  try{
+    const m=/K线买入信号：(.+)/.exec(reason||'');
+    if(m) m[1].split(/[+＋、,，]/).forEach(x=>{ const t=(x||'').trim(); if(t) out.push(t); });
+  }catch(e){}
+  return out.length?out:['未知'];
+}
+/* 回填单条提醒：返回 true=已完结（不再重试），false=数据未齐（稍后重试） */
+function kmBackfillRec(rec){
+  if(rec.backfilled||rec.side==='S') return Promise.resolve(true);
+  const parts=(rec.date||'').split(/[\/\-]/);
+  if(parts.length!==3||!parts[0]||!parts[1]||!parts[2]) return Promise.resolve(true);
+  const dayKey=parts[0]+String(+parts[1]).padStart(2,'0')+String(+parts[2]).padStart(2,'0');
+  return getKlines(rec.sym,'day',260).then(k=>{
+    if(!k||!k.length) return false;
+    const dk=(x)=>String(x.date||x.dt||'').replace(/[-/T ]/g,'').slice(0,8);
+    const idx=k.findIndex(x=>dk(x)===dayKey);
+    if(idx<0) return true;              // 数据窗口内无该日（如历史过远/清缓存）→ 不再重试
+    if(idx+1>=k.length) return false;   // 次日数据未到（今日提醒/数据未更新）→ 稍后重试
+    const c0=k[idx].c, c1=k[idx+1].c;
+    if(!c0||!c1) return true;
+    rec.backfilled=true; rec.nextRet=+(c1/c0-1).toFixed(4);
+    const keys=kmKeysFromReason(rec.reason);
+    keys.forEach(key=>{
+      const s=kmStat.byKey[key]||(kmStat.byKey[key]={n:0,win:0,sum:0});
+      s.n++; s.sum+=rec.nextRet; if(rec.nextRet>0) s.win++;
+    });
+    kmStat.total.n++; if(rec.nextRet>0) kmStat.total.win++; kmStat.total.sum+=rec.nextRet;
+    kmStat.updated=Date.now();
+    return true;
+  }).catch(()=>false);
+}
+/* 批量回填（单次最多80条，逐条限速防接口限流） */
+let kmBackfillBusy=false;
+async function kmBackfillStats(){
+  if(kmBackfillBusy) return;
+  const pending=kmReminds.filter(r=>!r.backfilled);
+  if(!pending.length) return;
+  kmBackfillBusy=true;
+  let done=0, ok=0;
+  for(const rec of pending.slice(0,80)){
+    const r=await kmBackfillRec(rec);
+    if(r) ok++;
+    if((++done)%10===0) await new Promise(res=>setTimeout(res,150));
+  }
+  kmBackfillBusy=false;
+  if(ok){ saveKmStat(); saveKmReminds(); renderKmStats(); }
+}
+/* 自动回填触发：北京 15:05 后每轮检查，把当日提醒的次日数据补齐 */
+function kmBackfillAuto(){
+  if(!kmReminds.some(r=>!r.backfilled)) return;
+  let d=new Date(); try{ d=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
+  const mm=d.getHours()*60+d.getMinutes();
+  if(mm>=905) kmBackfillStats();
+}
+/* 统计面板渲染（提醒弹窗顶部）：总胜率 + 按买点类型胜率 chips */
+function renderKmStats(){
+  const box=document.getElementById('kmStatsBox'); if(!box) return;
+  const tot=kmStat.total;
+  const buyN=kmReminds.filter(r=>r.side!=='S').length;
+  const backfilled=kmReminds.filter(r=>r.side!=='S'&&r.backfilled).length;
+  if(!tot.n){
+    box.style.display='block';
+    box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计</div>'+
+      '<div style="color:var(--dim,#7a90a5)">暂无已回填数据：买入提醒会在收盘后（15:05 起）自动回填次日涨跌，按信号类型统计真实胜率，用于砍掉低胜率买点。</div>';
+    return;
+  }
+  const winPct=Math.round(tot.win/tot.n*100);
+  const avg=(tot.sum/tot.n*100).toFixed(2);
+  const wCol=winPct>=55?'var(--green,#00ff88)':(winPct>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)');
+  const keys=Object.keys(kmStat.byKey).filter(k=>kmStat.byKey[k]&&kmStat.byKey[k].n>0)
+    .sort((a,b)=>kmStat.byKey[b].n-kmStat.byKey[a].n);
+  const chips=keys.map(k=>{
+    const s=kmStat.byKey[k]; const p=Math.round(s.win/s.n*100);
+    const c=p>=55?'var(--green,#00ff88)':(p>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)');
+    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:10px;border:1px solid '+c+';color:'+c+'" title="口径：次日收盘/提醒日收盘-1">'+esc(k)+' <b>'+p+'%</b><span style="opacity:.65">('+s.n+')</span></span>';
+  }).join('');
+  box.style.display='block';
+  box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计 <span style="font-weight:400;color:var(--dim,#7a90a5)">（口径：次日收盘/提醒日收盘-1 · 回填 '+backfilled+'/'+buyN+' 条）</span></div>'+
+    '<div>次日上涨 <b style="color:'+wCol+'">'+winPct+'%</b>（'+tot.win+'/'+tot.n+'）· 平均 '+avg+'%'+
+    (winPct<50?' · <span style="color:var(--red,#ff3355)">低于 50%，优先关闭红色低胜率信号</span>':'')+'</div>'+
+    (chips?'<div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:4px">'+chips+'</div>':'');
+}
 function _kmDayKey(){ const d=new Date(); return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2); }
 /* 名称兜底：优先实时行情，其次热门池/板块池，最后才是代码 */
 function kmStockName(sym){
@@ -8994,7 +9108,7 @@ function kmFireReminder(sym, side, reason, q){
   const today=d.toLocaleDateString('zh-CN');
   const rec={ ts:Date.now(), time:d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
     date:today, sym, name:(q&&q.name)||kmStockName(sym), code:sym.replace(/^(sh|sz|bj)/i,''),
-    side, reason };
+    side, reason, price:(q&&typeof q.price==='number')?+q.price.toFixed(2):null };
   const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);   // 当天已提醒过 → 只弹卡片，不重复入列表
   if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
   kmShowToast(rec);
@@ -9032,6 +9146,15 @@ async function kmRemindCheck(){
   if(!isATradeTime()) return;
   if(Date.now()-kmRemindLastCheck<8000) return;    // 8s 节流
   kmRemindLastCheck=Date.now();
+  /* P1/P3 优化（2026-09-12）：买入提醒改"收盘确认制"——
+     ① 仅 14:30 后允许弹买入（当日K线接近定型，过滤盘中冲高/未完成柱噪音）；卖出保持盘中即时；
+     ② 大盘（上证）当日跌超 1.5% → 买入提醒自动静默（弱市追涨失效率高）。 */
+  let bd=new Date(); try{ bd=new Date(bd.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
+  const bmm=bd.getHours()*60+bd.getMinutes();
+  const buyOkTime=bmm>=870;                                    // 14:30
+  const qi=quotes['sh000001'];
+  const marketWeak=qi&&typeof qi.pct==='number'&&qi.pct<-1.5;  // 上证当日跌超1.5%
+  const buyAllowed=buyOkTime&&!marketWeak;
   const syms=new Set();
   watchList.forEach(s=>syms.add(s));
   backupList.forEach(s=>syms.add(s));
@@ -9049,7 +9172,7 @@ async function kmRemindCheck(){
       const k=(q&&typeof q.price==='number'&&isFinite(q.price))?(_liveCandles(base,q)||base):base;
 const sig=_kmSignals(k, sym).lastSig;
       if(!sig) continue;
-      if(sig.buy){ kmFireReminder(sym,'B','K线买入信号：'+(sig.buyKeys&&sig.buyKeys.length?sig.buyKeys.join(' + '):'买入'),q); }
+      if(sig.buy&&buyAllowed){ kmFireReminder(sym,'B','K线买入信号：'+(sig.buyKeys&&sig.buyKeys.length?sig.buyKeys.join(' + '):'买入'),q); }
       else if(sig.sell){ kmFireReminder(sym,'S','K线卖出信号：'+(sig.sellKeys&&sig.sellKeys.length?sig.sellKeys.join(' + '):'卖出'),q); }
     }catch(e){}
   }
@@ -9074,8 +9197,14 @@ function renderKmRemindList(){
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
-document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
+document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmStats(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
+document.getElementById('kmRemindZoom').addEventListener('click',()=>{
+  const box=document.getElementById('kmRemindModal').querySelector('.modal-box');
+  const on=!box.classList.contains('full');
+  box.classList.toggle('full',on);
+  document.getElementById('kmRemindZoom').textContent=on?'⛶ 还原':'⛶ 放大';
+});
 document.getElementById('kmRemindClear').addEventListener('click',()=>{
   if(!kmReminds.length) return;
   if(confirm('确认清空全部买卖提醒记录？（云端与其他设备同步清空）')){
@@ -9086,7 +9215,7 @@ document.getElementById('kmRemindClear').addEventListener('click',()=>{
     _cloudKmPushOverwrite([], clr);
   }
 });
-loadKmReminds(); kmUpdCnt();
+loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000);
 
 /* =====================================================================
  * 买卖点扫描范围扩展：最近 3 日热门板块（东方财富板块涨幅榜）+ 板块成分股池
