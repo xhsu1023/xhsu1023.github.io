@@ -491,19 +491,23 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         </div>
       </div>
       <div class="row" id="recAiRow" style="display:none;margin-bottom:6px;flex-wrap:wrap;align-items:center;gap:6px">
-        <button class="btn btn-cyan btn-sm" id="recScanBtn" title="用大模型多因子体系重新筛选候选股">▶ 重跑荐股筛选</button>
         <button class="btn btn-sm" id="unifiedSweepBtn" style="border-color:#ff8a65;color:#ff8a65" title="整合扫描：一次全市场拉取 → 同时跑 早选/低吸/强势回调/龙头/RSI/潜伏 六大战法过滤器 → 同股多信号叠加，🔥多信号共振=高置信（数据层共享、统计闭环统一）">🔥 整合扫描</button>
         <button class="btn btn-sm" id="zaoSweepBtn" style="border-color:var(--gold);color:var(--gold)" title="竞价战法：AI 已学习实战竞价框架（看环境/板块/位置/竞价量价/形态/风险）→ 本地规则引擎全市场评分 + 可选 AI 复核">🌅 早选 · 竞价挑强</button>
         <button class="btn btn-sm" id="zaoLearnBtn" style="border-color:#00e5ff;color:#00e5ff" title="AI 学习竞价战法：把实战竞价框架喂给大模型，归纳可执行规则与因子权重并缓存 → 应用于早选评分">🧠 AI学习竞价</button>
+        <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+财联社投资日历事件映射受益个股 → 事件兑现前提前埋伏">🌀 潜伏</button>
+        <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
+        <button class="btn btn-sm" id="ai4ScanBtn" style="border-color:#7c5cff;color:#a78bfa" title="AI 四因子选股：基本面+技术面+情绪面+消息面 逻辑回归模型扫描全市场，输出买/卖概率分（先点「🧠 训练AI4」积累模型）">🧠 AI四因子</button>
+        <button class="btn btn-sm" id="ai4TrainBtn" style="border-color:#00e5ff;color:#00e5ff" title="用已缓存的历史日K训练四因子逻辑回归模型（基本面/技术/情绪/消息 → 未来3日方向）并缓存">⚙ 训练AI4</button>
+        <button class="btn btn-sm" id="recAdvToggle" style="border-color:var(--dim,#7a90a5);color:var(--dim,#7a90a5)" title="展开/收起高级战法：荐股筛选、低吸、强势回调、龙头、预测（完整版含 AI/缩量/板块池验证，整合扫描为规则精简版）">🧩 高级战法 ▸</button>
+        <span class="ai-state" id="recState" style="font-size:0.55rem;color:var(--text);flex:1;min-width:0"></span>
+      </div>
+      <div id="recAdvWrap" style="display:none;margin:-2px 0 6px;flex-wrap:wrap;align-items:center;gap:6px;border:1px dashed rgba(122,144,165,0.4);border-radius:6px;padding:6px 8px">
+        <span style="font-size:0.5rem;color:var(--dim,#7a90a5);margin-right:2px">🧩 高级战法（完整版）</span>
+        <button class="btn btn-cyan btn-sm" id="recScanBtn" title="用大模型多因子体系重新筛选候选股">▶ 重跑荐股筛选</button>
         <button class="btn btn-sm" id="dixiSweepBtn" style="border-color:var(--purple);color:var(--purple)" title="缩量回调低吸：日线趋势向上+缩量回调15%+日内跌幅1-4%+主力净流入为正+支撑不破">💧 低吸战法</button>
         <button class="btn btn-sm" id="qiangleSweepBtn" style="border-color:#ffb84d;color:#ffd27d" title="强势回调低吸：当前热门板块+近10日涨停次>2（连续强势上涨）+连续回调回踩/下穿5日线后拉回+RSI6较昨日回落转头+主力与暗盘(超大单)均净流入（不考虑缩量）">💪 强势回调低吸</button>
         <button class="btn btn-sm" id="longtouSweepBtn" style="border-color:#ff5252;color:#ff5252" title="龙头回调低吸：板块龙头+回调8-22%+缩量+MA支撑+日内-7%~-3%+缩量承接">🐉 龙头战法</button>
-        <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+财联社投资日历事件映射受益个股 → 事件兑现前提前埋伏">🌀 潜伏</button>
-        <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
-        <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：先扫 A股全市场(5000+)，用 K线图买入逻辑预筛触发买点的个股，再综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率">🔮 预测</button>
-        <button class="btn btn-sm" id="ai4ScanBtn" style="border-color:#7c5cff;color:#a78bfa" title="AI 四因子选股：基本面+技术面+情绪面+消息面 逻辑回归模型扫描全市场，输出买/卖概率分（先点「🧠 训练AI4」积累模型）">🧠 AI四因子</button>
-        <button class="btn btn-sm" id="ai4TrainBtn" style="border-color:#00e5ff;color:#00e5ff" title="用已缓存的历史日K训练四因子逻辑回归模型（基本面/技术/情绪/消息 → 未来3日方向）并缓存">⚙ 训练AI4</button>
-        <span class="ai-state" id="recState" style="font-size:0.55rem;color:var(--text);flex:1;min-width:0"></span>
+        <button class="btn btn-sm" id="yuceSweepBtn" style="border-color:#ffab40;color:#ffab40" title="AI 机器学习预测次日看多/看空：综合量价/技术/资金/大盘板块因子由 AI 给出次日方向与概率（优先复核整合命中池）">🔮 预测</button>
       </div>
       <div id="zaoStatsBox" style="display:none;margin-bottom:6px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="sigStatsBox" style="display:none;margin-bottom:6px;border:1px solid rgba(255,138,101,0.25);background:rgba(255,138,101,0.05);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
@@ -676,7 +680,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买入提醒 14:30 后收盘确认（过滤盘中追高噪音），上证跌超 1.5% 自动静默；卡片 2 分钟后自动关闭，列表永久保留。</div>
+      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌），上证跌超 1.5% 自动静默；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
       <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
@@ -1163,7 +1167,7 @@ function currentListSyms(){
     case 'hot':   return hotStocks.map(x=>x.sym);
     case 'bak':   return backupList.slice();
     case 'dip':   return dipResults.map(x=>x.sym);
-    case 'rec':   return recView==='zao'?zaoResults.map(x=>x.sym):(recView==='dixi'?dixiResults.map(x=>x.sym):(recView==='qianfu'?qianfuResults.map(x=>x.sym):(recView==='longtou'?longtouResults.map(x=>x.sym):(recView==='rsi'?rsiResults.map(x=>x.sym):(recView==='yuce'?yuceResults.map(x=>x.sym):(recView==='ai4'?ai4Results.map(x=>x.sym):recResults.map(x=>x.sym)))))));
+    case 'rec':   return recView==='unified'?unifiedResults.map(x=>x.sym):(recView==='zao'?zaoResults.map(x=>x.sym):(recView==='dixi'?dixiResults.map(x=>x.sym):(recView==='qianfu'?qianfuResults.map(x=>x.sym):(recView==='longtou'?longtouResults.map(x=>x.sym):(recView==='rsi'?rsiResults.map(x=>x.sym):(recView==='yuce'?yuceResults.map(x=>x.sym):(recView==='ai4'?ai4Results.map(x=>x.sym):recResults.map(x=>x.sym))))))));
     case 'zx':    return (zxResults||[]).map(x=>x.sym);
     case 'chan':  return (chanResults||[]).map(x=>x.sym);
     default:      return [];
@@ -3893,8 +3897,11 @@ async function runUnifiedScan(force){
     }
     const pool=strongPool.concat(weakPool);
     if(!pool.length){ unifiedBusy=false; if(st) st.textContent='整合扫描：全市场无候选'; renderUnified(); return; }
-    const missing=pool.filter(p=>!quotes[p.sym]).map(p=>p.sym).slice(0,40);
-    if(missing.length){ try{ const q=await fetchQuotes(missing); Object.assign(quotes,q); }catch(e){} }
+    const missing=pool.filter(p=>!quotes[p.sym]).map(p=>p.sym);
+    for(let kk=0;kk<missing.length;kk+=30){
+      const chunk=missing.slice(kk,kk+30);
+      try{ const q=await fetchQuotes(chunk); Object.assign(quotes,q); }catch(e){}
+    }
     progress('获取日K（'+pool.length+' 只）…');
     for(let kk=0;kk<pool.length;kk+=20){
       const chunk=pool.slice(kk,kk+20).map(p=>p.sym);
@@ -3986,6 +3993,7 @@ function renderUnified(tb){
   }).join('');
   bindRowClicks(tb);
   renderSigStats();
+  try{ kickSectors(); }catch(e){}   // 懒加载概念板块，完成后自动重绘
 }
 /* =====================================================================
  * P5 优化（2026-09-12）：早选结果 → 次日表现统计闭环
@@ -4795,10 +4803,16 @@ async function qfFetchClsEvents(){
   const j=await r.json();
   if(!(j&&Array.isArray(j.data))) throw new Error('cls payload');
   const now=new Date(), start=qfDateStr(now), endD=new Date(now.getTime()+14*864e5), end=qfDateStr(endD);
+  /* A 过滤（2026-09-12）：只保留 type=2（会议/政策/产品发布等有行业属性的事件），
+     排除纯经济数据（type=1，无板块映射价值）；排除对 A 股无板块映射的外围国家事件 */
+  const NO_CN=['印度','韩国','法国','欧元区','加拿大','日本','英国','德国','澳大利亚','新西兰','新加坡','俄罗斯','巴西','意大利','西班牙','荷兰','瑞典','瑞士','土耳其','越南','泰国','印尼','马来西亚','墨西哥','沙特','阿联酋','南非','尼日利亚','阿根廷','智利','波兰','挪威','丹麦','比利时','奥地利','爱尔兰','葡萄牙','希腊','以色列'];
   const out=[];
   for(const d of j.data){
     const day=String(d&&d.calendar_day||''); if(!day||day<start||day>end) continue;
     for(const it of (d.items||[])){
+      if(it.type!==2) continue;
+      const ctry=String((it&&it.event&&it.event.country)||'');
+      if(ctry&&NO_CN.includes(ctry)) continue;
       const title=String(it&&it.title||'').trim(); if(!title) continue;
       out.push({date:day, md:qfMmdd(day), title});
     }
@@ -4808,7 +4822,7 @@ async function qfFetchClsEvents(){
 }
 
 /* 事件标题 → 主题词集合（QF_TOPICS 中出现即计入）；别名归一：口语/缩写映射到标准行业词 */
-const QF_ALIAS=[['AI','人工智能'],['GPU','算力'],['芯片涨价','芯片'],['半导体涨价','半导体'],['机器人大会','机器人'],['光伏','光伏'],['创新药','创新药'],['仿制药','医药'],['社融','银行'],['降息','银行'],['地缘','黄金'],['通胀','黄金'],['美联储','黄金'],['降准','银行']];
+const QF_ALIAS=[['AI','人工智能'],['GPU','算力'],['芯片涨价','芯片'],['半导体涨价','半导体'],['机器人大会','机器人'],['光伏','光伏'],['创新药','创新药'],['仿制药','医药'],['社融','银行'],['降息','银行'],['地缘','黄金'],['通胀','黄金'],['美联储','黄金'],['降准','银行'],['骁龙','芯片'],['Mac','苹果'],['苹果发布会','苹果'],['不锈钢','钢铁'],['AI眼镜','消费电子'],['智能驾驶','汽车'],['人形机器人','机器人'],['网安','网络安全'],['生物科技','医药']];
 function qfTopics(title){
   const t=String(title||''); const tags=[];
   for(const [src,dst] of QF_ALIAS){ if(src.length>1&&t.includes(src)) tags.push(dst); }
@@ -5021,7 +5035,7 @@ function renderQianfu(tb){
     else{ tb.innerHTML='<tr><td colspan="13" class="emptys" style="padding:20px">暂无潜伏命中，点击「🌀 潜伏」开始扫描（启动迹象；财联社事件日历标注）</td></tr>'; }
     return;
   }
-  const banner=(qianfuEvents&&qianfuEvents.length)?('<tr><td colspan="13" style="padding:6px 8px;background:rgba(255,191,71,.06)"><span style="font-size:0.52rem;color:var(--dim)">📅 未来两周日历事件（财联社，候选池暂无映射股）：</span>'+
+  const banner=(qianfuEvents&&qianfuEvents.length)?('<tr><td colspan="13" style="padding:6px 8px;background:rgba(255,191,71,.06)"><span style="font-size:0.52rem;color:var(--dim)">📅 未来两周宏观/行业事件（财联社，已过滤外围经济数据；不含个股公告，个股利好/利空见买点质量门公告因子）：</span>'+
     qianfuEvents.map(e=>'<span style="font-size:0.52rem;color:var(--gold);margin-right:8px">'+'<b style="color:#ff5252">'+esc(e.md||e.date)+'</b> '+esc(((e.title||'').length>34)?e.title.slice(0,34)+'…':e.title)+'</span>').join(''))+'</td></tr>':'';
   tb.innerHTML=banner+qianfuResults.map((r,i)=>{
     const q=r.q; const up=q&&q.change>=0;
@@ -9826,19 +9840,127 @@ function kmShowToast(rec){
 }
 /* 交易时段轮询：对已加载K线的股票（自选/备选 + 当前池）用实时价注入后跑 _kmSignals，触发即提醒 */
 let kmRemindLastCheck=0;
+/* 财联社未来事件缓存（30分钟，避免每8秒拉一次接口） */
+let kmEventsCache=null, kmEventsTS=0;
+async function kmGetEventsCached(){
+  const now=Date.now();
+  if(kmEventsCache&&now-kmEventsTS<1800000) return kmEventsCache;
+  try{ const evs=await qfFetchClsEvents(); kmEventsCache=evs||[]; kmEventsTS=now; return kmEventsCache; }
+  catch(e){ return kmEventsCache||[]; }   // 失败回退缓存/空（事件是加分项，不因缺事件拦截买点）
+}
+/* =====================================================================
+ * 个股公告（东财）：买点触发时按需拉取，30分钟/股缓存
+ *   ANN_RISK 强利空关键词（减持/解禁/预亏/立案等）→ 质量门拦截
+ *   ANN_GOOD 利好关键词（中标/合同/预增/回购等）→ 质量门加分
+ *   仅看最近 60 天公告（旧公告不参与判断）
+ * ===================================================================== */
+const ANN_RISK=['减持','解禁','限售股','质押','立案','处罚','诉讼','仲裁','预亏','预减','业绩下滑','亏损','终止重组','终止重大','退市','商誉减值','计提减值','冻结','被执行','破产','警示函','监管措施','问询函','*ST','ST','戴帽'];
+const ANN_GOOD=['中标','签订合同','重大合同','订单','预增','扭亏','预盈','回购','增持','重组','并购','收购','业绩预增','高送转','分红','派息','股权激励','战略合作','获准','核准','获批','新产品','投产','扩产'];
+let kmAnnCache={}, kmAnnFetching={};
+async function kmFetchAnnouncements(sym){
+  const c=kmAnnCache[sym];
+  if(c&&Date.now()-c.ts<1800000) return c.list;
+  if(kmAnnFetching[sym]) return c?c.list:null;
+  kmAnnFetching[sym]=true;
+  try{
+    const url='https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size=20&page_index=1&ann_type=A&client_source=web&stock_list='+sym;
+    const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64)','Referer':'https://data.eastmoney.com/'}});
+    if(!r.ok) throw new Error('ann http '+r.status);
+    const j=await r.json();
+    const list=(((j&&j.data&&j.data.list)||[]).map(a=>({date:String(a.notice_date||'').slice(0,10), title:String(a.title||'')}))||[]);
+    kmAnnCache[sym]={ts:Date.now(), list};
+    return list;
+  }catch(e){ return c?c.list:null; }
+  finally{ kmAnnFetching[sym]=false; }
+}
+/* 返回该股最近60天公告中的 利空命中/利好命中/中性 */
+async function kmAnnVerdict(sym){
+  try{
+    const all=await kmFetchAnnouncements(sym);
+    if(!all||!all.length) return {bad:null, good:null};
+    const anns=all.filter(a=>{ const t=new Date(String(a.date)+'T00:00:00'); return !isNaN(t.getTime())&&(Date.now()-t.getTime())<60*864e5; });
+    const bad=anns.find(a=>ANN_RISK.some(k=>String(a.title).toUpperCase().includes(k)));
+    const good=anns.find(a=>ANN_GOOD.some(k=>String(a.title).toUpperCase().includes(k)));
+    return {bad:bad||null, good:good||null};
+  }catch(e){ return {bad:null, good:null}; }
+}
+/* =====================================================================
+ * 🔒 买点质量门（2026-09-12 v2）：盘中即时提醒买点，但用多因子过滤次日下跌风险
+ *   G1 大盘：上证>0.5% 强市放行；-1.5%~0.5% 中性需补偿；<-1.5% 硬拦（kmRemindCheck 前置）
+ *   G2 热门板块：个股概念 ∩ 近3日热门板块 → 板块效应补偿
+ *   G3 未来事件：财联社未来7天宏观/行业事件主题词 ∩ 个股概念 → 事件驱动补偿
+ *   G4 个股走势：位置>92% 高位拦截；量比>10 对倒嫌疑拦截；现价距日内高点回落>3% 冲高回落拦截
+ *   G5 个股公告（东财，最近60天）：减持/解禁/预亏/立案等利空 → 硬拦截；中标/合同/预增/回购等利好 → 补偿
+ *   决策：中性市 且 非热门板块 且 无事件 且 无公告利好（且概念数据已就绪）→ 拦截；
+ *   概念数据缺失时保守放行并标注"板块待确认"。
+ * ===================================================================== */
+async function kmBuyGate(sym, q, k, sig){
+  const factors=[], warns=[];
+  let pass=true;
+  const qi=quotes['sh000001'];
+  const shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+  if(shpct==null){ factors.push('大盘数据缺失'); }
+  else if(shpct>=0.5){ factors.push('上证'+(shpct>=0?'+':'')+shpct.toFixed(1)+'%强'); }
+  else if(shpct<-1.5){ pass=false; factors.push('上证'+shpct.toFixed(1)+'%弱市'); }
+  else { factors.push('上证'+shpct.toFixed(1)+'%中性'); }
+  const boards=sectorCache[sym]&&sectorCache[sym].names?sectorCache[sym].names:null;
+  const hasBoards=!!(boards&&boards.length);
+  let hotHit=null;
+  try{
+    const hotNames=_kmBoardMerged3().slice(0,18).map(b=>b.name);
+    hotHit=(boards||[]).find(b=>hotNames.some(h=>h&&(b.includes(h)||h.includes(b))))||null;
+    if(hotHit) factors.push('热门板块:'+hotHit);
+  }catch(e){}
+  let evtHit=null;
+  try{
+    const evs=await kmGetEventsCached();
+    if(evs&&evs.length&&boards){
+      /* C：按日期过滤未来 7 天（evs 按日期升序，不超限则全查，杜绝数量截断漏掉第7天） */
+      const cut7=new Date(Date.now()+7*864e5), cutStr=qfDateStr(cut7);
+      for(const ev of evs){
+        if(ev.date>cutStr) break;
+        const tags=qfTopics(ev.title);
+        const hit=tags.find(t=>boards.some(b=>b.includes(t)||t.includes(b)));
+        if(hit){ evtHit=ev; break; }
+      }
+      if(evtHit) factors.push('事件:'+evtHit.md+' '+String(evtHit.title).slice(0,10));
+    }
+  }catch(e){}
+  /* G5 个股公告（东财）：利空硬拦截 / 利好补偿（仅最近60天公告） */
+  let annGood=null;
+  try{
+    const vd=await kmAnnVerdict(sym);
+    if(vd.bad){ pass=false; factors.push('公告利空:'+String(vd.bad.title).slice(0,16)); }
+    else if(vd.good){ annGood=vd.good; factors.push('公告利好:'+String(vd.good.title).slice(0,16)); }
+  }catch(e){}
+  if(k&&k.length>=25&&q&&typeof q.price==='number'&&typeof q.high==='number'){
+    const pos30=diPos30(k, q.price);
+    if(pos30!=null&&pos30>0.92){ pass=false; factors.push('高位'+Math.round(pos30*100)+'%'); }
+    else if(pos30!=null){ factors.push('位置'+Math.round(pos30*100)+'%'); }
+    const retreat=q.high>0?((q.high-q.price)/q.high*100):0;
+    if(retreat>3){ pass=false; factors.push('冲高回落'+retreat.toFixed(1)+'%'); }
+    if(q.volume!=null&&q.vol5&&q.vol5>0){
+      const vr=q.volume/(q.vol5/5);
+      if(vr>10){ pass=false; factors.push('量比'+vr.toFixed(1)+'异常'); }
+    }
+  }
+  const neutral=shpct!=null&&shpct>=-1.5&&shpct<0.5;
+  if(neutral&&!hotHit&&!evtHit&&!annGood&&hasBoards){ pass=false; warns.push('中性市无板块/事件/公告支撑'); }
+  else if(neutral&&!hotHit&&!evtHit&&!hasBoards){ factors.push('板块待确认'); }
+  return { pass, factors, warns };
+}
 async function kmRemindCheck(){
   if(!isATradeTime()) return;
   if(Date.now()-kmRemindLastCheck<8000) return;    // 8s 节流
   kmRemindLastCheck=Date.now();
-  /* P1/P3 优化（2026-09-12）：买入提醒改"收盘确认制"——
-     ① 仅 14:30 后允许弹买入（当日K线接近定型，过滤盘中冲高/未完成柱噪音）；卖出保持盘中即时；
-     ② 大盘（上证）当日跌超 1.5% → 买入提醒自动静默（弱市追涨失效率高）。 */
+  /* 🔒 买点质量门优化（2026-09-12 v2）：盘中即时触发买点，不做时间限制；
+     次日下跌风险改由多因子质量门过滤（大盘/热门板块/未来事件/位置/量能/冲高回落）；
+     大盘（上证）当日跌超 1.5% 仍硬性静默；卖出保持盘中即时。 */
   let bd=new Date(); try{ bd=new Date(bd.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
   const bmm=bd.getHours()*60+bd.getMinutes();
-  const buyOkTime=bmm>=870;                                    // 14:30
   const qi=quotes['sh000001'];
   const marketWeak=qi&&typeof qi.pct==='number'&&qi.pct<-1.5;  // 上证当日跌超1.5%
-  const buyAllowed=buyOkTime&&!marketWeak;
+  const buyAllowed=!marketWeak;
   const syms=new Set();
   watchList.forEach(s=>syms.add(s));
   backupList.forEach(s=>syms.add(s));
@@ -9856,7 +9978,14 @@ async function kmRemindCheck(){
       const k=(q&&typeof q.price==='number'&&isFinite(q.price))?(_liveCandles(base,q)||base):base;
 const sig=_kmSignals(k, sym).lastSig;
       if(!sig) continue;
-      if(sig.buy&&buyAllowed){ kmFireReminder(sym,'B','K线买入信号：'+(sig.buyKeys&&sig.buyKeys.length?sig.buyKeys.join(' + '):'买入'),q); }
+      if(sig.buy&&buyAllowed){
+        /* 买点质量门：通过才提醒，文案带过滤因子 */
+        const gate=await kmBuyGate(sym, q, k, sig);
+        if(gate.pass){
+          const gTxt=gate.factors&&gate.factors.length?('｜质量门:'+gate.factors.join('·')):'';
+          kmFireReminder(sym,'B','K线买入信号：'+(sig.buyKeys&&sig.buyKeys.length?sig.buyKeys.join(' + '):'买入')+gTxt,q);
+        }
+      }
       else if(sig.sell){ kmFireReminder(sym,'S','K线卖出信号：'+(sig.sellKeys&&sig.sellKeys.length?sig.sellKeys.join(' + '):'卖出'),q); }
     }catch(e){}
   }
@@ -9982,7 +10111,7 @@ async function refreshKmBoardPool(){
 }
 /* 买卖提醒面板：扫描范围说明 + 最近3日热门板块标签 */
 function renderKmScanScope(){
-  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只';
+  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落过滤次日下跌），上证跌超1.5%静默；卖出盘中即时';
   const box=document.getElementById('kmBoardTags'); if(!box) return;
   box.innerHTML='';
   const chips=_kmBoardMerged3().slice(0,18);
@@ -10813,6 +10942,8 @@ function init(){
   document.getElementById('aiScanBtn').addEventListener('click',runAIScan);
   const recBtn=document.getElementById('recScanBtn'); if(recBtn) recBtn.addEventListener('click',()=>runRecScan(true));
   const uniBtn=document.getElementById('unifiedSweepBtn'); if(uniBtn) uniBtn.addEventListener('click',()=>{ recView='unified'; refreshRecHeader(); runUnifiedScan(true); });
+  const advT=document.getElementById('recAdvToggle'), advW=document.getElementById('recAdvWrap');
+  if(advT&&advW){ advT.addEventListener('click',()=>{ const open=advW.style.display!=='none'; advW.style.display=open?'none':'flex'; advT.textContent='🧩 高级战法 '+(open?'▸':'▾'); }); }
   bindZaoSweep();
   loadZaoLearn();
   bindDixiSweep();
