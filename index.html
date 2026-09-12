@@ -1781,15 +1781,8 @@ function setListTab(t){
     loadDip();
   }
   else if(t==='rec'){
-    if(recView==='unified'){ runUnifiedScan(true); }
-    else if(recView==='zao'){ runZaoScan(true); }
-    else if(recView==='dixi'){ runDixiScan(true); }
-    else if(recView==='longtou'){ runLongtouScan(true); }
-    else if(recView==='qianfu'){ runQianfuScan(true); }
-    else if(recView==='rsi'){ runRsiScan(true); }
-    else if(recView==='yuce'){ runYuceScan(true); }
-    else if(recView==='ai4'){ runAI4Scan(true); }
-    else { runRecScan(true); }
+    /* 取消进入荐股页自动筛选：不再自动跑扫描；切换 tab 仅由上方 headerFor/renderHot 按当前 recView 显示缓存或空态，
+       需手动点对应按钮（▶ 重跑荐股筛选 / 🌅 早选 · 竞价挑强 / 各战法按钮）触发扫描 */
   }
   else if(t==='zx'){
     zxEnsureScan(true);
@@ -3444,7 +3437,7 @@ function renderRecState(){
 /* rec tab 视图切换时刷新表头（rec/zao） */
 function refreshRecHeader(){
   const h=document.getElementById('hotHead'); if(!h) return;
-  h.innerHTML=headerFor(recView==='zao'?'zao':(recView==='dixi'?'dixi':(recView==='qiangle'?'qiangle':(recView==='longtou'?'longtou':(recView==='qianfu'?'qianfu':(recView==='rsi'?'rsi':(recView==='yuce'?'yuce':(recView==='ai4'?'ai4':'rec'))))))));
+  h.innerHTML=headerFor(_recHeaderKey());
   bindHeaderSort();
 }
 /* 荐股扫描主入口 */
