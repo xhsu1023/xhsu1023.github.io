@@ -258,10 +258,12 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .km-toast.show{transform:translateX(0)}
 .km-toast.buy{border-left:3px solid var(--red,#ff3355)}
 .km-toast.sell{border-left:3px solid var(--green,#00ff88)}
+.km-toast.alert{border-left:3px solid #f7c948}
 .km-toast .kt-hd{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .km-toast .kt-tag{font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;font-weight:700;padding:1px 8px;border-radius:3px}
 .km-toast.buy .kt-tag{background:rgba(255,51,85,0.15);color:var(--red,#ff3355)}
 .km-toast.sell .kt-tag{background:rgba(0,255,136,0.12);color:var(--green,#00ff88)}
+.km-toast.alert .kt-tag{background:rgba(247,201,72,0.15);color:#f7c948}
 .km-toast .kt-close{position:absolute;right:6px;top:4px;background:none;border:none;color:var(--dim,#7a90a5);cursor:pointer;font-size:0.6rem;line-height:1}
 .km-toast .kt-close:hover{color:var(--red)}
 .km-toast .kt-name{font-weight:700;color:var(--text-bright,#cfe5f5);cursor:pointer}
@@ -325,19 +327,29 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .panel-dmi{height:170px}
 .chart-title{position:absolute;top:8px;left:12px;right:12px;font-size:15px;color:#e6eaf5;z-index:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 /* 分时集合竞价侧边栏（左=早盘竞价 右=收盘竞价；可点击看详情） */
-.auction-box{position:absolute;top:0;bottom:0;width:44px;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;background:rgba(20,26,40,0.55);border:1px solid #2b3550}
-.auction-box:hover{background:rgba(43,84,153,0.5);border-color:var(--cyan)}
+.auction-box{position:absolute;top:0;bottom:0;width:36px;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:rgba(20,26,40,0.35);border:1px solid rgba(43,53,80,0.6)}
+.auction-box:hover{background:rgba(43,84,153,0.4);border-color:var(--cyan)}
 .auction-box.ab-left{left:0}
 .auction-box.ab-right{right:0}
-.auction-box .ab-t{font-size:9px;color:#8891b5;writing-mode:vertical-rl;letter-spacing:1px}
-.auction-box .ab-v{font-size:13px;color:#e6eaf5;font-weight:700}
-.auction-box .ab-p{font-size:10px;color:var(--gold,#ffbf47)}
+.auction-box .ab-t{font-size:8px;color:#8891b5;writing-mode:vertical-rl;letter-spacing:1px}
+.auction-box .ab-v{font-size:11px;color:#e6eaf5;font-weight:700}
+.auction-box .ab-p{font-size:9px;color:var(--gold,#ffbf47)}
 .auction-pop{position:absolute;z-index:5;background:#161b28;border:1px solid var(--cyan);border-radius:6px;padding:8px 10px;min-width:190px;box-shadow:0 8px 24px rgba(0,0,0,.5);font-size:11px;color:#cdd9e5;pointer-events:auto}
 .auction-pop .ap-hd{color:var(--gold,#ffbf47);font-weight:600;margin-bottom:5px;font-size:11px}
 .auction-pop .ap-row{display:flex;justify-content:space-between;gap:16px;line-height:1.7}
 .auction-pop .ap-row b{color:#e6eaf5;font-weight:600}
+/* 集合竞价显示开关（分时页，仅 d1 显示） */
+.km-auction-dd{position:relative;margin-left:auto;display:flex;align-items:center}
+.km-auction-menu{position:absolute;top:100%;right:0;margin-top:4px;background:#161b28;border:1px solid var(--cyan,#00e5ff);border-radius:6px;min-width:96px;z-index:8;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5);overflow:hidden}
+.km-auction-item{padding:7px 14px;font-size:11px;color:#cdd9e5;cursor:pointer;text-align:center;line-height:1.4}
+.km-auction-item:hover{background:rgba(43,84,153,0.45);color:#fff}
+.km-auction-item.act{color:var(--cyan,#00e5ff);font-weight:600}
+/* 分时主图右侧自定义涨跌幅轴（红涨绿跌刻度，0%以上红、0%以下绿） */
+.km-pct-axis{position:absolute;top:0;right:0;bottom:0;width:56px;z-index:2;pointer-events:none;font-size:9px;font-weight:600;overflow:hidden}
+.km-pct-axis .pa-i{position:absolute;right:2px;line-height:1;transform:translateY(-50%);white-space:nowrap;text-shadow:0 0 3px rgba(0,0,0,0.8)}
 .board-chip{background:#1d2436;border:1px solid #3a4160;color:#8fb7ff;border-radius:3px;padding:1px 7px;line-height:1.5}
 .chart-canvas{width:100%;height:100%;display:block}
+#kmChart{position:relative}   /* 集合竞价左右栏相对分时主图画布定位 */
 .bottom-tab-bar{flex:0 0 auto;height:48px;min-height:48px;display:flex;align-items:center;gap:6px;overflow-x:auto;padding:0 4px}
 .tsect{flex:0 0 auto;color:#8891b5;font-size:0.55rem;padding:0 4px;white-space:nowrap}
 .tab-item{flex:0 0 auto;padding:6px 12px;background:#202430;border-radius:3px;color:#c3c9dd;font-size:14px;cursor:pointer;white-space:nowrap;transition:all 0.15s}
@@ -680,7 +692,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌），上证跌超 1.5% 自动静默；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
+      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
       <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
@@ -742,12 +754,19 @@ tr:hover td{background:rgba(0,240,255,0.025)}
     </div>
     <div class="modal-body">
       <div class="qb header-quote" id="kmQuoteBar"></div>
-      <div class="period-tabs">
+      <div class="period-tabs" style="display:flex;align-items:center;gap:8px">
         <div class="tabs" id="kmRangeTabs">
           <span class="tab act" data-km="d1">分时</span>
           <span class="tab" data-km="m15">15分钟</span>
           <span class="tab" data-km="day">日</span>
           <span class="tab" data-km="week">周</span>
+        </div>
+        <div class="km-auction-dd" id="kmAucDrop">
+          <button type="button" class="btn btn-sm" id="kmAucBtn" title="分时图左右集合竞价显示开关" style="border-color:var(--gold,#ffbf47);color:var(--gold,#ffbf47);padding:2px 9px;font-size:0.55rem">集合竞价 ▾</button>
+          <div class="km-auction-menu" id="kmAucMenu">
+            <div class="km-auction-item" data-v="0">关闭</div>
+            <div class="km-auction-item act" data-v="1">开启</div>
+          </div>
         </div>
       </div>
       <div class="kline-wrapper">
@@ -1282,23 +1301,32 @@ async function sntDevCum(sym){
     devs.push({date:d, c:st.c, chg:chg, ichg:ichg, dev:chg-ichg});
   }
   if(devs.length<Math.max(SNT_DEV3,10)) return null;
+  /* 盘中：日K末根=当日未收盘实时K线（收盘价未定，会随盘面波动）
+     剔除后再算窗口 → 盘中不触发（sntEval 因 r.date≠今日 走 stale），收盘后日K定格才触发，避免触发结果反转 */
+  if(inSession && devs.length){
+    const t=new Date(), ts=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
+    const last=devs[devs.length-1];
+    if(last.date===ts) devs=devs.slice(0,-1);
+  }
+  if(devs.length<Math.max(SNT_DEV3,10)) return null;
   /* 普通：3 日逐日累计 */
   const d3=devs.slice(-SNT_DEV3);
   let d3cum=0; for(const x of d3) d3cum+=x.dev;
-  /* 严重：10 日区间法（区间首/尾收盘） */
+  /* 严重：最近 10 个交易日逐日偏离值累计（交易所口径=连续10日偏离值算术累计；与普通异动同法） */
   const w10=devs.slice(-10);
-  const Ps=w10[0].c, Pe=w10[w10.length-1].c;
   const startDate=w10[0].date;
-  const Is=byD.get(startDate), Ie=byD.get(w10[w10.length-1].date);
-  let d10dev=null;
-  if(Ps&&Pe&&Is&&Ie) d10dev=((Pe/Ps-1)*100)-((Ie/Is-1)*100);
+  let d10dev=0; for(const x of w10) d10dev+=x.dev;
   const date=devs[devs.length-1].date;
   let level=0, label=null;
   if(d10dev!=null){
-    if(d10dev>=SNT_LV3){ level=3; label='10天涨幅偏离值超150%'; }
-    else if(d10dev>=SNT_LV2){ level=2; label='10天涨幅偏离值超100%'; }
+    if(d10dev>=SNT_LV3){ level=3; label='10天涨幅偏离值累计超150%'; }
+    else if(d10dev>=SNT_LV2){ level=2; label='10天涨幅偏离值累计超100%'; }
+    else if(d10dev<=-SNT_LV3){ level=3; label='10天跌幅偏离值累计超150%'; }
+    else if(d10dev<=-SNT_LV2){ level=2; label='10天跌幅偏离值累计超100%'; }
   }
-  if(level===0 && Math.abs(d3cum)>=SNT_LV1){ level=1; label='重点监控'; }
+  /* 普通异动阈值按板块涨跌幅限制差异化：创业板/科创板/北交所(20/30%) → 30；主板(10%) → 20 */
+  const lv1Limit=(/^(sz300|sz301|sh688|bj|8)/.test(sym))?30:20;
+  if(level===0 && Math.abs(d3cum)>=lv1Limit){ level=1; label='重点监控'; }
   const res={d3cum, d10dev, date, start10:startDate, level, label};
   sntDCache[sym]={res, ts:now};
   return res;
@@ -8336,7 +8364,7 @@ function kmPushFrom(src){
     });
   });
 }
-function kmSyncRange(){ kmPushFrom(kmChart); }
+function kmSyncRange(){ kmPushFrom(kmChart); if(kmRange==='d1') _kmRefreshPctAxis(document.getElementById('kmChart')); }
 function _kmNewChart(el){
   if(!window.LightweightCharts) return null;
   const w=Math.max(1,el.clientWidth||1), h=Math.max(1,el.clientHeight||1);
@@ -8357,6 +8385,7 @@ function kmLinkTimeRange(ch){
     if(!range || range.from==null || range.to==null) return;
     kmSyncFrom=range.from; kmSyncTo=range.to;
     kmPushFrom(ch);
+    if(kmRange==='d1') _kmRefreshPctAxis(document.getElementById('kmChart'));
   });
 }
 /* ---------- 跨面板十字线联动：任一面板hover时，纵向虚线同步延伸到其余面板 ---------- */
@@ -8450,8 +8479,19 @@ function _kmLiveTick(){
       let preClose=(quotes[sym] && typeof quotes[sym].prev==='number')?quotes[sym].prev:mainEl._preClose;
       if(preClose==null){ const i=load.dates.indexOf(dayStr); if(i>0){ const pp=_fsDayPoints(load,load.dates[i-1]); if(pp.length) preClose=pp[pp.length-1].price; } }
       mainEl._preClose=preClose;
-      if(mainEl._pS) mainEl._pS.setData(pts.filter(p=>!p.auc).map(p=>({time:p.ts, value:+p.price.toFixed(2)})));
+      const t0=pts.length?pts[0].ts:0;
+      if(mainEl._pS){
+        let d0=pts.filter(p=>!p.auc).map(p=>({time:p.ts, value:+p.price.toFixed(2)}));
+        if(preClose!=null&&preClose>0&&d0.length){ d0=[{time:t0-120, value:+((preClose*1.1).toFixed(2))},{time:t0-60, value:+((preClose*0.9).toFixed(2))}].concat(d0); }
+        try{ mainEl._pS.setData(d0); }catch(e){ try{ mainEl._pS.setData(pts.filter(p=>!p.auc).map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }catch(e2){} }
+      }
       if(mainEl._avgS) mainEl._avgS.setData(pts.map(p=>({time:p.ts, value:+p.avg.toFixed(2)})));
+      if(mainEl._pctS && preClose!=null && preClose>0){
+        const base=pts.map(p=>({time:p.ts, value:+(((p.price/preClose-1)*100).toFixed(2))}));
+        const maxAbs=mainEl._pctRange||10;
+        try{ mainEl._pctS.setData([{time:t0-120,value:-maxAbs},{time:t0-60,value:maxAbs}].concat(base)); }catch(e){ try{ mainEl._pctS.setData(base); }catch(e2){} }
+        _kmRefreshPctAxis(mainEl);
+      }
       const aucPts=pts.filter(p=>p.auc);
       const ohlcBase=[];
       if(aucPts.length){ const p0=aucPts[0]; ohlcBase.push({ts:p0.ts, o:p0.price,c:p0.price,h:p0.price,l:p0.price, v:0}); const p1=aucPts[1]; if(p1) ohlcBase.push({ts:p1.ts, o:p1.price,c:p1.price,h:p1.price,l:p1.price, v:p1.vol}); }
@@ -8590,6 +8630,8 @@ function dashKdj(closes, highs, lows, n, m1, m2){
   return {K,D,J};
 }
 function renderKmTech(){
+  /* 分时牛牛：独立副图（d1 专属，三口径切换） */
+  if(kmRange==='d1' && kmSubInd==='NN'){ renderKmNn(); return; }
   const el=document.getElementById('kmDmiChart'); if(!el) return;
   const t=document.getElementById('kmDmiTitle');
   const data=kmTechData();
@@ -8657,8 +8699,181 @@ function setKmSubInd(ind){
   syncKmBarAct(ind);
   renderKmTech();
 }
+/* =====================================================================
+ * 🐂 分时牛牛副图（参考图样式：红/绿柱 + 黄累计线 + 绿平滑线，±对称自动刻度）
+ *   口径 A 量能差  ：每分钟 (close>=open)?+vol:-vol（零数据依赖，用现有分时OHLC）
+ *   口径 B 主动盘差：Σ(主动买-主动卖)（东财分笔 details push2delay，性质 1买/2卖，分钟聚合）
+ *   口径 C 主力资金：东财 1 分钟资金流 fflow/kline 主力净流入(f52,累计→差分)
+ *   B/C 数据异步拉取：先显示估算/量能差占位，真实数据到位后自动重绘；接口失败保持估算
+ * ===================================================================== */
+let kmNnMode='B';                      // A 量能差 / B 主动盘差(默认,对齐参考图红绿) / C 主力资金
+let kmNnB={}, kmNnC={};                // sym -> {seq, ts}：分笔/资金流分钟序列缓存（按股隔离，切换个股即时重拉）
+let kmNnBFetching={}, kmNnCFetching={};
+const KM_NN_N=5;                       // 累计线平滑周期
+function kmNnSecid(sym){
+  const m=/^(sh|sz|bj)(\d+)/i.exec(sym||''); if(!m) return null;
+  return ((m[1].toLowerCase()==='sh')?'1':'0')+'.'+m[2];
+}
+/* A：涨跌量能差（分钟） */
+function kmNnCalcA(ohlc){
+  const out=[];
+  for(const x of ohlc){ out.push({ts:x.ts, v:(x.c>=x.o?1:-1)*x.v}); }
+  return out;
+}
+/* B(估)：位置法估算主动盘差 —— 参考图分时牛牛红=主动买盘主导。
+   净买 ≈ 量×(2×收−高−低)/(高−低)：收盘越靠最高价买盘占比越大；
+   涨停(收=高)全红、跌停(收=低)全绿；震荡段收在中上部仍红 → 与参考图红绿特征一致。
+   真实分笔数据接入后（kmNnB 非空）自动替换此估算 */
+function kmNnCalcB(ohlc){
+  const out=[];
+  for(const x of ohlc){
+    const rg=x.h-x.l;
+    const ratio=rg>0?((2*x.c-x.h-x.l)/rg):0;   // [-1,1]：收高=+1 买主导，收低=-1 卖主导
+    out.push({ts:x.ts, v:x.v*ratio});
+  }
+  return out;
+}
+/* B：东财分笔成交（push2delay，free）→ 分钟聚合 {hm, v=主动买−主动卖}。
+   返回格式已联调："时间,价格,量(手),额,性质"，性质 1=主动买 2=主动卖 3/4=中性/竞价；
+   过滤 15:00 后盘后定价成交；pos=-5000&count=5000 一次覆盖全天 */
+async function kmFetchDetails(sym){
+  const sid=kmNnSecid(sym); if(!sid) return null;
+  const cb='kmNn'+Math.floor(Math.random()*1e9);
+  const url='https://push2delay.eastmoney.com/api/qt/stock/details/get?cb='+cb+'&secid='+sid
+    +'&fields1=f1,f2,f3,f4,f5&fields2=f51,f52,f53,f54,f55&pos=-5000&count=5000&ut=fa5fd1943c7b386f172d6893dbfba10b';
+  try{
+    const data=await jsonpLoad(url,cb);
+    const dl=(data&&data.data&&data.data.details)||[];
+    if(!dl.length) return null;
+    const agg=new Map();
+    for(const line of dl){
+      const p=String(line).split(','); if(p.length<5) continue;
+      const hm=p[0].slice(0,5);
+      if(hm>='15:00') continue;              // 过滤盘后定价成交
+      const vol=+p[2], kind=+p[4];
+      if(!hm||!isFinite(vol)) continue;
+      let it=agg.get(hm); if(!it){ it={buy:0,sell:0}; agg.set(hm,it); }
+      if(kind===1) it.buy+=vol; else if(kind===2) it.sell+=vol;   // 3/4 中性不计
+    }
+    const out=[];
+    agg.forEach((it,hm)=>{ out.push({hm, v:(it.buy-it.sell)}); });
+    out.sort((a,b)=>a.hm<b.hm?-1:1);
+    return out.length?out:null;
+  }catch(e){ return null; }
+}
+/* C：东财 1 分钟资金流（push2delay，free；f51时间, f52主力净流入[元, 当日累计]）
+   → {hm, cum:累计, v:单分钟差分} */
+async function kmFetchFflow(sym){
+  const sid=kmNnSecid(sym); if(!sid) return null;
+  const cb='kmNnF'+Math.floor(Math.random()*1e9);
+  const url='https://push2delay.eastmoney.com/api/qt/stock/fflow/kline/get?cb='+cb+'&secid='+sid
+    +'&klt=1&lmt=240&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56&ut=fa5fd1943c7b386f172d6893dbfba10b';
+  try{
+    const data=await jsonpLoad(url,cb);
+    const kl=(data&&data.data&&data.data.klines)||[];
+    const raw=kl.map(s=>{ const p=String(s).split(','); return {hm:(p[0]||'').slice(11,16), cum:+(p[1]||0)}; })
+      .filter(x=>x.hm.length===5&&isFinite(x.cum));
+    if(!raw.length) return null;
+    const out=[]; let prev=0;
+    for(let i=0;i<raw.length;i++){ out.push({hm:raw[i].hm, cum:raw[i].cum, v:raw[i].cum-prev}); prev=raw[i].cum; }
+    return out;
+  }catch(e){ return null; }
+}
+/* B/C 分钟序列按 hm 对齐主图 1 分钟时间轴（支持 {hm,v} 与 {hm,cum,v}） */
+function kmNnAlign(ohlc, seq){
+  if(!seq) return null;
+  const byHm=new Map(seq.map(x=>[x.hm, x]));
+  return ohlc.map(x=>{
+    const d=new Date(x.ts*1000);
+    const hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    const it=byHm.get(hm);
+    return {ts:x.ts, v:it?(it.v!=null?it.v:0):0, cum:it?(it.cum!=null?it.cum:null):null};
+  });
+}
+function renderKmNn(){
+  const el=document.getElementById('kmDmiChart'); if(!el) return;
+  const tt=document.getElementById('kmDmiTitle');
+  const curSym=kmSym;
+  const mpEl=document.getElementById('kmChart');
+  const ohlc=mpEl&&mpEl._fsOhlc;
+  if(!ohlc||!ohlc.length){ el.innerHTML='<span style="color:var(--text);font-size:0.5rem">分时牛牛加载中…</span>'; return; }
+  kmWaitLc(8000).then(()=>{
+    if(!window.LightweightCharts||kmSym!==curSym||kmRange!=='d1') return;
+    if(el._chart){ try{ el._chart.remove(); }catch(e){} el._chart=null; }
+    el.innerHTML='';
+    const ch=_kmNewChart(el); if(!ch) return;
+    const times=ohlc.map(x=>x.ts);
+    const bCache=kmNnB[curSym], cCache=kmNnC[curSym];
+    let bars, est=false, live=false;
+    if(kmNnMode==='B'){
+      if(bCache&&bCache.seq&&bCache.seq.length){ bars=kmNnAlign(ohlc, bCache.seq); live=true; _kmNnMaybeRefetch(curSym,'B'); }
+      else{ est=true; bars=kmNnCalcB(ohlc); _kmNnFetchB(curSym); }   // 先估算显示，分笔到位后重绘
+    }
+    else if(kmNnMode==='C'){
+      if(cCache&&cCache.seq&&cCache.seq.length){ bars=kmNnAlign(ohlc, cCache.seq); live=true; _kmNnMaybeRefetch(curSym,'C'); }
+      else{ est=true; bars=kmNnCalcA(ohlc); _kmNnFetchC(curSym); }  // 资金流到位后重绘
+    }
+    else bars=kmNnCalcA(ohlc);
+    /* 柱体：红=多头/净买，绿=空头/净卖 */
+    const hist=ch.addHistogramSeries({priceScaleId:'nn'});
+    ch._primarySeries=hist;
+    hist.setData(bars.map(x=>({time:x.ts, value:x.v, color:x.v>=0?'rgba(255,51,85,0.7)':'rgba(0,255,136,0.6)'})));
+    /* 黄线：累计（C 用当日累计 cum；A/B 滚动累计） */
+    let cum=0; const cumA=[]; const maN=KM_NN_N;
+    for(let i=0;i<bars.length;i++){ if(bars[i].cum!=null) cum=bars[i].cum; else cum+=bars[i].v; cumA.push(cum); }
+    const ls2=ch.addLineSeries({color:'#f7c948',lineWidth:1.2,lastValueVisible:false,priceLineVisible:false,priceScaleId:'nn'});
+    ls2.setData(cumA.map((v,i)=>({time:times[i], value:v})));
+    /* 绿线：累计 MA5 平滑 */
+    const sm=[]; let s2=0;
+    for(let i=0;i<cumA.length;i++){ s2+=cumA[i]; if(i>=maN) s2-=cumA[i-maN]; sm.push(i>=maN-1?s2/maN:null); }
+    const ls3=ch.addLineSeries({color:'#00f0ff',lineWidth:1,lastValueVisible:false,priceLineVisible:false,priceScaleId:'nn'});
+    ls3.setData(sm.map((v,i)=>({time:times[i], value:v})));
+    try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false,tickMarkFormatter:(t2)=>{ const d2=new Date(t2*1000); const hh=String(d2.getHours()).padStart(2,'0'), mm=String(d2.getMinutes()).padStart(2,'0'); return (hh==='11'&&mm==='30')?'11:30/13:00':hh+':'+mm; }}); }catch(e){}
+    try{ ch.timeScale().fitContent(); }catch(e){}
+    const last=bars[bars.length-1], lastCum=cumA[cumA.length-1];
+    const pend=(kmNnMode==='B'&&live)?' <span style="color:#00f0ff">(分笔真实)</span>'
+      :(kmNnMode==='B'&&est)?' <span style="color:var(--dim,#7a90a5)">(估算中·分笔加载…)</span>'
+      :(kmNnMode==='C'&&live)?' <span style="color:#00f0ff">(主力资金真实)</span>'
+      :(kmNnMode==='C'&&est)?' <span style="color:var(--dim,#7a90a5)">(主力资金加载…)</span>':'';
+    const sw=(v,lab)=>'<span class="nn-sw" data-nn="'+v+'" style="'+(kmNnMode===v?'color:#ff3355;font-weight:700':'color:var(--dim,#7a90a5)')+';cursor:pointer;margin:0 4px">'+lab+'</span>';
+    if(tt) tt.innerHTML='🐂 分时牛牛 · '+sw('A','量能差')+sw('B','主动盘差')+sw('C','主力资金')
+      +' <span style="color:var(--gold,#ffbf47)">累计:'+(lastCum>=0?'+':'')+lastCum.toFixed(0)+'</span>'
+      +'<span style="color:var(--dim,#7a90a5)"> · 最新:'+(last.v>=0?'+':'')+last.v.toFixed(0)+'</span>'+pend;
+    (tt?tt.querySelectorAll('.nn-sw'):[]).forEach(sp=>sp.addEventListener('click',()=>{ kmNnMode=sp.dataset.nn; renderKmNn(); }));
+    kmSyncRange();
+  });
+}
+/* 异步拉取分笔主动盘差（按 sym 缓存/去重）：成功后重绘（失败保持估算显示） */
+function _kmNnFetchB(sym){
+  if(kmNnBFetching[sym]||!sym) return;
+  kmNnBFetching[sym]=true;
+  kmFetchDetails(sym).then(seq=>{
+    kmNnBFetching[sym]=false;
+    if(!seq||!seq.length) return;
+    kmNnB[sym]={seq, ts:Date.now()};
+    if(kmNnMode==='B'&&kmSym===sym&&kmRange==='d1') renderKmNn();
+  }).catch(()=>{ kmNnBFetching[sym]=false; });
+}
+/* 异步拉取分钟主力资金（按 sym 缓存/去重）：成功后重绘（失败保持估算显示） */
+function _kmNnFetchC(sym){
+  if(kmNnCFetching[sym]||!sym) return;
+  kmNnCFetching[sym]=true;
+  kmFetchFflow(sym).then(seq=>{
+    kmNnCFetching[sym]=false;
+    if(!seq||!seq.length) return;
+    kmNnC[sym]={seq, ts:Date.now()};
+    if(kmNnMode==='C'&&kmSym===sym&&kmRange==='d1') renderKmNn();
+  }).catch(()=>{ kmNnCFetching[sym]=false; });
+}
+/* 盘中缓存超过 5 分钟 → 重新拉取（分时/资金流随盘面更新） */
+function _kmNnMaybeRefetch(sym, kind){
+  const c=kind==='B'?kmNnB[sym]:kmNnC[sym];
+  if(!c||!isATradeTime()) return;
+  if(Date.now()-(c.ts||0)<5*60*1000) return;
+  if(kind==='B') _kmNnFetchB(sym); else _kmNnFetchC(sym);
+}
 const KM_MA_KINDS=['MA','BOLL'];
-const KM_TECH_KINDS=['DMI','MACD','KDJ','RSI'];
+const KM_TECH_KINDS=['DMI','MACD','KDJ','RSI','NN'];
 function syncKmBarAct(kind){
   [...document.querySelectorAll('#kmIndBar .tab-item')].forEach(x=>{
     if(x.dataset.kind===kind){ x.classList.add('act'); return; }
@@ -8670,7 +8885,7 @@ function buildKmIndBar(){
   const bar=document.getElementById('kmIndBar'); if(!bar) return;
   const groups=[
     {g:'主图',items:[['MA','MA'],['BOLL','BOLL']]},
-    {g:'副图',items:[['成交量','VOL'],['DMI','DMI'],['MACD','MACD'],['KDJ','KDJ'],['RSI','RSI']]},
+    {g:'副图',items:[['成交量','VOL'],['分时牛牛','NN'],['DMI','DMI'],['MACD','MACD'],['KDJ','KDJ'],['RSI','RSI']]},
     {g:'资金',items:[['资金监控','FUND'],['暗盘资金','DARK']]}
   ];
   const frag=document.createDocumentFragment();
@@ -8697,6 +8912,7 @@ function openKmModal(sym, preserve){
   if(!sym) return;
   kmSym=sym;
   if(!preserve){ kmRange='d1'; kmInd='MA'; kmNavList=currentListSyms(); kmSyncFrom=null; kmSyncTo=null; }
+  _kmApplyD1Mode(kmRange==='d1');   // 分时页隐藏资金板块与资金切换tab，非分时恢复
   const mt=document.getElementById('klineModalTitle');
   if(mt){
     const zxHit_=(listTab==='zx')&&(zxResults||[]).find(r=>r.sym===sym);
@@ -8727,7 +8943,71 @@ function openKmModal(sym, preserve){
   setTimeout(()=>{ kmSyncCharts(); renderKmFund(sym, kmFundTab); },90);
   setTimeout(()=>{ kmSyncCharts(); },340);
 }
+let kmAuctionOn=true;   // 分时图左右集合竞价默认开启
+/* 应用集合竞价开关：控制 kmChart 内左右竞价栏显隐 + 按钮文字 + 菜单选中态 */
+function _kmAucApply(){
+  [...document.querySelectorAll('#kmChart .auction-box')].forEach(x=>{ x.style.display=kmAuctionOn?'':'none'; });
+  const btn=document.getElementById('kmAucBtn');
+  if(btn) btn.textContent='集合竞价 '+(kmAuctionOn?'开':'关')+' ▾';
+  [...document.querySelectorAll('#kmAucMenu .km-auction-item')].forEach(it=>{ it.classList.toggle('act', (it.dataset.v==='1')===kmAuctionOn); });
+}
+/* 集合竞价下拉：点击按钮开合菜单，选择 关闭/开启 */
+(function _kmAucBind(){
+  const drop=document.getElementById('kmAucDrop'); if(!drop) return;
+  const btn=document.getElementById('kmAucBtn'); if(!btn) return;
+  const menu=document.getElementById('kmAucMenu'); if(!menu) return;
+  btn.addEventListener('click',(e)=>{ e.stopPropagation(); menu.style.display=menu.style.display==='block'?'none':'block'; });
+  drop.addEventListener('click',(e)=>{
+    const it=e.target&&e.target.closest?e.target.closest('.km-auction-item'):null;
+    if(!it) return;
+    kmAuctionOn=(it.dataset.v==='1');
+    menu.style.display='none';
+    _kmAucApply();
+  });
+  document.addEventListener('click',(e)=>{ if(drop && !drop.contains(e.target)) menu.style.display='none'; });
+})();
+/* 分时主图右侧自定义涨跌幅轴：按 pctS 可见范围渲染 红涨绿跌 刻度（0%以上红、0%以下绿） */
+function _kmRefreshPctAxis(el){
+  try{
+    if(!el || !el._pctS) return;
+    const ps=el._pctS.priceScale();
+    let vr=null; try{ vr=ps.getVisibleRange(); }catch(e){}
+    if(!vr || !isFinite(vr.minValue) || !isFinite(vr.maxValue) || vr.maxValue<=vr.minValue){
+      const r=el._pctRange||10; vr={minValue:-r, maxValue:r};
+    }
+    let axis=el._pctAxis;
+    if(axis && !axis.isConnected){ el._pctAxis=null; axis=null; }
+    if(!axis){ axis=document.createElement('div'); axis.className='km-pct-axis'; el.appendChild(axis); el._pctAxis=axis; }
+    if(!vr || !isFinite(vr.minValue) || !isFinite(vr.maxValue) || vr.maxValue<=vr.minValue){ axis.innerHTML=''; return; }
+    const span=vr.maxValue-vr.minValue;
+    const sm=(ps.options()&&ps.options().scaleMargins)||{top:0.12,bottom:0.08};
+    const usable=Math.max(0.1, 1-(sm.top||0)-(sm.bottom||0));
+    const step=2;
+    const lo=Math.ceil(vr.minValue/step)*step, hi=Math.floor(vr.maxValue/step)*step;
+    const vals=[]; for(let v=lo; v<=hi+0.001; v+=step){ vals.push(Math.round(v*100)/100); }
+    if(!vals.length) vals.push(0);
+    if(vals.indexOf(0)<0){ let i=0; while(i<vals.length&&vals[i]<0) i++; vals.splice(i,0,0); }
+    let html='';
+    vals.forEach(v=>{
+      const top=((sm.top||0)+(vr.maxValue-v)/span*usable)*100;
+      const col=v>0?'var(--red,#ff3355)':(v<0?'var(--green,#00ff88)':'rgba(230,234,245,0.8)');
+      const label=(v>0?'+':'')+v.toFixed(2)+'%';
+      html+='<div class="pa-i" style="top:'+top.toFixed(2)+'%;color:'+col+'">'+label+'</div>';
+    });
+    axis.innerHTML=html;
+  }catch(e){}
+}
+/* d1（分时）模式：隐藏资金监控板块 + 底部资金切换 tab；非分时恢复；集合竞价按钮仅分时显示 */
+function _kmApplyD1Mode(isD1){
+  const fund=document.querySelector('#klineModal .panel-fund');
+  if(fund) fund.style.display=isD1?'none':'';
+  [...document.querySelectorAll('#kmIndBar .tab-item')].forEach(x=>{ if(x.dataset.kind==='FUND'||x.dataset.kind==='DARK') x.style.display=isD1?'none':''; });
+  [...document.querySelectorAll('#kmIndBar .tsect')].forEach(x=>{ if(x.textContent==='资金') x.style.display=isD1?'none':''; });
+  const dd=document.getElementById('kmAucDrop');
+  if(dd) dd.style.display=isD1?'':'none';
+}
 function setKmRange(r){ kmRange=r; kmSyncFrom=null; kmSyncTo=null;
+  _kmApplyD1Mode(kmRange==='d1');
   [...document.querySelectorAll('#kmRangeTabs .tab')].forEach(x=>x.classList.toggle('act', x.dataset.km===r));
   loadKmChart();
   renderKmVol();
@@ -9498,18 +9778,42 @@ function kmRenderChart(data, sym){
       el.innerHTML='';
       const ch=_kmNewChart(el); if(!ch) return;
       kmChart=ch;
-      ch.applyOptions({timeScale:Object.assign({},_KM_LC_CFG.timeScale,{barSpacing:8,rightOffset:2}),rightPriceScale:{borderColor:'#222633',scaleMargins:{top:0.12,bottom:0.08}}});
+      ch.applyOptions({timeScale:Object.assign({},_KM_LC_CFG.timeScale,{barSpacing:8,rightOffset:2}),
+        leftPriceScale:{visible:true,borderColor:'#222633',minimumWidth:44,scaleMargins:{top:0.12,bottom:0.08}},
+        rightPriceScale:{visible:false,scaleMargins:{top:0.12,bottom:0.08}}});
       const sess=pts.filter(p=>!p.auc), aucPts=pts.filter(p=>p.auc);
-      const priceS=ch.addLineSeries({color:'#ffffff',lineWidth:2,lastValueVisible:true,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
-      priceS.setData(sess.map(p=>({time:p.ts, value:+p.price.toFixed(2)})));
-      // 通达信/东财式竞价分时：09:15~09:25 竞价段（虚线，颜色置灰）
-      if(aucPts.length){ const acS=ch.addLineSeries({color:'#9aa0b5',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}}); acS.setData(aucPts.map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }
-      const avgS=ch.addLineSeries({color:'#f7c948',lineWidth:1,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
+      const t0=pts.length?pts[0].ts:0;
+      /* 主图标题：对齐参考图样式 "名称(1日)分时图"（d1 不复用日K MA 标题） */
+      const nm0=(quotes[sym]&&quotes[sym].name)||sym;
+      const mt=document.getElementById('kmMainTitle'); if(mt) mt.textContent=nm0+'（1日）分时图';
+      /* 左轴：价格 + 均价 + 竞价段 + 昨收（虚线）；价格轴注入 ±10% 虚拟点撑开对称范围（对齐右轴刻度） */
+      const priceS=ch.addLineSeries({priceScaleId:'left',color:'#ffffff',lineWidth:2,lastValueVisible:true,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
+      let priceData=sess.map(p=>({time:p.ts, value:+p.price.toFixed(2)}));
+      if(preClose!=null&&preClose>0&&priceData.length){
+        /* 虚拟点必须插在最前（严格升序）：LC setData 对降序数据不抛错但渲染错乱（曲线不画） */
+        priceData=[{time:t0-120, value:+((preClose*1.1).toFixed(2))},{time:t0-60, value:+((preClose*0.9).toFixed(2))}].concat(priceData);
+      }
+      try{ priceS.setData(priceData); }catch(e){ try{ priceS.setData(sess.map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }catch(e2){} }
+      if(aucPts.length){ const acS=ch.addLineSeries({priceScaleId:'left',color:'#9aa0b5',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}}); acS.setData(aucPts.map(p=>({time:p.ts, value:+p.price.toFixed(2)}))); }
+      const avgS=ch.addLineSeries({priceScaleId:'left',color:'#f7c948',lineWidth:1,lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
       avgS.setData(pts.map(p=>({time:p.ts, value:+p.avg.toFixed(2)})));
       el._pS=priceS; el._avgS=avgS; el._preClose=preClose; ch._primarySeries=priceS;
-      if(preClose!=null){ const pc=ch.addLineSeries({color:'#6b7280',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false}); pc.setData(pts.map(p=>({time:p.ts, value:preClose}))); }
+      if(preClose!=null){ const pc=ch.addLineSeries({priceScaleId:'left',color:'rgba(122,144,165,0.55)',lineWidth:1,lineStyle:2,lastValueVisible:false,priceLineVisible:false}); pc.setData(pts.map(p=>({time:p.ts, value:preClose}))); }
+      /* 右轴涨跌幅：隐藏 LC 刻度，用自定义红涨绿跌轴（.km-pct-axis）；虚拟点撑开 range 至对称 ±10%（t0-60 避开与真实点时间冲突） */
+      if(preClose!=null&&preClose>0){
+        const pctBase=pts.map(p=>+(((p.price/preClose-1)*100).toFixed(2)));
+        const maxAbs=10;
+        const pctS=ch.addLineSeries({priceScaleId:'right',color:'rgba(0,0,0,0)',lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false,priceFormat:{type:'custom',formatter:(p)=>(p>=0?'+':'')+p.toFixed(2)+'%'}});
+        try{ pctS.setData([{time:t0-120, value:-maxAbs},{time:t0-60, value:maxAbs}].concat(pctBase.map((v,i)=>({time:pts[i].ts, value:v})))); }
+        catch(e){ try{ pctS.setData(pctBase.map((v,i)=>({time:pts[i].ts, value:v}))); }catch(e2){} }
+        el._pctS=pctS; el._pctRange=maxAbs;
+        _kmRefreshPctAxis(el);
+        setTimeout(()=>{ try{ if(kmSym===sym) _kmRefreshPctAxis(el); }catch(e){} }, 60);
+      }
       try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false,tickMarkFormatter:(t)=>{ const d2=new Date(t*1000); const hh=String(d2.getHours()).padStart(2,'0'), mm=String(d2.getMinutes()).padStart(2,'0'); return (hh==='11'&&mm==='30')?'11:30/13:00':hh+':'+mm; }}); }catch(e){}
       try{ ch.timeScale().fitContent(); }catch(e){}
+      /* 首帧布局完成后刷新自定义右轴（fitContent 触发的可见范围事件被 kmNoSyncUntil 250ms 屏蔽，需延迟兜底） */
+      setTimeout(()=>{ try{ if(kmSym===sym) _kmRefreshPctAxis(el); }catch(e){} }, 350);
       el._fsPts=pts; el._data=pts; el._n=pts.length;
       // 分时1分钟 OHLC（含竞价锚点，点数与主图一致）：供 DMI/MACD/KDJ/RSI 副图以主图同轴计算
       const ohlcBase=[];
@@ -9517,8 +9821,9 @@ function kmRenderChart(data, sym){
       const dayRows=load.rows.filter(r=>_fsDayKey(r.day)===dayStr).sort((a,b)=>(a.day<b.day?-1:1));
       el._fsOhlc=ohlcBase.concat(dayRows.filter(r=>{ const hm=+r.day.slice(11,13)*60+(+r.day.slice(14,16)); return hm>=570&&(hm<=690||(hm>=780&&hm<=900)); })
                         .map(r=>({ts:_fsCnTs(r.day), o:+r.o, c:+r.c, h:+r.h, l:+r.l, v:+r.v})));
-      // 集合竞价：点击竞价段查看竞价明细（替代原左右侧栏）
+      // 集合竞价：左右侧栏（受开关控制）+ 点击竞价段查看竞价明细
       const auc=_fsAuction(load, dayStr, preClose);
+      try{ if(auc) _fsRenderSideAuction(el, auc, kmAuctionOn); }catch(e){}
       try{ if(auc && ch && typeof ch.subscribeClick==='function'){ ch.subscribeClick(param=>{ if(!param||param.time==null) return; const lastAuc=aucPts.length?aucPts[aucPts.length-1].ts:0; if(param.time<=lastAuc){ _fsShowAuctionDetail(el, auc.morning, param.point||{x:60,y:60}); } }); } }catch(e){}
       // 同步到量图与技术副图：d1 下都与主图同轴（1分钟分时）
       renderKmVol(); renderKmTech();
@@ -9757,7 +10062,7 @@ function kmKeysFromReason(reason){
 }
 /* 回填单条提醒：返回 true=已完结（不再重试），false=数据未齐（稍后重试） */
 function kmBackfillRec(rec){
-  if(rec.backfilled||rec.side==='S') return Promise.resolve(true);
+  if(rec.backfilled||rec.side==='S'||rec.side==='A') return Promise.resolve(true);   // 卖出/异动不参与次日回填统计
   const parts=(rec.date||'').split(/[\/\-]/);
   if(parts.length!==3||!parts[0]||!parts[1]||!parts[2]) return Promise.resolve(true);
   const dayKey=parts[0]+String(+parts[1]).padStart(2,'0')+String(+parts[2]).padStart(2,'0');
@@ -9807,8 +10112,8 @@ function kmBackfillAuto(){
 function renderKmStats(){
   const box=document.getElementById('kmStatsBox'); if(!box) return;
   const tot=kmStat.total;
-  const buyN=kmReminds.filter(r=>r.side!=='S').length;
-  const backfilled=kmReminds.filter(r=>r.side!=='S'&&r.backfilled).length;
+  const buyN=kmReminds.filter(r=>r.side!=='S'&&r.side!=='A').length;
+  const backfilled=kmReminds.filter(r=>r.side!=='S'&&r.side!=='A'&&r.backfilled).length;
   if(!tot.n){
     box.style.display='block';
     box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计</div>'+
@@ -9843,12 +10148,12 @@ function kmStockName(sym){
   if(it&&it.name) return it.name;
   return sym;
 }
-/* 记录一条提醒 + 弹右下角卡片（2 分钟自动关闭） */
-function kmFireReminder(sym, side, reason, q){
+/* 记录一条提醒 + 弹右下角卡片（2 分钟自动关闭）；side: B买/S卖/A异动；alertType 用于异动分型去重 */
+function kmFireReminder(sym, side, reason, q, alertType){
   if(!sym) return;
-  const sideKey=side==='S'?'S':'B';
+  const sideKey=(side==='S'||side==='A')?side:'B';
   const bucket=Math.floor(Date.now()/KM_REM_COOLDOWN);   // 每 30 分钟一个去重桶：盘中新点可再次提醒，短时震荡不重复
-  const key=sym+'|'+sideKey+'|'+bucket;
+  const key=sym+'|'+sideKey+'|'+(alertType||'')+'|'+bucket;
   if(kmSeen.has(key)) return;
   kmSeen.add(key); saveKmSeen();
   const d=new Date();
@@ -9865,17 +10170,18 @@ function kmUpdCnt(){
   el.textContent=kmReminds.length;
   el.classList.toggle('new', kmUnread>0);
 }
-/* 右下角卡片：标题=买入/卖出（红/绿标签），内容=名称/代码+理由；2 分钟自动关闭 */
+/* 右下角卡片：标题=买入/卖出/异动（红/绿/黄标签），内容=名称/代码+理由；2 分钟自动关闭 */
 function kmShowToast(rec){
   const wrap=document.getElementById('kmToastWrap'); if(!wrap) return;
   const el=document.createElement('div');
-  el.className='km-toast '+(rec.side==='S'?'sell':'buy');
-  const isBuy=rec.side!=='S';
-  el.innerHTML='<div class="kt-hd"><span class="kt-tag">'+(isBuy?'买 入':'卖 出')+'</span>'+
+  el.className='km-toast '+(rec.side==='S'?'sell':(rec.side==='A'?'alert':'buy'));
+  const isBuy=rec.side!=='S'&&rec.side!=='A';
+  const tag=rec.side==='A'?'异 动':(rec.side==='S'?'卖 出':'买 入');
+  el.innerHTML='<div class="kt-hd"><span class="kt-tag">'+tag+'</span>'+
     '<span class="kt-name" title="点击查看K线">'+esc(rec.name)+'</span>'+
     '<span class="kt-code">'+rec.code+'</span>'+
     '<button class="kt-close" title="关闭">✕</button></div>'+
-    '<div class="kt-reason">'+(isBuy?'买':'卖')+'理由：'+esc(rec.reason||'')+'</div>'+
+    '<div class="kt-reason">'+(rec.side==='A'?'异动：':(isBuy?'买':'卖')+'理由：')+esc(rec.reason||'')+'</div>'+
     '<div class="kt-timer"></div>';
   wrap.appendChild(el);
   wrap.style.display=(wrap.children.length? 'flex':'none'); if(!wrap.children.length) wrap.style.display='none';
@@ -9934,26 +10240,76 @@ async function kmAnnVerdict(sym){
   }catch(e){ return {bad:null, good:null}; }
 }
 /* =====================================================================
- * 🔒 买点质量门（2026-09-12 v2）：盘中即时提醒买点，但用多因子过滤次日下跌风险
- *   G1 大盘：上证>0.5% 强市放行；-1.5%~0.5% 中性需补偿；<-1.5% 硬拦（kmRemindCheck 前置）
+ * 🔒 买点质量门（2026-09-13 v3）：盘中即时提醒买点，但用多因子过滤次日下跌风险
+ *   G1 大盘：上证>0.5% 强市放行；-1.5%~0.5% 中性需补偿；-3%~-1.5% 弱市走 G6 逆势识别；
+ *      <-3% 深弱退潮 硬拦（kmRemindCheck 前置静默）
  *   G2 热门板块：个股概念 ∩ 近3日热门板块 → 板块效应补偿
+ *   G2b 当日板块强度（v3）：所属概念中任一板块 成分股上涨家数占比≥2/3 → 板块共振补偿
  *   G3 未来事件：财联社未来7天宏观/行业事件主题词 ∩ 个股概念 → 事件驱动补偿
- *   G4 个股走势：位置>92% 高位拦截；量比>10 对倒嫌疑拦截；现价距日内高点回落>3% 冲高回落拦截
+ *   G4 个股走势：位置>95% 高位拦截（v3 由92%放宽）；量比>10 对倒嫌疑拦截（涨停豁免）；
+ *      现价距日内高点回落>4% 硬拦 / 3~4% 且放量(量比>1.2) 拦（缩量回踩放行）
  *   G5 个股公告（东财，最近60天）：减持/解禁/预亏/立案等利空 → 硬拦截；中标/合同/预增/回购等利好 → 补偿
+ *   G6 逆势识别（v3 新增）：弱市时 核心RS(个股-大盘)≥3.5（首板突破≥2.5）且 涨幅≥3%/涨停、
+ *      现价≥今开、公告利好、事件、板块强势 任一成立 → 放行（标注「逆势RS」），否则拦截
  *   ★首板突破（用户点名信号）：突破新高是形态特征 → 豁免 30日高位拦截 与 中性市补偿要求；
- *     仍受 弱市硬拦/公告利空/冲高回落/量比异常 约束
- *   决策：中性市 且 非热门板块 且 无事件 且 无公告利好（且概念数据已就绪）→ 拦截；
+ *     仍受 深弱硬拦/公告利空/冲高回落/量比异常 约束，弱市 G6 阈值放宽至 RS≥2.5
+ *   决策：中性市 且 非热门板块 且 无事件 且 无公告利好 且 无板块强势（且概念数据已就绪）→ 拦截；
  *   概念数据缺失时保守放行并标注"板块待确认"。
  * ===================================================================== */
+/* =====================================================================
+ * 📡 盘中异动雷达（2026-09-13 新增）：随 kmRemindCheck 8s 轮询检测
+ *   快速拉升/跳水、放量上攻/下杀、突破日内新高、涨停开板
+ *   深弱市(<-3%)静默；弱市+逆势强(RS≥3) 文案标注「弱市逆势」；同股同类型 30 分钟去重
+ * ===================================================================== */
+const kmAlertPrev={};   // sym -> {price, ts}
+function _kmAlertScan(sym, q){
+  try{
+    if(!q || typeof q.price!=='number' || !isFinite(q.price)) return;
+    if(!isATradeTime()) return;
+    const qi=quotes['sh000001'];
+    const shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+    if(shpct!=null&&shpct<-3) return;                 // 深弱退潮静默
+    const now=Date.now();
+    const prev=kmAlertPrev[sym];
+    kmAlertPrev[sym]={price:q.price, ts:now};
+    if(!prev || !prev.price || now-prev.ts>60000) return;   // 首次/快照过期：不判涨速
+    const dt=(now-prev.ts)/60000;
+    const dPct=dt>0?((q.price/prev.price-1)*100)/dt:0;      // 分钟化涨跌幅
+    const pct=(typeof q.pct==='number')?q.pct:null;
+    const vr=(q.volume!=null&&q.vol5&&q.vol5>0)?(q.volume/(q.vol5/5)):null;
+    const aboveOpen=(typeof q.open==='number'&&q.open>0)?(q.price>=q.open):null;
+    const hits=[];
+    /* ① 放量上攻：量比≥5 且 涨幅≥3% 且 现价≥今开 */
+    if(vr!=null&&vr>=5&&pct!=null&&pct>=3&&aboveOpen!==false) hits.push('放量上攻×'+vr.toFixed(1));
+    /* ② 放量下杀：量比≥8 且 跌幅≤-3% */
+    if(vr!=null&&vr>=8&&pct!=null&&pct<=-3) hits.push('放量下杀×'+vr.toFixed(1));
+    /* ③ 突破日内新高：现价=日内最高 且 量比≥2 且 涨幅≥2% */
+    if(typeof q.high==='number'&&q.price>=q.high&&vr!=null&&vr>=2&&pct!=null&&pct>=2) hits.push('突破日内新高');
+    /* ④ 涨停开板：触及涨停(high≥昨收×1.095) 但现价回落至涨停价下(<昨收×1.09) */
+    if(typeof q.prev==='number'&&q.prev>0&&typeof q.high==='number'&&q.high>=q.prev*1.095&&q.price<q.prev*1.09) hits.push('涨停开板');
+    /* ⑤ 快速拉升：分钟化涨幅≥2.5% 且 量比≥1.5（放量跟随） 且 现价≥今开 */
+    if(dPct>=2.5&&(vr==null||vr>=1.5)&&aboveOpen!==false) hits.push('快速拉升'+(dPct>=4?'(急)':''));
+    /* ⑥ 快速跳水：分钟化跌幅≤-2.5% 且 现价<今开 */
+    if(dPct<=-2.5&&aboveOpen!==true) hits.push('快速跳水'+(dPct<=-4?'(急)':''));
+    if(!hits.length) return;
+    const txt=hits.join('、');
+    const rs=(pct!=null&&shpct!=null)?(pct-shpct):null;
+    const weak=shpct!=null&&shpct>=-3&&shpct<-1.5;
+    const suffix=(weak&&rs!=null&&rs>=3)?'｜弱市逆势':(weak?'｜弱市':'');
+    kmFireReminder(sym,'A','异动：'+txt+suffix, q, txt.slice(0,4));
+  }catch(e){}
+}
 async function kmBuyGate(sym, q, k, sig){
   const factors=[], warns=[];
   let pass=true;
   const isFb=sig&&sig.buyKeys&&sig.buyKeys.includes('首板突破');   // 首板突破启动：豁免高位/中性市补偿
   const qi=quotes['sh000001'];
   const shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+  let weak=false;   // 弱市 -3%~-1.5%：走 G6 逆势识别（不直接拦）
   if(shpct==null){ factors.push('大盘数据缺失'); }
   else if(shpct>=0.5){ factors.push('上证'+(shpct>=0?'+':'')+shpct.toFixed(1)+'%强'); }
-  else if(shpct<-1.5){ pass=false; factors.push('上证'+shpct.toFixed(1)+'%弱市'); }
+  else if(shpct<-3){ pass=false; factors.push('上证'+shpct.toFixed(1)+'%深弱'); }
+  else if(shpct<-1.5){ weak=true; factors.push('上证'+shpct.toFixed(1)+'%弱'); }
   else { factors.push('上证'+shpct.toFixed(1)+'%中性'); }
   const boards=sectorCache[sym]&&sectorCache[sym].names?sectorCache[sym].names:null;
   const hasBoards=!!(boards&&boards.length);
@@ -9962,6 +10318,20 @@ async function kmBuyGate(sym, q, k, sig){
     const hotNames=_kmBoardMerged3().slice(0,18).map(b=>b.name);
     hotHit=(boards||[]).find(b=>hotNames.some(h=>h&&(b.includes(h)||h.includes(b))))||null;
     if(hotHit) factors.push('热门板块:'+hotHit);
+  }catch(e){}
+  /* G2b 当日板块强度（v3 新增）：所属概念中任一板块 成分股上涨家数占比≥2/3 → 板块共振证据 */
+  let dayBoardHit=null;
+  try{
+    if(boards&&boards.length&&kmBoardStocks&&kmBoardStocks.length){
+      const bc={}, bu={};
+      kmBoardStocks.forEach(x=>{
+        const up=quotes[x.sym]&&typeof quotes[x.sym].pct==='number'?(quotes[x.sym].pct>=0):null;
+        if(up==null) return;
+        (x.boards||[]).forEach(b=>{ bc[b]=(bc[b]||0)+1; if(up) bu[b]=(bu[b]||0)+1; });
+      });
+      dayBoardHit=boards.find(b=>bc[b]&&bu[b]/bc[b]>=2/3)||null;
+      if(dayBoardHit) factors.push('板块强势:'+dayBoardHit);
+    }
   }catch(e){}
   let evtHit=null;
   try{
@@ -9985,19 +10355,32 @@ async function kmBuyGate(sym, q, k, sig){
     if(vd.bad){ pass=false; factors.push('公告利空:'+String(vd.bad.title).slice(0,16)); }
     else if(vd.good){ annGood=vd.good; factors.push('公告利好:'+String(vd.good.title).slice(0,16)); }
   }catch(e){}
+  let vr=null;
   if(k&&k.length>=25&&q&&typeof q.price==='number'&&typeof q.high==='number'){
     const pos30=diPos30(k, q.price);
-    if(pos30!=null&&pos30>0.92&&!isFb){ pass=false; factors.push('高位'+Math.round(pos30*100)+'%'); }
+    /* G4 v3 高位：阈值 92%→95%（放量突破的强趋势股留出空间）；首板仍豁免 */
+    if(pos30!=null&&pos30>0.95&&!isFb){ pass=false; factors.push('高位'+Math.round(pos30*100)+'%'); }
     else if(pos30!=null){ factors.push('位置'+Math.round(pos30*100)+'%'); }
     const retreat=q.high>0?((q.high-q.price)/q.high*100):0;
-    if(retreat>3){ pass=false; factors.push('冲高回落'+retreat.toFixed(1)+'%'); }
-    if(q.volume!=null&&q.vol5&&q.vol5>0){
-      const vr=q.volume/(q.vol5/5);
-      if(vr>10){ pass=false; factors.push('量比'+vr.toFixed(1)+'异常'); }
-    }
+    if(q.volume!=null&&q.vol5&&q.vol5>0){ vr=q.volume/(q.vol5/5); }
+    /* G4 v3 冲高回落：>4% 硬拦；3~4% 且放量(量比>1.2) 拦（缩量回踩放行） */
+    if(retreat>4){ pass=false; factors.push('冲高回落'+retreat.toFixed(1)+'%'); }
+    else if(retreat>3&&vr!=null&&vr>1.2){ pass=false; factors.push('放量回落'+retreat.toFixed(1)+'%'); }
+    /* G4 v3 量比：>10 对倒嫌疑拦，但涨停(≥9.5%)豁免 */
+    if(vr!=null&&vr>10&&!(q.pct>=9.5)){ pass=false; factors.push('量比'+vr.toFixed(1)+'异常'); }
+  }
+  /* G6 逆势识别（v3 新增）：弱市 -3%~-1.5% 时，满足 核心RS + 任一辅助证据 才放行（防一刀切误杀逆势强势股） */
+  if(weak){
+    const rs=(q&&typeof q.pct==='number'&&isFinite(q.pct)&&shpct!=null)?(q.pct-shpct):null;
+    const stkUp=q&&typeof q.pct==='number'?(q.pct>=3||q.pct>=9.5):false;
+    const aboveOpen=q&&typeof q.price==='number'&&typeof q.open==='number'?q.price>=q.open:false;
+    const aux=[stkUp, aboveOpen, !!annGood, !!evtHit, !!dayBoardHit].filter(Boolean).length;
+    const rsOk=rs!=null&&(isFb?rs>=2.5:rs>=3.5);
+    if(rsOk&&aux>=1){ factors.push('逆势RS'+(rs>=0?'+':'')+rs.toFixed(1)+'%'); }
+    else{ pass=false; if(rs!=null) warns.push('弱市逆势证据不足(RS'+(rs>=0?'+':'')+rs.toFixed(1)+'%)'); else warns.push('弱市无相对强度数据'); }
   }
   const neutral=shpct!=null&&shpct>=-1.5&&shpct<0.5;
-  if(neutral&&!hotHit&&!evtHit&&!annGood&&hasBoards&&!isFb){ pass=false; warns.push('中性市无板块/事件/公告支撑'); }
+  if(neutral&&!hotHit&&!evtHit&&!annGood&&!dayBoardHit&&hasBoards&&!isFb){ pass=false; warns.push('中性市无板块/事件/公告支撑'); }
   else if(neutral&&!hotHit&&!evtHit&&!hasBoards){ factors.push('板块待确认'); }
   return { pass, factors, warns };
 }
@@ -10005,14 +10388,15 @@ async function kmRemindCheck(){
   if(!isATradeTime()) return;
   if(Date.now()-kmRemindLastCheck<8000) return;    // 8s 节流
   kmRemindLastCheck=Date.now();
-  /* 🔒 买点质量门优化（2026-09-12 v2）：盘中即时触发买点，不做时间限制；
+  /* 🔒 买点质量门优化（2026-09-13 v3）：盘中即时触发买点，不做时间限制；
      次日下跌风险改由多因子质量门过滤（大盘/热门板块/未来事件/位置/量能/冲高回落）；
-     大盘（上证）当日跌超 1.5% 仍硬性静默；卖出保持盘中即时。 */
+     大盘（上证）当日跌超 3% 深弱退潮期硬性静默；弱市(-3%~-1.5%)由 G6 逆势识别把关放行；
+     卖出保持盘中即时。 */
   let bd=new Date(); try{ bd=new Date(bd.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
   const bmm=bd.getHours()*60+bd.getMinutes();
   const qi=quotes['sh000001'];
-  const marketWeak=qi&&typeof qi.pct==='number'&&qi.pct<-1.5;  // 上证当日跌超1.5%
-  const buyAllowed=!marketWeak;
+  const marketDeep=qi&&typeof qi.pct==='number'&&qi.pct<-3;   // 上证当日跌超3% 深弱退潮期硬静默
+  const buyAllowed=!marketDeep;   // -3% 以内均进质量门；弱市(-3%~-1.5%)由 G6 逆势识别把关
   const syms=new Set();
   watchList.forEach(s=>syms.add(s));
   backupList.forEach(s=>syms.add(s));
@@ -10027,6 +10411,8 @@ async function kmRemindCheck(){
     if(!base||base.length<35) continue;
     try{
       const q=quotes[sym];
+      /* 📡 盘中异动雷达：快速拉升/跳水、放量上攻/下杀、突破新高、涨停开板 */
+      _kmAlertScan(sym, q);
       const k=(q&&typeof q.price==='number'&&isFinite(q.price))?(_liveCandles(base,q)||base):base;
 const sig=_kmSignals(k, sym).lastSig;
       if(!sig) continue;
@@ -10062,13 +10448,15 @@ function renderKmRemindList(){
   const tb=document.getElementById('kmRemindList'); if(!tb) return;
   if(!kmReminds.length){ tb.innerHTML='<tr><td colspan="6" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
   tb.innerHTML=kmReminds.map((r,i)=>{
-    const isBuy=r.side!=='S';
+    const isBuy=r.side!=='S'&&r.side!=='A';
+    const tag=r.side==='A'?'异动':(isBuy?'买入':'卖出');
+    const tagCol=r.side==='A'?'var(--gold,#ffbf47)':(isBuy?'var(--red,#ff3355)':'var(--green,#00ff88)');
     return '<tr data-sym="'+r.sym+'">'+
       '<td style="font-size:0.6rem;color:var(--dim,#7a90a5)">'+ (i+1) +'</td>'+
       '<td style="font-size:0.6rem;color:var(--text,#cdd9e5)">'+esc(kmRemindTimeStr(r))+'</td>'+
       '<td style="font-weight:600;color:var(--text-bright,#cfe5f5)">'+esc(r.name||'')+'</td>'+
       '<td style="font-size:0.72rem">'+esc(r.code||'')+'</td>'+
-      '<td style="font-size:0.6rem"><span class="'+(isBuy?'red':'green')+'" style="font-weight:700">'+(isBuy?'买入':'卖出')+'</span> <span style="color:var(--gold,#ffbf47)">'+esc(r.reason||'')+'</span></td>'+
+      '<td style="font-size:0.6rem"><span style="color:'+tagCol+';font-weight:700">'+tag+'</span> <span style="color:var(--gold,#ffbf47)">'+esc(r.reason||'')+'</span></td>'+
       '<td><button class="btn btn-sm rm-remind" data-i="'+i+'" style="border-color:var(--red);color:var(--red);padding:1px 8px;font-size:0.5rem">删除</button></td>'+
       '</tr>';
   }).join('');
@@ -10182,7 +10570,7 @@ async function refreshKmBoardPool(){
 }
 /* 买卖提醒面板：扫描范围说明 + 最近3日热门板块标签 */
 function renderKmScanScope(){
-  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落过滤次日下跌），上证跌超1.5%静默；卖出盘中即时';
+  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落过滤次日下跌，弱市逆势强势可放行），上证跌超3%静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒；卖出盘中即时';
   const box=document.getElementById('kmBoardTags'); if(!box) return;
   box.innerHTML='';
   const chips=_kmBoardMerged3().slice(0,18);
@@ -10270,11 +10658,12 @@ function _fsAuction(load, dateStr, preClose){
     close:{ label:'收盘集合竞价', time:'14:57-15:00', price:close, pct:base>0?((close/base-1)*100):0, vol:closeVol, amt:closeAmt, unmatched:null }
   };
 }
-/* 在分时主图左右绘制集合竞价栏，点击弹出详情 */
-function _fsRenderSideAuction(panelEl, auc){
+/* 在分时主图左右绘制集合竞价栏，点击弹出详情；受 kmAuctionOn 开关控制显隐 */
+function _fsRenderSideAuction(panelEl, auc, on){
   const mk=(side,info,pos)=>{
     const box=document.createElement('div');
     box.className='auction-box '+(side==='left'?'ab-left':'ab-right');
+    box.style.display=(on===false)?'none':'';
     box.title='点击查看'+info.label+'明细';
     const posS=info.price>0&&info.pct!=null?(info.pct>=0?'+':'')+info.pct.toFixed(2)+'%':'--';
     box.innerHTML='<div class="ab-t">'+info.label+'</div><div class="ab-v" style="color:'+(info.pct>=0?'var(--red,#ff3355)':'var(--green,#00ff88)')+'">'+(info.price>0?info.price.toFixed(2):'--')+'</div><div class="ab-p">'+posS+'</div>';
@@ -10555,12 +10944,12 @@ function _kmMergeReminds(remote, clr){
   const floor=_cloudKmClr||0;
   const seen=new Set();
   const base=kmReminds.filter(x=>x && x.ts!=null && x.sym && (x.ts||0)>=floor).slice();
-  base.forEach(x=>{ if(x.ts!=null && x.sym) seen.add(x.sym+'|'+(x.side==='S'?'S':'B')+'|'+x.ts); });
+  base.forEach(x=>{ if(x.ts!=null && x.sym) seen.add(x.sym+'|'+(x.side==='S'?'S':(x.side==='A'?'A':'B'))+'|'+x.ts); });
   let added=0;
   const merged=base.slice();
   for(const x of remote){
     if(!x || x.ts==null || !x.sym || (x.ts||0)<floor) continue;
-    const key=x.sym+'|'+(x.side==='S'?'S':'B')+'|'+x.ts;
+    const key=x.sym+'|'+(x.side==='S'?'S':(x.side==='A'?'A':'B'))+'|'+x.ts;
     if(seen.has(key)) continue;
     seen.add(key); merged.push(x); added++;
   }
