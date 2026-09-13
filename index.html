@@ -2494,7 +2494,8 @@ async function ensureFundDays(syms){
 function kickFundDays(){
   const hotSyms=hotStocks.map(x=>x.sym);
   const watchSyms=watchList.filter(s=>!isDefault(s));
-  const syms=[...new Set([...hotSyms, ...watchSyms])];
+  const bakSyms=(backupList||[]).filter(Boolean);       // 备选股同样补齐主力持续净流入天数
+  const syms=[...new Set([...hotSyms, ...watchSyms, ...bakSyms])];
   if(syms.length) ensureFundDays(syms);
 }
 /* 元 -> 带符号金额（亿/万/千） */
