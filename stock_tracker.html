@@ -296,8 +296,8 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRemindModal .modal-body{overflow:auto}
 #kmRemindModal table{min-width:520px}
 #kmRemindModal td{white-space:normal;word-break:break-word}
-/* 买卖提醒列表 · 放大视图：全屏弹窗 + 表格缩放 */
-#kmRemindModal .modal-box.full{width:100vw;height:100vh;max-width:none;border:none;border-radius:0;box-shadow:none}
+/* 买卖提醒列表 · 放大视图：全屏弹窗 + 表格缩放（!important 覆盖 modal-box 内联 max-width/height） */
+#kmRemindModal .modal-box.full{width:100vw!important;height:100vh!important;max-width:none!important;border:none;border-radius:0;box-shadow:none}
 #kmRemindModal .modal-box.full .modal-head{padding:12px 18px}
 #kmRemindModal .modal-box.full .modal-body{padding:14px 18px;overflow:auto}
 #kmRemindModal .modal-box.full table{min-width:720px;font-size:0.7rem}
@@ -10068,6 +10068,9 @@ document.getElementById('kmRemindZoom').addEventListener('click',()=>{
   const box=document.getElementById('kmRemindModal').querySelector('.modal-box');
   const on=!box.classList.contains('full');
   box.classList.toggle('full',on);
+  /* 同步覆盖内联 max-width/height：保证放大/还原都即时生效 */
+  box.style.maxWidth=on?'none':'860px';
+  box.style.height=on?'100vh':'80vh';
   document.getElementById('kmRemindZoom').textContent=on?'⛶ 还原':'⛶ 放大';
 });
 document.getElementById('kmRemindClear').addEventListener('click',()=>{
