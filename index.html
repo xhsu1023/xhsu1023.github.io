@@ -10042,6 +10042,22 @@ const sig=_kmSignals(k, sym).lastSig;
     }catch(e){}
   }
 }
+/* 提醒时间格式：年月日 时:分（优先毫秒时间戳；无 ts 时用 date + time 拼接） */
+function kmRemindTimeStr(r){
+  if(r && typeof r.ts==='number' && isFinite(r.ts)){
+    try{
+      const d=new Date(r.ts);
+      const p=x=>String(x).padStart(2,'0');
+      return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+    }catch(e){}
+  }
+  const t=String(r&&r.time||''); const dte=String(r&&r.date||'');
+  if(t&&/^\d{1,2}:\d{1,2}/.test(t)&&/^\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2}/.test(dte)){
+    const p=dte.split(/[\/\-]/);
+    return p[0]+'-'+String(+p[1]).padStart(2,'0')+'-'+String(+p[2]).padStart(2,'0')+' '+t.slice(0,5);
+  }
+  return (dte?dte+(t?' ':'') :'')+t;
+}
 function renderKmRemindList(){
   const tb=document.getElementById('kmRemindList'); if(!tb) return;
   if(!kmReminds.length){ tb.innerHTML='<tr><td colspan="6" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
@@ -10049,7 +10065,7 @@ function renderKmRemindList(){
     const isBuy=r.side!=='S';
     return '<tr data-sym="'+r.sym+'">'+
       '<td style="font-size:0.6rem;color:var(--dim,#7a90a5)">'+ (i+1) +'</td>'+
-      '<td style="font-size:0.6rem;color:var(--text,#cdd9e5)">'+esc(r.time||'')+((r.date&&r.date!==new Date().toLocaleDateString('zh-CN'))?'  '+esc(r.date):'')+'</td>'+
+      '<td style="font-size:0.6rem;color:var(--text,#cdd9e5)">'+esc(kmRemindTimeStr(r))+'</td>'+
       '<td style="font-weight:600;color:var(--text-bright,#cfe5f5)">'+esc(r.name||'')+'</td>'+
       '<td style="font-size:0.72rem">'+esc(r.code||'')+'</td>'+
       '<td style="font-size:0.6rem"><span class="'+(isBuy?'red':'green')+'" style="font-weight:700">'+(isBuy?'买入':'卖出')+'</span> <span style="color:var(--gold,#ffbf47)">'+esc(r.reason||'')+'</span></td>'+
