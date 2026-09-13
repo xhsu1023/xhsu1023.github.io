@@ -2277,13 +2277,15 @@ function _kmFundStatus(last, prefix){
   const cname=inflow?'红':'绿';
   return (prefix||'最新 '+last.date+'：')+(inflow?'净流入 ':'净流出 ')+fmtMoney(last.xl)+' <span style="color:'+col+'">（'+cname+'柱）</span>';
 }
-function _renderKmBars(box, t, rows, label){
-  if(!rows || !rows.length){ if(box) box.textContent=label||'暂无暗盘资金数据'; return; }
-  const sorted=rows.slice().filter(d=>Number.isFinite(d.xl)&&d.date).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-  if(!sorted.length){ if(box) box.textContent=label||'暂无暗盘资金数据'; return; }
+function _renderKmBars(box, t, rows, label, mode){
+  const isFund=(mode==='FUND');   // FUND: 主力(main)主柱 + 超大单(xl)参考柱；DARK: 超大单(xl)单柱 + 5日均线 + 极值截断
+  const mkVal=(d)=> isFund? (Number.isFinite(+d.main)? +d.main : (Number.isFinite(+d.xl)? +d.xl : NaN)) : (Number.isFinite(+d.xl)? +d.xl : NaN);
+  if(!rows || !rows.length){ if(box) box.textContent=label||(isFund?'暂无资金监控数据':'暂无暗盘资金数据'); return; }
+  const sorted=rows.slice().filter(d=>Number.isFinite(mkVal(d))&&d.date).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+  if(!sorted.length){ if(box) box.textContent=label||(isFund?'暂无资金监控数据':'暂无暗盘资金数据'); return; }
   const d1Mode=kmRange==='d1';
   const base=kmTechData();
-  if(!d1Mode && (!base||!base.length)){ if(box) box.textContent=label||'暂无暗盘资金数据'; return; }
+  if(!d1Mode && (!base||!base.length)){ if(box) box.textContent=label||(isFund?'暂无资金监控数据':'暂无暗盘资金数据'); return; }
   const curSym=kmSym, curRange=kmRange;
   kmWaitLc(8000).then(()=>{
     if(!window.LightweightCharts) return;
@@ -2291,39 +2293,67 @@ function _renderKmBars(box, t, rows, label){
     const el=box; if(!el) return;
     if(el._chart){ try{ el._chart.remove(); }catch(e){} el._chart=null; }
     el.innerHTML='';
-    let times, vals;
+    let times, mainVals, xlVals;
     if(d1Mode){
       /* 分时视图：资金为日级数据，用独立日轴（不对分钟轴拉伸拟合），不与主图分钟轴联动 */
       times=sorted.map(d=>_kmTs(d.date));
-      vals=sorted.map(d=>d.xl);
+      mainVals=sorted.map(d=> Number.isFinite(+d.main)? +d.main : null);
+      xlVals=sorted.map(d=> Number.isFinite(+d.xl)? +d.xl : null);
     } else {
       const d2=kmTechData()||base;
       times=d2.map(x=>_kmDt(x));
       const dates=d2.map(x=>x.date);
       const idxMap={} ; dates.forEach((d,i)=>{ idxMap[d]=i; });
-      vals=new Array(dates.length).fill(null);
+      mainVals=new Array(dates.length).fill(null);
+      xlVals=new Array(dates.length).fill(null);
       const unmatched=[];
-      sorted.forEach(d=>{ if(idxMap[d.date]!=null) vals[idxMap[d.date]]=d.xl; else unmatched.push(d); });
+      sorted.forEach(d=>{ const i=idxMap[d.date]; if(i!=null){ if(Number.isFinite(+d.main)) mainVals[i]=+d.main; if(Number.isFinite(+d.xl)) xlVals[i]=+d.xl; } else unmatched.push(d); });
       if(unmatched.length){ /* 未匹配日期（如盘中今日/退市日）右对齐追加，保证不丢任何一根柱 */
         unmatched.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
-        unmatched.forEach(d=>{ const tm=/^\d{4}-\d{2}-\d{2}$/.test(d.date)? d.date : _kmTs(d.date); times.push(tm); vals.push(d.xl); });
+        unmatched.forEach(d=>{ const tm=/^\d{4}-\d{2}-\d{2}$/.test(d.date)? d.date : _kmTs(d.date); times.push(tm); mainVals.push(Number.isFinite(+d.main)?+d.main:null); xlVals.push(Number.isFinite(+d.xl)?+d.xl:null); });
       }
       el._n=times.length;
     }
     const ch=_kmNewChart(el); if(!ch) return;
     if(d1Mode) ch._noSync=true;
-    const hist=ch.addHistogramSeries({priceScaleId:'fund',priceFormat:{type:'volume'}});
-    ch._primarySeries=hist;
-    hist.setData(times.map((tm,i)=>({time:tm, value:vals[i], color: vals[i]==null?'transparent':(vals[i]>=0?'rgba(255,51,85,0.75)':'rgba(0,255,136,0.6)')})));
-    const last=sorted[sorted.length-1];
-    if(t && last && Number.isFinite(last.xl)){ try{ t.innerHTML=(d1Mode?'日级·':'')+_kmFundStatus(last); }catch(e){} }
+    if(isFund){
+      /* 资金监控：主力净流入 主柱 + 超大单(机构)净流入 参考柱，共用价格尺度 */
+      const sMain=ch.addHistogramSeries({priceScaleId:'fund',priceFormat:{type:'volume'}});
+      const sXl=ch.addHistogramSeries({priceScaleId:'fund',priceFormat:{type:'volume'}});
+      ch._primarySeries=sMain;
+      sMain.setData(times.map((tm,i)=>({time:tm, value:mainVals[i]==null?null:mainVals[i], color: mainVals[i]==null?'transparent':(mainVals[i]>=0?'rgba(255,51,85,0.85)':'rgba(0,255,136,0.8)')})));
+      sXl.setData(times.map((tm,i)=>({time:tm, value:xlVals[i]==null?null:xlVals[i], color: xlVals[i]==null?'transparent':(xlVals[i]>=0?'rgba(247,201,72,0.55)':'rgba(124,92,255,0.55)')})));
+    } else {
+      /* 暗盘资金：超大单净流入 单柱 + 5日均线 + 极值截断（95分位，防单根巨柱压缩视图） */
+      let vals=xlVals.slice();
+      const finite=vals.filter(v=>v!=null&&Number.isFinite(v));
+      let cap=Infinity;
+      if(finite.length){
+        const srt=finite.slice().sort((a,b)=>a-b);
+        const p95=srt[Math.min(srt.length-1, Math.max(0, Math.floor((srt.length-1)*0.95)))];
+        cap=Math.abs(p95)||Infinity;
+        if(Number.isFinite(cap)) vals=vals.map(v=> v==null?null:(v>cap?cap:(v<-cap?-cap:v)));
+      }
+      const hist=ch.addHistogramSeries({priceScaleId:'fund',priceFormat:{type:'volume'}});
+      ch._primarySeries=hist;
+      hist.setData(times.map((tm,i)=>({time:tm, value:vals[i]==null?null:vals[i], color: vals[i]==null?'transparent':(vals[i]>=0?'rgba(255,51,85,0.75)':'rgba(0,255,136,0.6)')})));
+      /* 5日移动平均线 */
+      const ma5=[]; let sum=0, cnt=0;
+      vals.forEach((v,i)=>{ if(v==null||!Number.isFinite(v)){ ma5.push({time:times[i], value:null}); return; } sum+=v; cnt++; if(cnt>5){ const j=Math.max(0,i-5); if(vals[j]!=null&&Number.isFinite(vals[j])) sum-=vals[j]; cnt--; } ma5.push({time:times[i], value:(cnt===5||i>=4)?(sum/Math.min(cnt,5)):null}); });
+      const line=ch.addLineSeries({priceScaleId:'fund', color:'rgba(0,240,255,0.9)', lineWidth:1, priceFormat:{type:'volume'}});
+      line.setData(ma5);
+      el._maLine=line;
+    }
     if(d1Mode){ try{ ch.timeScale().applyOptions({timeVisible:true,secondsVisible:false}); }catch(e){} try{ ch.timeScale().fitContent(); }catch(e){} }
     else kmSyncRange();
   });
 }
-function renderKmFund(sym){
+function renderKmFund(sym, mode){
   const box=document.getElementById('kmFundBars');
   const t=document.getElementById('kmFundToday');
+  const isFund=(mode==='FUND');   // FUND=资金监控(主力+机构/超大单)；DARK=暗盘资金(超大单)
+  const tt=document.getElementById('kmFundTitle');
+  if(tt) tt.innerHTML=isFund?'⬡ 资金监控（主力 + 超大单·机构净流入）<span id="kmFundToday" style="margin-left:6px"></span>':'⬡ 暗盘资金（超大单净流入·5日均线）<span id="kmFundToday" style="margin-left:6px"></span>';
   if(!box) return;
   if(box._chart){ try{ box._chart.remove(); }catch(e){} box._chart=null; }
   box.innerHTML='<span style="color:var(--text)">加载中…</span>';
@@ -2332,37 +2362,35 @@ function renderKmFund(sym){
   // 今天（北京时间）YYYY-MM-DD
   let todayStr='今日';
   try{ const d=new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); todayStr=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }catch(e){}
-  const realtime=()=>{ const v=fundFlow[sym]&&Number.isFinite(+fundFlow[sym].xl)? +fundFlow[sym].xl : null; return v; };
-  const mergeToday=(days)=>{
-    const rv=realtime();
-    if(rv==null){ return days; }                      // 无实时，仅历史
-    const last=days[days.length-1];
-    if(last && last.date===todayStr){ days[days.length-1]={date:todayStr, xl:rv}; }  // 历史最后一日即今日 → 用实时覆盖
-    else { days.push({date:todayStr, xl:rv}); }        // 否则把今日实时作为最新一根
-    return days;
-  };
+  const realtime=()=>{ const v=fundFlow[sym]||{}; return {xl:Number.isFinite(+v.xl)?+v.xl:null, main:Number.isFinite(+v.main)?+v.main:null}; };
   // 并发取：历史 + 实时
   const pDays=fetchKmFundDays(sym).catch(()=>null);
-  const pRt=realtime()!=null? Promise.resolve(realtime()) : fetchFundFlow([sym], true).then(fl=>(fl&&fl[sym]&&Number.isFinite(+fl[sym].xl)? +fl[sym].xl : null)).catch(()=>null);
+  const pRt=(realtime().xl!=null||realtime().main!=null)? Promise.resolve(realtime()) : fetchFundFlow([sym], true).then(fl=>{ const v=(fl&&fl[sym])||{}; return {xl:Number.isFinite(+v.xl)?+v.xl:null, main:Number.isFinite(+v.main)?+v.main:null}; }).catch(()=>({xl:null,main:null}));
   Promise.all([pDays, pRt]).then(([days0, rv])=>{
-    if(rv!=null){ try{ fundFlow[sym]=fundFlow[sym]||{}; fundFlow[sym].xl=rv; }catch(e){} _fundHistAdd(sym,[{date:todayStr, dark:rv}]); }
-    /* 近一月归档（本地+云端）为底，接口历史覆盖同日期；实时覆盖今日 */
+    if(rv&&(rv.xl!=null||rv.main!=null)){
+      fundFlow[sym]=fundFlow[sym]||{}; if(rv.xl!=null) fundFlow[sym].xl=rv.xl; if(rv.main!=null) fundFlow[sym].main=rv.main;
+      _fundHistAdd(sym,[{date:todayStr, dark:rv.xl, main:rv.main}]);
+    }
+    /* 合并：归档 + 接口历史 + 今日实时，保留 main/xl 双通道 */
     const map={};
-    /* 归档优先取暗盘(dark/xl)；归档仅含主力(main)时回退用主力当作柱子值，保证昨天/历史柱不因接口被拦而消失 */
-    const feed=(list)=>{ (list||[]).forEach(d=>{ if(!d||!d.date) return; const v=Number.isFinite(+d.xl)? +d.xl : (Number.isFinite(+d.dark)? +d.dark : (Number.isFinite(+d.main)? +d.main : NaN)); if(Number.isFinite(v)) map[d.date]=v; }); };
+    const feed=(list)=>{ (list||[]).forEach(d=>{ if(!d||!d.date) return; const rec=map[d.date]||{}; const vx=Number.isFinite(+d.xl)? +d.xl : (Number.isFinite(+d.dark)? +d.dark : NaN); const vm=Number.isFinite(+d.main)? +d.main : NaN; if(Number.isFinite(vx)) rec.xl=vx; if(Number.isFinite(vm)) rec.main=vm; map[d.date]=rec; }); };
     feed(_fundHistDays(sym));
     feed(days0);
-    if(rv!=null) map[todayStr]=rv;
-    let days=Object.keys(map).sort().map(d=>({date:d, xl:map[d]}));
-    if(!days.length){ box.textContent='暂无暗盘资金数据'; return; }
-    _renderKmBars(box, t, days);
+    if(rv){ const rec=map[todayStr]||(map[todayStr]={}); if(rv.xl!=null) rec.xl=rv.xl; if(rv.main!=null) rec.main=rv.main; }
+    let days=Object.keys(map).sort().map(d=>{ const o={date:d}; if(map[d].xl!=null) o.xl=map[d].xl; if(map[d].main!=null) o.main=map[d].main; return o; });
+    if(!days.length){ box.textContent='暂无资金数据'; return; }
+    _renderKmBars(box, t, days, undefined, mode);
     const last=days[days.length-1];
-    if(t && last && Number.isFinite(last.xl)) t.innerHTML=_kmFundStatus(last);
+    if(t && last){
+      const a=Number.isFinite(+last.xl)?+last.xl:null, b=Number.isFinite(+last.main)?+last.main:null;
+      const mk=(v)=> v==null?'--':(v>=0?'+':'')+fmtMoney(v);
+      if(isFund) t.innerHTML=(a!=null&&b!=null)?`主力 <span style="color:${b>=0?'var(--red)':'var(--green)'}">${mk(b)}</span> · 机构 <span style="color:${a>=0?'var(--red)':'var(--green)'}">${mk(a)}</span> · 合计 <span style="color:${(a+b)>=0?'var(--red)':'var(--green)'}">${mk(a+b)}</span>`:('主力 '+mk(b));
+      else t.innerHTML='最新 '+last.date+'：'+(a>=0?'净流入 ':'净流出 ')+fmtMoney(a)+' <span style="color:'+(a>=0?'var(--red)':'var(--green)')+'">（'+(a>=0?'红':'绿')+'柱）</span>';
+    }
   }).catch(()=>{
-    // 全失败：尽量用实时单柱
-    const rv=realtime()!=null? realtime() : null;
-    if(rv!=null){ _renderKmBars(box, t, [{date:todayStr, xl:rv}]); if(t) t.innerHTML=_kmFundStatus({date:'今日', xl:rv}, '今日'); }
-    else box.textContent='暗盘资金加载失败';
+    const rv=realtime();
+    if(rv.xl!=null){ _renderKmBars(box, t, [{date:todayStr, xl:rv.xl, main:rv.main}], undefined, mode); if(t) t.textContent='今日实时资金'; }
+    else box.textContent='资金数据加载失败';
   });
 }
 /* 每日主力净流入历史（daykline f52，旧→新排序）→ 按规范计算"持续净流入天数"：
@@ -8215,6 +8243,7 @@ function kmRenderConcept(sym){
 }
 /* ---- 弹窗副图面板：VOL（成交量专用）+ 主力技术副图（DMI 默认，可切 MACD/KDJ/RSI） ---- */
 let kmSubInd='RSI';
+let kmFundTab='FUND';   // 资金副图 tab：'FUND'=资金监控(主力+超大单·机构)，'DARK'=暗盘资金(超大单+5日均线)
 function kmTechData(){
   const sym=kmSym; if(!sym) return null;
   const c=klineCache[sym]&&klineCache[sym][kmRange];
@@ -8405,8 +8434,8 @@ function _kmLiveTick(){
   fetchFundFlow([sym], true).then(fl=>{
     if(sym!==kmSym) return;
     if(fl && fl[sym]) fundFlow[sym]=fl[sym];
-    renderKmFund(sym);
-  }).catch(()=>{ if(sym===kmSym) renderKmFund(sym); });
+    renderKmFund(sym, kmFundTab);
+  }).catch(()=>{ if(sym===kmSym) renderKmFund(sym, kmFundTab); });
   if(kmRange==='d1'){
     /* 分时主图+量图：破 5min 分时缓存取最新，原地更新主图价格/均价线，重建量图与副图（不重建主图，避免闪烁） */
     if(fsCache[sym]) delete fsCache[sym];
@@ -8658,7 +8687,7 @@ function buildKmIndBar(){
     const kind=it.dataset.kind;
     if(kind==='MA'||kind==='BOLL') setKmInd(kind);
     else if(kind==='VOL'){ renderKmVol(); renderKmTech(); }
-    else if(kind==='FUND'||kind==='DARK'){ syncKmBarAct(kind); }
+    else if(kind==='FUND'||kind==='DARK'){ kmFundTab=kind; syncKmBarAct(kind); renderKmFund(kmSym, kind); }  // 资金监控(FUND) / 暗盘资金(DARK) 切换副图
     else setKmSubInd(kind);
   });
   syncKmBarAct('MA'); syncKmBarAct('VOL'); syncKmBarAct('RSI'); syncKmBarAct('FUND');
@@ -8692,10 +8721,10 @@ function openKmModal(sym, preserve){
   loadKmChart(!preserve);
   renderKmVol();
   renderKmTech();
-  renderKmFund(sym);
+  renderKmFund(sym, kmFundTab);
   kmStartSync();
   kmStartLive();
-  setTimeout(()=>{ kmSyncCharts(); renderKmFund(sym); },90);
+  setTimeout(()=>{ kmSyncCharts(); renderKmFund(sym, kmFundTab); },90);
   setTimeout(()=>{ kmSyncCharts(); },340);
 }
 function setKmRange(r){ kmRange=r; kmSyncFrom=null; kmSyncTo=null;
@@ -8703,7 +8732,7 @@ function setKmRange(r){ kmRange=r; kmSyncFrom=null; kmSyncTo=null;
   loadKmChart();
   renderKmVol();
   renderKmTech();
-  renderKmFund(kmSym);
+  renderKmFund(kmSym, kmFundTab);
   setTimeout(()=>{ kmSyncCharts(); },60);
 }
 function setKmInd(i){ kmInd=i; syncKmBarAct(i);
@@ -8746,7 +8775,7 @@ function kmRerender(id){
   if(id==='kmChart'){ const el=document.getElementById('kmChart'); if(kmSym&&el&&el._data) kmRenderChart(el._data, kmSym); return; }
   if(id==='kmVolChart'){ renderKmVol(); return; }
   if(id==='kmDmiChart'){ renderKmTech(); return; }
-  if(id==='kmFundBars'){ renderKmFund(kmSym); return; }
+  if(id==='kmFundBars'){ renderKmFund(kmSym, kmFundTab); return; }
 }
 function kmSyncCharts(){
   const pairs=[['kmChart',()=>kmChart],['kmVolChart',e=>e._chart],['kmFundBars',e=>e._chart],['kmDmiChart',e=>e._chart]];
@@ -9241,8 +9270,8 @@ const priceTriCross = closes[i]>ma5i&&closes[i]>ma10i&&closes[i]>ma20i
     let sum5=0; for(let j=Math.max(1,i-4);j<=i;j++){ if(closes[j-1]>0) sum5+=(closes[j]/closes[j-1]-1)*100; }
     const gain5Ok=sum5<=15;
     const notLimitNow=chgNow<9.7;
-    let bS=0; const bKeys=[];
-    const addB=(ok,w,k)=>{ if(ok){ bS+=w; bKeys.push(k); } };
+    let bS=0; const bKeys=[]; const bKeyW={};
+    const addB=(ok,w,k)=>{ if(ok){ bS+=w; bKeys.push(k); bKeyW[k]=w; } };
     addB(limitF,3.0,'涨停加速');          // C4：连续涨停加速金叉首日，单因子可触发
     addB(macdUp,3.0,'回踩反攻');          // C5：回踩后 MACD金叉涨停突破，单因子可触发
     addB(crashGold,3.0,'超跌反转');          // C3：急跌V型反转金叉首日，单因子可触发
@@ -9261,6 +9290,18 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
     addB(c16_strong,3.0,'强势突破');                 // C16：强势股放量主升突破前高，单因子可触发
     addB(c17_fundpush,3.0,'资金上攻');                 // C17：今日涨>5%+主力&暗盘双资金流入，单因子可触发
     addB(c18_qilow,3.0,'回踩低吸');                    // C18：今日回踩MA5低吸+突破启动+主力流入，单因子可触发
+    /* ——首板突破启动（2026-09-12）：横盘/回调后 首板大涨(≥5%)突破前20日收盘高点，
+       收盘上穿 5/10 日线（上穿发生：昨日收盘仍在均线内/下方），盘中回踩 5 日线未破
+       （低点≥MA5×0.95，含不回踩直接上攻）→ 突破型买点。
+       豁免 P2 追高守卫（首板启动≠高位追涨）：涨停日亦可打点（封板无法成交时作启动标记，
+       次日回踩不破 5 日线介入）；近5日涨幅/连板高度等风险由质量门 G4/G5 兜底。 */
+    const prevLmt = closes[i-1]>0&&closes[i-2]>0&&(chgPrev>=(/^(sz30|sz31|sh68)/.test(sym)?19.5:9.5));
+    const fbBreak = chgNow>=5 && !prevLmt && ma5i!=null&&ma10i!=null
+      && closes[i]>ma5i && closes[i]>ma10i
+      && (closes[i-1]<=ma5i||closes[i-1]<=ma10i)
+      && hi20>-Infinity && closes[i]>hi20
+      && lows[i]>=ma5i*0.95;
+    addB(fbBreak,3.2,'首板突破');
     addB(f.triple_cross,3.2,'三金叉');
     addB(lowDead?false:f.lowbase_launch,3.0,'低位启动');
     addB(f.macd_cross&&(f.deep_oversold||(rP!=null&&r6[i]!=null&&rP<=30&&r6[i]>rP)),3.0,'超跌金叉');
@@ -9275,10 +9316,18 @@ addB(cCloseAbove5,3.0,'回踩10上穿5');            // C14：回踩10日线后K
        只有已有规则信号（bKeys/sKeys 非空）时，强反转形态(位置强化后≥2.6)能放宽阈值，使原本差一步的信号确认成立。 */
     const pat=kmCandles(d, i);
     const patConfB=pat.b.length>0&&Math.max.apply(null,pat.b.map(x=>x.w))>=2.6;
-    const bKeySet=bKeys.length;
     const CHASE_KEYS2=['涨停加速','回踩反攻','平台突破涨停','V型回封','强势突破','资金上攻','5穿10/20金叉','三线突破','回踩20上穿5/10','回踩10上穿5','回踩再攻','回踩上攻'];
-    const bHasChase=bKeys.some(k=>CHASE_KEYS2.includes(k));   // P2：是否含追涨类买点（受追高守卫约束）
-    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='资金上攻'||bKeys[0]==='回踩低吸'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高';
+    /* P2 守卫 v2（2026-09-12）：命中守卫的【追涨类 key】被移除（而非整体否决 buyOk），
+       使「首板突破」等非追涨 key 可独立成立——首板启动突破豁免 涨停/近5日涨幅 守卫（区别于高位连板追涨）
+       ★修复：bKeys 为 const，改用 in-place 移除（splice），禁止重新赋值 */
+    if(bKeys.some(k=>CHASE_KEYS2.includes(k))&&(!gain5Ok||!notLimitNow)){
+      const kept=bKeys.filter(k=>!CHASE_KEYS2.includes(k));
+      bKeys.length=0; bKeys.push.apply(bKeys,kept);
+      bS=0; for(const k of bKeys) bS+=bKeyW[k]||0;
+    }
+    const bKeySet=bKeys.length;
+    const bHasChase=bKeys.some(k=>CHASE_KEYS2.includes(k));   // P2：是否仍含追涨类买点（受追高守卫约束）
+    const strongSingle=bKeys[0]==='涨停加速'||bKeys[0]==='回踩反攻'||bKeys[0]==='超跌反转'||bKeys[0]==='回踩启动'||bKeys[0]==='回踩20金叉'||bKeys[0]==='回踩再攻'||bKeys[0]==='回踩上攻'||bKeys[0]==='平台突破涨停'||bKeys[0]==='V型回封'||bKeys[0]==='V型修复'||bKeys[0]==='5穿10/20金叉'||bKeys[0]==='三线突破'||bKeys[0]==='回踩20上穿5/10'||bKeys[0]==='回踩10上穿5'||bKeys[0]==='连跌首阳穿5'||bKeys[0]==='强势突破'||bKeys[0]==='资金上攻'||bKeys[0]==='回踩低吸'||bKeys[0]==='三金叉'||bKeys[0]==='低位启动'||bKeys[0]==='超跌金叉'||bKeys[0]==='空中加油'||bKeys[0]==='低位金叉'||bKeys[0]==='放量新高'||bKeys[0]==='首板突破';
     /* ——AI四因子 末根置信加成—— 模型存在时，仅对"最后一根K线"(实时决策)按 AI4 买/卖分加减：
        与规则共振(买分≥60 或 卖分≥60)时，把 buyOk/sellOk 判定所需强度放宽 0.5；强反向则收紧。 */
     let ai4b=0, ai4s=0;
@@ -9610,7 +9659,7 @@ function loadKmChart(force){
       /* 缓存命中（滚轮切股 preserve=true / 切周期）：预取与主页写入的日K不含今日 → 同样补出今日柱再渲染 */
       let d=use;
       if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} try{ klineCache[sym]=klineCache[sym]||{}; klineCache[sym][kmRange]=d; }catch(e){} }
-      kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); renderKmFund(sym); }); return;
+      kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); renderKmFund(sym, kmFundTab); }); return;
     }
   }
   fetchKline(sym, period, count).then(async data=>{
@@ -9624,7 +9673,7 @@ function loadKmChart(force){
     kmRenderChart(store, sym);
     renderKmVol();
     renderKmTech();
-    renderKmFund(sym);
+    renderKmFund(sym, kmFundTab);
   }).catch(()=>{ if(!force){ const use=(Array.isArray(cache)&&cache.length)?cache:null; if(use&&kmSym===sym){ let d=use; if(kmRange==='day'){ try{ const live=_liveCandles(use, quotes[sym]); if(live) d=live; }catch(e){} } kmWaitLc(8000).then(()=>{ kmRenderChart(d, sym); renderKmVol(); renderKmTech(); }); } } });
 }
 document.getElementById('klineModalClose').addEventListener('click',closeKmModal);
@@ -9891,12 +9940,15 @@ async function kmAnnVerdict(sym){
  *   G3 未来事件：财联社未来7天宏观/行业事件主题词 ∩ 个股概念 → 事件驱动补偿
  *   G4 个股走势：位置>92% 高位拦截；量比>10 对倒嫌疑拦截；现价距日内高点回落>3% 冲高回落拦截
  *   G5 个股公告（东财，最近60天）：减持/解禁/预亏/立案等利空 → 硬拦截；中标/合同/预增/回购等利好 → 补偿
+ *   ★首板突破（用户点名信号）：突破新高是形态特征 → 豁免 30日高位拦截 与 中性市补偿要求；
+ *     仍受 弱市硬拦/公告利空/冲高回落/量比异常 约束
  *   决策：中性市 且 非热门板块 且 无事件 且 无公告利好（且概念数据已就绪）→ 拦截；
  *   概念数据缺失时保守放行并标注"板块待确认"。
  * ===================================================================== */
 async function kmBuyGate(sym, q, k, sig){
   const factors=[], warns=[];
   let pass=true;
+  const isFb=sig&&sig.buyKeys&&sig.buyKeys.includes('首板突破');   // 首板突破启动：豁免高位/中性市补偿
   const qi=quotes['sh000001'];
   const shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
   if(shpct==null){ factors.push('大盘数据缺失'); }
@@ -9935,7 +9987,7 @@ async function kmBuyGate(sym, q, k, sig){
   }catch(e){}
   if(k&&k.length>=25&&q&&typeof q.price==='number'&&typeof q.high==='number'){
     const pos30=diPos30(k, q.price);
-    if(pos30!=null&&pos30>0.92){ pass=false; factors.push('高位'+Math.round(pos30*100)+'%'); }
+    if(pos30!=null&&pos30>0.92&&!isFb){ pass=false; factors.push('高位'+Math.round(pos30*100)+'%'); }
     else if(pos30!=null){ factors.push('位置'+Math.round(pos30*100)+'%'); }
     const retreat=q.high>0?((q.high-q.price)/q.high*100):0;
     if(retreat>3){ pass=false; factors.push('冲高回落'+retreat.toFixed(1)+'%'); }
@@ -9945,7 +9997,7 @@ async function kmBuyGate(sym, q, k, sig){
     }
   }
   const neutral=shpct!=null&&shpct>=-1.5&&shpct<0.5;
-  if(neutral&&!hotHit&&!evtHit&&!annGood&&hasBoards){ pass=false; warns.push('中性市无板块/事件/公告支撑'); }
+  if(neutral&&!hotHit&&!evtHit&&!annGood&&hasBoards&&!isFb){ pass=false; warns.push('中性市无板块/事件/公告支撑'); }
   else if(neutral&&!hotHit&&!evtHit&&!hasBoards){ factors.push('板块待确认'); }
   return { pass, factors, warns };
 }
