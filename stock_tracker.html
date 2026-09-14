@@ -3782,7 +3782,7 @@ function zaoScore(c){
     detail.push(gapTxt, vTxt, posTxt);
     if(patTxt) detail.push(patTxt);
     if(fatalHit) detail.push('否决:'+liveFatal.join('/'));
-    return { score:Math.round(fatalHit?0:Math.max(0,Math.min(99, raw))), detail, gap, gapOk, lbRatio, auctionRatio, turn, yLimit, yBreak, boards, pos30, weakStrong, strongStrong, firstBoard, risks, fatal:fatalHit?liveFatal:[], env, upPath, open, prev, price:q.price };
+    return { score:Math.round(fatalHit?0:Math.max(0,Math.min(99, raw))), detail, gap, gapOk, lbRatio, auctionRatio, turn, yLimit, yBreak, boards, pos30, weakStrong, strongStrong, firstBoard, morph:patTxt||'', risks, fatal:fatalHit?liveFatal:[], env, upPath, open, prev, price:q.price };
   }
   return { score:0, detail:['K线不足'], reject:'K线不足' };
 }
@@ -4114,6 +4114,19 @@ function loadZaoStat(){
 function saveZaoStat(){ try{ localStorage.setItem(ZAO_STAT_KEY, JSON.stringify(zaoStat)); }catch(e){} }
 /* 形态 key：'✓弱转强' → '弱转强'（与记录端 morph 字段口径一致） */
 function zaoMorphKey(patTxt){ return String(patTxt||'').replace(/^✓/,'').replace(/\(近.*$/,'').trim()||'未分类'; }
+/* 竞价形态兜底细分：主形态（弱转强/强更强/抢筹首板/连板）之外的候选，按量价字段归入有意义分类，减少"未分类" */
+function zaoMorphFallback(z){
+  if(!z) return '未分类';
+  const g=z.gap!=null?z.gap:null, t=z.turn!=null?z.turn:null;
+  const yl=!!z.yLimit, yb=!!z.yBreak, bd=z.boards||0, up=!!z.upPath;
+  if(yl&&bd>1) return '连板低吸';
+  if(yl) return yb?'炸板分歧':'高位接力';
+  if(g!=null&&g>=5) return '高开强势';
+  if(g!=null&&g>=2&&g<5) return up?'高开拉升':'高开震荡';
+  if(g!=null&&g<0) return '低开回升';
+  if(g!=null&&g>=-1&&g<=2) return t!=null&&t>=3?'平开活跃':'平开';
+  return '未分类';
+}
 /* 回填单条（2026-09-12 重构）："当日收/开"与"次日涨跌"解耦——
    · 找到当日 bar 即先回填 当日收盘vs开盘（gapDrop），不依赖次日数据；
    · 次日 bar 到位后再回填 nextRet 并计入胜率统计；
@@ -4558,11 +4571,12 @@ async function runZaoScan(force){
       const vq=quotes[p.sym];
       const vr=z.lbRatio!=null?z.lbRatio:null;
       const action=(typeof st!=='undefined'&&st&&st.textContent&&st.textContent.indexOf('AI 复核')>=0)?'watch':null;
+      const _morph=(z.morph&&z.morph.replace(/^✓/,''))||(z.weakStrong?'弱转强':(z.strongStrong?'强更强':(z.firstBoard?'抢筹首板':((z.yLimit&&z.gap!=null&&z.gap>=5)?'连板':zaoMorphFallback(z)))));
       return { sym:p.sym, name:p.name, score:z.score, action, signal:z.detail?z.detail.join('；'):'',
         gap:z.gap!=null?z.gap:(p.pct!=null?p.pct:null), lb:z.lbRatio!=null?Number(z.lbRatio):null,
         volscale:vr, aim:z.upPath, market:z.env!=null?('环境'+Math.round(z.env)+'%'):marketNote, openlight:!z.risks.length,
         boards:z.boards||0, weakStrong:!!z.weakStrong, strongStrong:!!z.strongStrong, firstBoard:!!z.firstBoard,
-        morph:z.weakStrong?'弱转强':z.strongStrong?'强更强':z.firstBoard?'抢筹首板':(z.yLimit&&z.gap!=null&&z.gap>=5?'连板':''),
+        morph:_morph,
         auctionRatio:z.auctionRatio, pos30:z.pos30, risks:z.risks||[], q:vq };
     });
     /* P5：记录本次早选候选（同 sym 同日不重复），收盘后回填次日表现 */
