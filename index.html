@@ -4316,7 +4316,7 @@ function renderZaoStatDetail(){
     const dateTip=(r.dateFallback||r.barDate!=null && r.barDate!==r.date)?'记录日 '+esc(r.date)+' 非交易日/停牌，已取最近交易日 '+esc(r.barDate||'')+' K线':'';
     /* 临时调试：raw 状态展示，便于定位"当日收/开清空/次日涨跌未回填" */
     const rawDbg='bf:'+(r.backfilled?1:0)+' gd:'+(r.gapDrop!=null?r.gapDrop.toFixed(4):'-')+' nx:'+(r.nextRet!=null?r.nextRet.toFixed(4):'-')+' fbk:'+(r.dateFallback?'1':'0')+(r.barDate?' bd:'+r.barDate:'')+(r.note?' note:'+r.note:'');
-    return '<tr data-sym="'+r.sym+'" class="tap-row" style="cursor:pointer" onclick="select(\''+r.sym+'\');zaoCloseStat()">'+
+    return '<tr data-sym="'+r.sym+'" class="tap-row" style="cursor:pointer" onclick="zaoCloseStat();openKmModal(\''+r.sym+'\')">'+
       '<td'+(dateTip?' title="'+dateTip+'" style="color:var(--dim,#7a90a5)"':'')+'>'+esc(showDate)+(dateTip?' ×':'')+'</td><td>'+esc(nm||r.sym)+'</td><td style="font-size:0.72rem">'+r.sym+'</td>'+
       '<td><span class="tg '+(r.score>=70?'tg-up':r.score>=55?'tg-o':'tg-b')+'" style="font-weight:700">'+sc+'</span></td>'+
       '<td>'+esc(r.morph||'--')+'</td><td>'+gap+'</td><td>'+lb+'</td><td>'+gd+'</td><td>'+nr+'</td>'+
