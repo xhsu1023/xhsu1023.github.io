@@ -11356,13 +11356,26 @@ function _cloudZaoPull(){
     let d; try{ d=JSON.parse(raw); }catch(e){ return; }
     _cloudZaoSha=r.json.sha;
     if(!(d && Array.isArray(d.r))) return;
-    /* 合并远端到本地：按 sym|date 去重，远端优先同键覆盖，保留较完整记录 */
+    /* 合并远端到本地：按 sym|date 去重；同键时【字段级合并】——gapDrop/nextRet 取非空者，
+       保证云端旧数据不会把本地已回填的"当日收/开/次日涨跌"覆盖回 null */
     const local=(zaoStat.pending||[]).slice();
-    const seen=new Set(), merged=[];
-    const put=(p)=>{ const key=(p.sym||'')+'|'+(p.date||''); if(seen.has(key)) return; seen.add(key); merged.push(p); };
-    for(const p of d.r){ if(p&&p.sym&&p.date){ put(p); } }
-    for(const p of local){ if(p&&p.sym&&p.date){ put(p); } }
-    zaoStat.pending=_zaoCrop(merged);
+    const byKey=new Map();
+    const merge=(p)=>{
+      if(!p||!p.sym||!p.date) return;
+      const key=p.sym+'|'+p.date;
+      const cur=byKey.get(key);
+      if(!cur){ byKey.set(key, Object.assign({},p)); return; }
+      ['gapDrop','nextRet'].forEach(f=>{ if(cur[f]==null&&p[f]!=null) cur[f]=p[f]; });
+      if(cur.gapDrop==null&&p.gapDrop!=null) cur.gapDrop=p.gapDrop;   // 兜底
+      if(cur.nextRet==null&&p.nextRet!=null) cur.nextRet=p.nextRet;
+      if(p.backfilled) cur.backfilled=true;
+      if(p.barDate&&!cur.barDate) cur.barDate=p.barDate;
+      if(p.note&&!cur.note) cur.note=p.note;
+    };
+    /* 先本地（优先保留本地已回填），再云端补缺——顺序对字段级合并无影响，均取非空 */
+    for(const p of local){ merge(p); }
+    for(const p of d.r){ merge(p); }
+    zaoStat.pending=_zaoCrop([...byKey.values()]);
     _zaoRebuild();
     saveZaoStat();
     try{ renderZaoStats(); renderZaoStatDetail(); }catch(e){}
