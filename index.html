@@ -307,6 +307,13 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRemindModal .modal-box.full table{min-width:720px;font-size:0.7rem}
 #kmRemindModal .modal-box.full th,#kmRemindModal .modal-box.full td{padding:10px 14px}
 #kmRemindModal .modal-box.full #kmStatsBox,#kmRemindModal .modal-box.full #kmScanScope,#kmRemindModal .modal-box.full #kmBoardTags{font-size:0.62rem}
+/* 早选次日表现 · 放大视图：全屏弹窗 + 表格缩放 */
+#zaoStatModal .modal-box.full{width:100vw!important;height:100vh!important;max-width:none!important;border:none;border-radius:0;box-shadow:none}
+#zaoStatModal .modal-box.full .modal-head{padding:12px 18px}
+#zaoStatModal .modal-box.full .modal-body{padding:14px 18px;overflow:auto}
+#zaoStatModal .modal-box.full table{min-width:900px;font-size:0.72rem}
+#zaoStatModal .modal-box.full th,#zaoStatModal .modal-box.full td{padding:10px 14px}
+#zaoStatModal .modal-box.full #zaoStatScope,#zaoStatModal .modal-box.full #zaoStatMorphTags{font-size:0.62rem}
 /* ---------- K线弹窗（klineModal）重新布局：通达信式 四面板 + 固定高度 ---------- */
 #klineModal{padding:0;align-items:stretch;justify-content:stretch;background:#07090f}
 #klineModal .modal-box{width:100vw;height:100vh;max-width:none;border:none;border-radius:0;box-shadow:none}
@@ -714,6 +721,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
     <div class="modal-head">
       <h2>📊 早选次日表现</h2>
       <button class="modal-close" id="zaoStatClear" style="border-color:var(--red,#ff3355);color:var(--red,#ff3355)" title="清空全部统计与历史候选（不可恢复）">🗑 清空</button>
+      <button class="modal-close" id="zaoStatZoom" style="border-color:var(--cyan,#00e5ff);color:var(--cyan,#00e5ff)">⛶ 放大</button>
       <button class="modal-close" id="zaoStatClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
@@ -4332,6 +4340,14 @@ function renderZaoStatDetail(){
   }catch(e){}
 }
 document.getElementById('zaoStatClose').addEventListener('click',zaoCloseStat);
+document.getElementById('zaoStatZoom').addEventListener('click',()=>{
+  const box=document.getElementById('zaoStatModal').querySelector('.modal-box');
+  const on=!box.classList.contains('full');
+  box.classList.toggle('full',on);
+  box.style.maxWidth=on?'none':'900px';
+  box.style.height=on?'100vh':'80vh';
+  document.getElementById('zaoStatZoom').textContent=on?'⛶ 还原':'⛶ 放大';
+});
 document.getElementById('zaoStatClear').addEventListener('click',()=>{ if(confirm('确认清空全部早选统计与历史候选？不可恢复。')) zaoClearStat(); });
 /* =====================================================================
  * 🔥 整合统计闭环（2026-09-12）：signalsStat 按战法标签统计次日胜率
