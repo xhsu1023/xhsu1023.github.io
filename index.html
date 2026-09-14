@@ -4118,6 +4118,9 @@ function zaoBackfillRec(rec){
        解锁重跑（新逻辑会回退到最近交易日）；真正回填成功的不再处理 */
     if(rec.note==='无K线(非交易日?)'&&rec.gapDrop==null&&rec.nextRet==null){
       rec.backfilled=false; rec.note=null; rec.dateFallback=null;
+    } else if(rec.nextRet===null || rec.nextRet===undefined){
+      /* 已标记完结但次日涨跌缺失（旧版部分回填/次日数据未到）→ 解除标记重跑，补齐次bar */
+      rec.backfilled=false;
     } else return Promise.resolve(true);
   }
   const parts=String(rec.date||'').split(/[\/\-]/);
@@ -4217,7 +4220,11 @@ function renderZaoStats(){
 }
 /* ============ 📊 早选次日表现 · 明细面板（2026-09-12） ============ */
 let zaoStatFilter='';   // 当前形态筛选（空=全部）
-function zaoOpenStat(){ const m=document.getElementById('zaoStatModal'); if(m){ renderZaoStatDetail(); m.classList.add('show'); } }
+function zaoOpenStat(){
+  const m=document.getElementById('zaoStatModal'); if(m){ renderZaoStatDetail(); m.classList.add('show'); }
+  /* 打开明细即触发一次回填（15:05 后立即补最新，不依赖 5 分钟轮询） */
+  try{ zaoBackfillStats(); }catch(e){}
+}
 function zaoCloseStat(){ const m=document.getElementById('zaoStatModal'); if(m) m.classList.remove('show'); }
 function zaoClearStat(){ zaoStat={ byMorph:{}, total:{n:0,win:0,sum:0,gapDrop:0,gapDropN:0}, pending:[], updated:0 }; saveZaoStat(); renderZaoStats(); renderZaoStatDetail(); }
 /* 面板头部：总胜率/均值/冲高回落均值 */
@@ -10514,6 +10521,9 @@ document.getElementById('kmRemindClear').addEventListener('click',()=>{
   }
 });
 loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000); loadZaoStat(); zaoBackfillAuto(); setInterval(zaoBackfillAuto,5*60*1000); loadSignalsStat(); sigBackfillAuto(); setInterval(sigBackfillAuto,5*60*1000);
+/* 页面重新可见/切回时立即补一次早选回填（避免跨天打开明细时次日涨跌仍显示未回填） */
+window.addEventListener('focus',()=>{ try{ zaoBackfillAuto(); }catch(e){} });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ try{ zaoBackfillAuto(); }catch(e){} } });
 
 /* =====================================================================
  * 买卖点扫描范围扩展：最近 3 日热门板块（东方财富板块涨幅榜）+ 板块成分股池
