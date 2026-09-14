@@ -259,6 +259,8 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .km-toast.buy{border-left:3px solid var(--red,#ff3355)}
 .km-toast.sell{border-left:3px solid var(--green,#00ff88)}
 .km-toast.alert{border-left:3px solid #f7c948}
+.km-toast.zao{border-left:3px solid var(--gold,#ffbf47)}
+.km-toast.zao .kt-tag{background:rgba(255,191,71,0.16);color:var(--gold,#ffbf47)}
 .km-toast .kt-hd{display:flex;align-items:center;gap:6px;margin-bottom:4px}
 .km-toast .kt-tag{font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;font-weight:700;padding:1px 8px;border-radius:3px}
 .km-toast.buy .kt-tag{background:rgba(255,51,85,0.15);color:var(--red,#ff3355)}
@@ -1667,6 +1669,7 @@ let yuceKMap={};           // K线买点预筛命中: sym -> {buyKeys,bS}（供 
 let zaoResults=[];        // 早选AI结果 [{sym,score,gap,vol,pos,kline,market,sector,action,signal,checks:{...}}]
 let zaoBusy=false;        // 早选扫描进行中
 let zaoTS=0;              // 上次早选扫描时间戳
+let zaoAutoToast=false;   // 本次扫描是否由 9:25~10:10 自动触发（触发时弹"早选"卡片）
 let upSortDir=0;           // 0=默认, 1=升序, -1=降序
 function _upVal(sym){ const a=anaCache[sym]; return a&&typeof a.up==='number'? a.up : -1; }
 function _cmpUp(a,b){ const av=_upVal(a),bv=_upVal(b),am=av<0,bm=bv<0; if(am&&bm)return 0; if(am)return 1; if(bm)return -1; return upSortDir>0?av-bv:bv-av; }
@@ -4470,6 +4473,7 @@ function isAuctionPhase(){
 /* 早选扫描主入口：全市场预筛竞价强势 → AI 七条件复核 */
 async function runZaoScan(force){
   const st=document.getElementById('recState');
+  const wantToast=zaoAutoToast; zaoAutoToast=false;   // 取出后立即复位，任何提前 return 都不残留标志
   if(zaoBusy){ if(st) st.textContent='早选扫描中… 请稍候'; return; }
   let cfg=llmCfg;
   const frm=aiCfgFromInputs();
@@ -4592,6 +4596,17 @@ async function runZaoScan(force){
       if(zaoStat.pending.length>300) zaoStat.pending=zaoStat.pending.slice(-300);
       if(added) saveZaoStat();
     }catch(e){}
+    /* 自动触发（9:25~10:10）时：对本次早选命中弹"早选"卡片提醒（标题=早选，内容同买卖卡片），并已记录进次日表现列表 */
+    if(wantToast && zaoResults.length){
+      try{
+        zaoResults.slice(0,12).forEach((r,i)=>{
+          setTimeout(()=>{
+            kmShowToast({ side:'Z', sym:r.sym, name:r.name||((quotes[r.sym]&&quotes[r.sym].name)||r.sym),
+              code:r.sym.replace(/^(sh|sz|bj)/i,''), reason:'早选命中 · 评分'+r.score+' · '+(r.morph||'')+(r.gap!=null?(' · 高开'+r.gap.toFixed(1)+'%'):'') });
+          }, i*300);
+        });
+      }catch(e){}
+    }
     zaoTS=Date.now(); zaoBusy=false;
     if(st) st.textContent=zaoResults.length?('早选完成：命中 '+zaoResults.length+' 只（候选 '+pool.length+'，否决 '+zaoFatalN+'：高开低走/冲高回落/炸板/高位/退潮）'):'竞价候选均未达到 50 分门槛'+(zaoFatalN?('（否决 '+zaoFatalN+' 只）'):'');
     renderZao();
@@ -4615,6 +4630,41 @@ function bindZaoSweep(){
   if(lb&&!lb.dataset.bound){ lb.dataset.bound='1'; lb.addEventListener('click',()=>runZaoLearn(true)); }
   const sb=document.getElementById('zaoStatBtn');
   if(sb&&!sb.dataset.bound){ sb.dataset.bound='1'; sb.addEventListener('click',()=>{ recView='zao'; refreshRecHeader(); zaoOpenStat(); }); }
+}
+/* =====================================================================
+ * 早选·竞价挑强 定时自动触发（9:25~10:10）
+ *   · 每 30 秒检查北京时区：落在 [9:25,10:10] 且当日尚未自动触发 → 自动跑早选
+ *   · 触发后弹"早选"卡片（内容同买卖提醒卡片），命中个股自动写入「早选次日表现」列表
+ *   · 当日只自动触发一次（标记存 localStorage，防重复）
+ * ===================================================================== */
+const ZAO_AUTO_KEY='stock_pulse_zao_auto_v1';
+let zaoAutoTimer=null;
+function _zaoBjNow(){ let d=new Date(); try{ d=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){} return d; }
+function _zaoBjKey(d){ const p=x=>String(x).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function _zaoAutoFiredToday(){ try{ return localStorage.getItem(ZAO_AUTO_KEY)===_zaoBjKey(_zaoBjNow()); }catch(e){ return false; } }
+function _zaoAutoMark(){ try{ localStorage.setItem(ZAO_AUTO_KEY, _zaoBjKey(_zaoBjNow())); }catch(e){} }
+function zaoStartAuto(){
+  if(zaoAutoTimer) return;
+  zaoAutoTimer=setInterval(()=>{
+    if(zaoBusy) return;
+    const d=_zaoBjNow();
+    if(d.getDay()===0||d.getDay()===6) return;            // 周末不触发
+    const mm=d.getHours()*60+d.getMinutes();
+    if(mm<565||mm>610) return;                            // 9:25(565) ~ 10:10(610)
+    if(_zaoAutoFiredToday()) return;                      // 当日已自动触发
+    _zaoAutoMark();
+    zaoAutoToast=true;                                    // 本次结果弹"早选"卡片
+    recView='zao'; refreshRecHeader();
+    runZaoScan(true);
+  },30000);
+}
+function zaoAutoStatus(){
+  if(_zaoAutoFiredToday()) return '今日已自动触发';
+  const d=_zaoBjNow(), mm=d.getHours()*60+d.getMinutes();
+  if(d.getDay()===0||d.getDay()===6) return '周末不自动（交易日 9:25-10:10 自动）';
+  if(mm<565) return '等待 9:25 自动触发';
+  if(mm>610) return '已过 9:25-10:10 自动时段（明日自动）';
+  return '9:25-10:10 自动触发中';
 }
 /* =====================================================================
  * 低吸战法：缩量回调低吸（纯规则，无需 AI）
@@ -10241,14 +10291,15 @@ function kmUpdCnt(){
 function kmShowToast(rec){
   const wrap=document.getElementById('kmToastWrap'); if(!wrap) return;
   const el=document.createElement('div');
-  el.className='km-toast '+(rec.side==='S'?'sell':(rec.side==='A'?'alert':'buy'));
-  const isBuy=rec.side!=='S'&&rec.side!=='A';
-  const tag=rec.side==='A'?'异 动':(rec.side==='S'?'卖 出':'买 入');
+  const isZao=rec.side==='Z';
+  el.className='km-toast '+(rec.side==='S'?'sell':(rec.side==='A'?'alert':(isZao?'zao':'buy')));
+  const isBuy=rec.side!=='S'&&rec.side!=='A'&&!isZao;
+  const tag=isZao?'早 选':(rec.side==='A'?'异 动':(rec.side==='S'?'卖 出':'买 入'));
   el.innerHTML='<div class="kt-hd"><span class="kt-tag">'+tag+'</span>'+
     '<span class="kt-name" title="点击查看K线">'+esc(rec.name)+'</span>'+
     '<span class="kt-code">'+rec.code+'</span>'+
     '<button class="kt-close" title="关闭">✕</button></div>'+
-    '<div class="kt-reason">'+(rec.side==='A'?'异动：':(isBuy?'买':'卖')+'理由：')+esc(rec.reason||'')+'</div>'+
+    '<div class="kt-reason">'+(isZao?'':(rec.side==='A'?'异动：':(isBuy?'买':'卖')+'理由：'))+esc(rec.reason||'')+'</div>'+
     '<div class="kt-timer"></div>';
   wrap.appendChild(el);
   wrap.style.display=(wrap.children.length? 'flex':'none'); if(!wrap.children.length) wrap.style.display='none';
@@ -10571,7 +10622,7 @@ document.getElementById('kmRemindClear').addEventListener('click',()=>{
     _cloudKmPushOverwrite([], clr);
   }
 });
-loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000); loadZaoNameCache(); loadZaoStat(); zaoBackfillAuto(); setInterval(zaoBackfillAuto,5*60*1000); loadSignalsStat(); sigBackfillAuto(); setInterval(sigBackfillAuto,5*60*1000);
+loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000); loadZaoNameCache(); loadZaoStat(); zaoBackfillAuto(); setInterval(zaoBackfillAuto,5*60*1000); loadSignalsStat(); sigBackfillAuto(); setInterval(sigBackfillAuto,5*60*1000); zaoStartAuto();
 /* 页面重新可见/切回时立即补一次早选回填（避免跨天打开明细时次日涨跌仍显示未回填） */
 window.addEventListener('focus',()=>{ try{ zaoBackfillAuto(); }catch(e){} });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ try{ zaoBackfillAuto(); }catch(e){} } });
