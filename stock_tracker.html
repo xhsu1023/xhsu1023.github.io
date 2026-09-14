@@ -692,7 +692,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
+      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒（仅弹卡片、不写入本列表）；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
       <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
@@ -10162,8 +10162,11 @@ function kmFireReminder(sym, side, reason, q, alertType){
   const rec={ ts:Date.now(), time:d.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}),
     date:today, sym, name:(q&&q.name)||kmStockName(sym), code:sym.replace(/^(sh|sz|bj)/i,''),
     side, reason, price:(q&&typeof q.price==='number')?+q.price.toFixed(2):null };
-  const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);   // 当天已提醒过 → 只弹卡片，不重复入列表
-  if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
+  /* 异动(side='A')只弹右下角卡片，不写入「买卖提醒」列表（列表仅保留买入/卖出） */
+  if(side!=='A'){
+    const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);   // 当天已提醒过 → 只弹卡片，不重复入列表
+    if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
+  }
   kmShowToast(rec);
 }
 function kmUpdCnt(){
@@ -10447,8 +10450,9 @@ function kmRemindTimeStr(r){
 }
 function renderKmRemindList(){
   const tb=document.getElementById('kmRemindList'); if(!tb) return;
-  if(!kmReminds.length){ tb.innerHTML='<tr><td colspan="6" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
-  tb.innerHTML=kmReminds.map((r,i)=>{
+  const list=(kmReminds||[]).filter(r=>r&&r.side!=='A');   // 列表仅保留买入/卖出，过滤异动
+  if(!list.length){ tb.innerHTML='<tr><td colspan="6" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
+  tb.innerHTML=list.map((r,i)=>{
     const isBuy=r.side!=='S'&&r.side!=='A';
     const tag=r.side==='A'?'异动':(isBuy?'买入':'卖出');
     const tagCol=r.side==='A'?'var(--gold,#ffbf47)':(isBuy?'var(--red,#ff3355)':'var(--green,#00ff88)');
@@ -10462,8 +10466,10 @@ function renderKmRemindList(){
       '</tr>';
   }).join('');
   tb.querySelectorAll('.rm-remind').forEach(b=>b.addEventListener('click',e=>{
-    const i=+e.currentTarget.dataset.i; if(!(i>=0&&i<kmReminds.length)) return;
-    kmReminds.splice(i,1); saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite();
+    const i=+e.currentTarget.dataset.i; if(!(i>=0&&i<list.length)) return;
+    const tgt=list[i]; const idx=kmReminds.findIndex(x=>x===tgt);
+    if(idx<0) return;
+    kmReminds.splice(idx,1); saveKmReminds(); kmUpdCnt(); renderKmRemindList(); if(_cloudKmTimer){ clearTimeout(_cloudKmTimer); _cloudKmTimer=null; } _cloudKmPushOverwrite();
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
@@ -10571,7 +10577,7 @@ async function refreshKmBoardPool(){
 }
 /* 买卖提醒面板：扫描范围说明 + 最近3日热门板块标签 */
 function renderKmScanScope(){
-  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落过滤次日下跌，弱市逆势强势可放行），上证跌超3%静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒；卖出盘中即时';
+  const t=document.getElementById('kmScanScope'); if(t) t.textContent='扫描范围：自选('+watchList.length+') + 备选('+backupList.length+') + 当天热门股 + 最近3日热门板块TOP3成分股 '+(kmBoardStocks?kmBoardStocks.length:0)+' 只；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落过滤次日下跌，弱市逆势强势可放行），上证跌超3%静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒（仅卡片不入列表）；卖出盘中即时';
   const box=document.getElementById('kmBoardTags'); if(!box) return;
   box.innerHTML='';
   const chips=_kmBoardMerged3().slice(0,18);
