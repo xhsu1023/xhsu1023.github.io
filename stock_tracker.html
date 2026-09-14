@@ -506,6 +506,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         <button class="btn btn-sm" id="unifiedSweepBtn" style="border-color:#ff8a65;color:#ff8a65" title="整合扫描：一次全市场拉取 → 同时跑 早选/低吸/强势回调/龙头/RSI/潜伏 六大战法过滤器 → 同股多信号叠加，🔥多信号共振=高置信（数据层共享、统计闭环统一）">🔥 整合扫描</button>
         <button class="btn btn-sm" id="zaoSweepBtn" style="border-color:var(--gold);color:var(--gold)" title="竞价战法：AI 已学习实战竞价框架（看环境/板块/位置/竞价量价/形态/风险）→ 本地规则引擎全市场评分 + 可选 AI 复核">🌅 早选 · 竞价挑强</button>
         <button class="btn btn-sm" id="zaoLearnBtn" style="border-color:#00e5ff;color:#00e5ff" title="AI 学习竞价战法：把实战竞价框架喂给大模型，归纳可执行规则与因子权重并缓存 → 应用于早选评分">🧠 AI学习竞价</button>
+        <button class="btn btn-sm" id="zaoStatBtn" style="border-color:var(--gold);color:var(--gold)" title="早选次日表现明细：每日早选候选收盘后自动回填「当日收/开」与「次日涨跌」，按形态统计真实胜率，低胜率形态自动降权">📋 次日表现</button>
         <button class="btn btn-sm" id="qianfuSweepBtn" style="border-color:#00e5ff;color:#00e5ff" title="潜伏战法：全市场启动迹象(缩量止跌/温和放量/均线粘合/RSI回升/MACD转多)+财联社投资日历事件映射受益个股 → 事件兑现前提前埋伏">🌀 潜伏</button>
         <button class="btn btn-sm" id="rsiSweepBtn" style="border-color:#00e676;color:#00e676" title="RSI&尾盘战法：RSI6 上穿/拐头 + 【尾盘六规则】①当日涨幅3%~5% ②近30日内曾涨停 ③总市值<200亿 ④量比>1 ⑤换手5%~10% ⑥14:30后创日内新高且回踩不破新高">📈 RSI&尾盘战法</button>
         <button class="btn btn-sm" id="ai4ScanBtn" style="border-color:#7c5cff;color:#a78bfa" title="AI 四因子选股：基本面+技术面+情绪面+消息面 逻辑回归模型扫描全市场，输出买/卖概率分（先点「🧠 训练AI4」积累模型）">🧠 AI四因子</button>
@@ -4564,6 +4565,8 @@ function bindZaoSweep(){
   if(b&&!b.dataset.bound){ b.dataset.bound='1'; b.addEventListener('click',()=>{ recView='zao'; refreshRecHeader(); runZaoScan(true); }); }
   const lb=document.getElementById('zaoLearnBtn');
   if(lb&&!lb.dataset.bound){ lb.dataset.bound='1'; lb.addEventListener('click',()=>runZaoLearn(true)); }
+  const sb=document.getElementById('zaoStatBtn');
+  if(sb&&!sb.dataset.bound){ sb.dataset.bound='1'; sb.addEventListener('click',()=>{ recView='zao'; refreshRecHeader(); zaoOpenStat(); }); }
 }
 /* =====================================================================
  * 低吸战法：缩量回调低吸（纯规则，无需 AI）
