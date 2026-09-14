@@ -4276,7 +4276,7 @@ function renderZaoStatDetail(){
     return;
   }
   tb.innerHTML=rows.map(r=>{
-    const nm=(quotes[r.sym]&&quotes[r.sym].name)||'';
+    const nm=(r.name)||(quotes[r.sym]&&quotes[r.sym].name)||'';
     const sc=r.score!=null?r.score:'--';
     const gap=r.gap!=null?r.gap.toFixed(1)+'%':'--';
     const lb=r.lb!=null?r.lb.toFixed(2):'--';
@@ -4549,7 +4549,7 @@ async function runZaoScan(force){
       let added=0;
       zaoResults.forEach(r=>{
         if(zaoStat.pending.some(p=>p.sym===r.sym&&p.date===zaoDate)) return;   // 同股同日只留一条（无论是否已回填）
-        zaoStat.pending.push({ sym:r.sym, date:zaoDate, score:r.score, morph:r.morph||'未分类',
+        zaoStat.pending.push({ sym:r.sym, date:zaoDate, name:(r.name)||((quotes[r.sym]&&quotes[r.sym].name)||''), score:r.score, morph:r.morph||'未分类',
           gap:r.gap!=null?+r.gap.toFixed(2):null, lb:r.lb!=null?Number(r.lb):null });
         added++;
       });
