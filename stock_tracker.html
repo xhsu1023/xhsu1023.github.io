@@ -10164,10 +10164,10 @@ function kmFireReminder(sym, side, reason, q, alertType){
     side, reason, price:(q&&typeof q.price==='number')?+q.price.toFixed(2):null };
   /* 异动(side='A')只弹右下角卡片，不写入「买卖提醒」列表（列表仅保留买入/卖出） */
   if(side!=='A'){
-    /* 去重键：同股+同日+同30分钟桶 才视为重复不重复入列。
-       盘中不同时段再次触发买入/卖出会正常记录，不再因"当日已有记录"而吞掉后续提醒 */
-    const dupInBucket=kmReminds.some(r=>r.sym===sym && r.date===today && Math.floor((r.ts||0)/KM_REM_COOLDOWN)===bucket);
-    if(!dupInBucket){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
+    /* 已记录但不再重复记录：同股同日已有一条记录 → 后续提醒只弹卡片不入列（避免列表刷屏）；
+       仅当天首条买入/卖出写入列表 */
+    const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);
+    if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
   }
   kmShowToast(rec);
 }
