@@ -720,7 +720,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <div id="zaoStatMorphTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
         <thead><tr>
-          <th>日期</th><th>股票名称</th><th>代码</th><th>评分</th><th>形态</th><th>高开</th><th>量比</th><th title="当日收盘vs开盘（负=冲高回落）">当日收/开</th><th title="次日收盘/当日收盘-1">次日涨跌</th>
+          <th>日期</th><th>股票名称</th><th>代码</th><th>评分</th><th>形态</th><th>高开</th><th>量比</th><th title="当日收盘vs开盘（负=冲高回落）">当日收/开</th><th title="次日收盘/当日收盘-1">次日涨跌</th><th title="调试：bf=已完结 gd=当日收/开 nx=次日涨跌 fbk=日期回退 bd=取值K线日 note=备注">状态</th>
         </tr></thead>
         <tbody id="zaoStatList"></tbody>
       </table>
@@ -4263,7 +4263,7 @@ function renderZaoStatDetail(){
   let rows=zaoStat.pending.slice().filter(r=>!zaoStatFilter||r.morph===zaoStatFilter);
   rows.sort((a,b)=>String(b.date).localeCompare(String(a.date))||a.sym.localeCompare(b.sym));
   if(!rows.length){
-    tb.innerHTML='<tr><td colspan="9" class="emptys" style="padding:20px">暂无记录'+(zaoStatFilter?'（当前筛选：'+esc(zaoStatFilter)+'）':'，点击「🌅 早选 · 竞价挑强」后自动积累，收盘后回填次日表现')+'</td></tr>';
+    tb.innerHTML='<tr><td colspan="10" class="emptys" style="padding:20px">暂无记录'+(zaoStatFilter?'（当前筛选：'+esc(zaoStatFilter)+'）':'，点击「🌅 早选 · 竞价挑强」后自动积累，收盘后回填次日表现')+'</td></tr>';
     return;
   }
   tb.innerHTML=rows.map(r=>{
@@ -4275,10 +4275,13 @@ function renderZaoStatDetail(){
     const nr=r.nextRet!=null?(r.nextRet>0?'<span class="red" style="font-weight:700">+'+r.nextRet.toFixed(2)+'%</span>':(r.nextRet<0?'<span class="green" style="font-weight:700">'+r.nextRet.toFixed(2)+'%</span>':'<span>0.00%</span>')):(r.note?'<span style="color:var(--dim,#7a90a5)">'+esc(r.note)+'</span>':'<span style="color:var(--dim,#7a90a5)">待回填</span>');
     const showDate=r.barDate||r.date;
     const dateTip=(r.dateFallback||r.barDate!=null && r.barDate!==r.date)?'记录日 '+esc(r.date)+' 非交易日/停牌，已取最近交易日 '+esc(r.barDate||'')+' K线':'';
+    /* 临时调试：raw 状态展示，便于定位"当日收/开清空/次日涨跌未回填" */
+    const rawDbg='bf:'+(r.backfilled?1:0)+' gd:'+(r.gapDrop!=null?r.gapDrop.toFixed(4):'-')+' nx:'+(r.nextRet!=null?r.nextRet.toFixed(4):'-')+' fbk:'+(r.dateFallback?'1':'0')+(r.barDate?' bd:'+r.barDate:'')+(r.note?' note:'+r.note:'');
     return '<tr data-sym="'+r.sym+'" class="tap-row" style="cursor:pointer" onclick="select(\''+r.sym+'\');zaoCloseStat()">'+
       '<td'+(dateTip?' title="'+dateTip+'" style="color:var(--dim,#7a90a5)"':'')+'>'+esc(showDate)+(dateTip?' ×':'')+'</td><td>'+esc(nm||r.sym)+'</td><td style="font-size:0.72rem">'+r.sym+'</td>'+
       '<td><span class="tg '+(r.score>=70?'tg-up':r.score>=55?'tg-o':'tg-b')+'" style="font-weight:700">'+sc+'</span></td>'+
-      '<td>'+esc(r.morph||'--')+'</td><td>'+gap+'</td><td>'+lb+'</td><td>'+gd+'</td><td>'+nr+'</td></tr>';
+      '<td>'+esc(r.morph||'--')+'</td><td>'+gap+'</td><td>'+lb+'</td><td>'+gd+'</td><td>'+nr+'</td>'+
+      '<td style="font-size:0.5rem;color:var(--dim,#7a90a5)" title="'+esc(rawDbg)+'">'+esc(rawDbg)+'</td></tr>';
   }).join('');
 }
 document.getElementById('zaoStatClose').addEventListener('click',zaoCloseStat);
