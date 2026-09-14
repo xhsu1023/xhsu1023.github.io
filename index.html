@@ -10030,7 +10030,7 @@ document.addEventListener('keydown',e=>{
 /* =====================================================================
  * 买卖提醒：交易时段 K线触发买入/卖出 → 右下角卡片 2 分钟自动关闭 + 持久化提醒列表
  * ===================================================================== */
-const KM_REM_KEY='stock_pulse_km_remind_v1', KM_SEEN_KEY='stock_pulse_km_seen_v1', KM_TOAST_MS=120000, KM_REM_COOLDOWN=1800000;
+const KM_REM_KEY='stock_pulse_km_remind_v1', KM_SEEN_KEY='stock_pulse_km_seen_v1', KM_TOAST_MS=60000, KM_REM_COOLDOWN=1800000;
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 let kmReminds=[];              // [{ts, time, sym, name, code, side, reason}]
 let kmSeen=new Set();          // 已提醒去重: sym|side|30min桶（盘中新点可再次提醒）
@@ -10197,7 +10197,7 @@ function kmShowToast(rec){
   const close=()=>{ el.classList.remove('show'); setTimeout(()=>{ el.remove(); if(!wrap.children.length) wrap.style.display='none'; },350); };
   el.querySelector('.kt-close').addEventListener('click',close);
   el.querySelector('.kt-name').addEventListener('click',()=>{ close(); try{ openKmModal(rec.sym); }catch(e){} });
-  setTimeout(close, KM_TOAST_MS);                  // 2 分钟后自动关闭
+  setTimeout(close, KM_TOAST_MS);                  // 1 分钟后自动关闭
   /* 进度条 120s */
   const bar=el.querySelector('.kt-timer'); if(bar){ bar.style.transition='width '+KM_TOAST_MS+'ms linear'; requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ bar.style.width='100%'; }); }); }
 }
