@@ -697,7 +697,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <table>
         <thead><tr>
-          <th>#</th><th>提醒时间</th><th>股票名称</th><th>代码</th><th title="买入/卖出与理由">提醒</th><th>操作</th>
+          <th>#</th><th>提醒时间</th><th>股票名称</th><th>代码</th><th title="买入/卖出与理由">提醒</th><th title="次日收盘/提醒日收盘-1（15:05 后自动回填）">次日表现</th><th>操作</th>
         </tr></thead>
         <tbody id="kmRemindList"></tbody>
       </table>
@@ -10100,7 +10100,7 @@ async function kmBackfillStats(){
     if((++done)%10===0) await new Promise(res=>setTimeout(res,150));
   }
   kmBackfillBusy=false;
-  if(ok){ saveKmStat(); saveKmReminds(); renderKmStats(); }
+  if(ok){ saveKmStat(); saveKmReminds(); renderKmStats(); try{ const m=document.getElementById('kmRemindModal'); if(m&&m.classList.contains('show')) renderKmRemindList(); }catch(e){} }
 }
 /* 自动回填触发：北京 15:05 后每轮检查，把当日提醒的次日数据补齐 */
 function kmBackfillAuto(){
@@ -10164,8 +10164,10 @@ function kmFireReminder(sym, side, reason, q, alertType){
     side, reason, price:(q&&typeof q.price==='number')?+q.price.toFixed(2):null };
   /* 异动(side='A')只弹右下角卡片，不写入「买卖提醒」列表（列表仅保留买入/卖出） */
   if(side!=='A'){
-    const dupToday=kmReminds.some(r=>r.sym===sym && r.date===today);   // 当天已提醒过 → 只弹卡片，不重复入列表
-    if(!dupToday){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
+    /* 去重键：同股+同日+同30分钟桶 才视为重复不重复入列。
+       盘中不同时段再次触发买入/卖出会正常记录，不再因"当日已有记录"而吞掉后续提醒 */
+    const dupInBucket=kmReminds.some(r=>r.sym===sym && r.date===today && Math.floor((r.ts||0)/KM_REM_COOLDOWN)===bucket);
+    if(!dupInBucket){ kmReminds.unshift(rec); if(kmReminds.length>300) kmReminds.pop(); saveKmReminds(); kmUnread++; kmUpdCnt(); }
   }
   kmShowToast(rec);
 }
@@ -10451,17 +10453,31 @@ function kmRemindTimeStr(r){
 function renderKmRemindList(){
   const tb=document.getElementById('kmRemindList'); if(!tb) return;
   const list=(kmReminds||[]).filter(r=>r&&r.side!=='A');   // 列表仅保留买入/卖出，过滤异动
-  if(!list.length){ tb.innerHTML='<tr><td colspan="6" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
+  if(!list.length){ tb.innerHTML='<tr><td colspan="7" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
   tb.innerHTML=list.map((r,i)=>{
     const isBuy=r.side!=='S'&&r.side!=='A';
     const tag=r.side==='A'?'异动':(isBuy?'买入':'卖出');
     const tagCol=r.side==='A'?'var(--gold,#ffbf47)':(isBuy?'var(--red,#ff3355)':'var(--green,#00ff88)');
+    /* 次日表现明细：回填后显示 ±%，未回填显示 --（卖出记录不适用） */
+    let nextTd='<td style="font-size:0.6rem;color:var(--dim,#7a90a5)" title="收盘后自动回填次日涨跌">--</td>';
+    if(isBuy){
+      if(r.backfilled&&typeof r.nextRet==='number'){
+        const p=(r.nextRet*100), col=p>=0?'var(--red,#ff3355)':'var(--green,#00ff88)';
+        const pct=(p>=0?'+':'')+p.toFixed(2)+'%';
+        nextTd='<td style="font-size:0.65rem;font-weight:700;color:'+col+'">'+pct+'</td>';
+      } else {
+        nextTd='<td style="font-size:0.6rem;color:var(--dim,#7a90a5)" title="次日数据未到，15:05 后自动回填">回填中</td>';
+      }
+    } else {
+      nextTd='<td style="font-size:0.6rem;color:var(--dim,#7a90a5)">—</td>';
+    }
     return '<tr data-sym="'+r.sym+'">'+
       '<td style="font-size:0.6rem;color:var(--dim,#7a90a5)">'+ (i+1) +'</td>'+
       '<td style="font-size:0.6rem;color:var(--text,#cdd9e5)">'+esc(kmRemindTimeStr(r))+'</td>'+
       '<td style="font-weight:600;color:var(--text-bright,#cfe5f5)">'+esc(r.name||'')+'</td>'+
       '<td style="font-size:0.72rem">'+esc(r.code||'')+'</td>'+
       '<td style="font-size:0.6rem"><span style="color:'+tagCol+';font-weight:700">'+tag+'</span> <span style="color:var(--gold,#ffbf47)">'+esc(r.reason||'')+'</span></td>'+
+      nextTd+
       '<td><button class="btn btn-sm rm-remind" data-i="'+i+'" style="border-color:var(--red);color:var(--red);padding:1px 8px;font-size:0.5rem">删除</button></td>'+
       '</tr>';
   }).join('');
