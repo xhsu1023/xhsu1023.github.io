@@ -4060,6 +4060,11 @@ function renderUnified(tb){
  *   按形态统计真实胜率；低胜率形态（n≥5 且 <45%）在 zaoScore 自动降权。
  * ===================================================================== */
 const ZAO_STAT_KEY='stock_pulse_zao_stat_v1';
+const ZAO_NAMECACHE_KEY='stock_pulse_zao_namecache_v1';
+let zaoNameCache={};   // sym -> 股票名（明细渲染缺名时补拉，持久化）
+let zaoNameFillTimer=null;
+function loadZaoNameCache(){ try{ const r=localStorage.getItem(ZAO_NAMECACHE_KEY); if(r){ const j=JSON.parse(r); if(j&&typeof j==='object') zaoNameCache=j; } }catch(e){ zaoNameCache={}; } }
+function saveZaoNameCache(){ try{ localStorage.setItem(ZAO_NAMECACHE_KEY, JSON.stringify(zaoNameCache)); }catch(e){} }
 let zaoStat={ byMorph:{}, total:{n:0,win:0,sum:0,gapDrop:0,gapDropN:0}, pending:[], updated:0 };
 function loadZaoStat(){
   try{ const r=localStorage.getItem(ZAO_STAT_KEY); if(r){ const j=JSON.parse(r); if(j&&j.byMorph&&j.total) zaoStat=j; } }catch(e){}
@@ -4276,7 +4281,8 @@ function renderZaoStatDetail(){
     return;
   }
   tb.innerHTML=rows.map(r=>{
-    const nm=(r.name)||(quotes[r.sym]&&quotes[r.sym].name)||'';
+    /* 名称解析：记录存的 name → 名称缓存 → 实时行情 → 回退代码 */
+    const nm=(r.name)||zaoNameCache[r.sym]||(quotes[r.sym]&&quotes[r.sym].name)||'';
     const sc=r.score!=null?r.score:'--';
     const gap=r.gap!=null?r.gap.toFixed(1)+'%':'--';
     const lb=r.lb!=null?r.lb.toFixed(2):'--';
@@ -4292,6 +4298,22 @@ function renderZaoStatDetail(){
       '<td>'+esc(r.morph||'--')+'</td><td>'+gap+'</td><td>'+lb+'</td><td>'+gd+'</td><td>'+nr+'</td>'+
       '<td style="font-size:0.5rem;color:var(--dim,#7a90a5)" title="'+esc(rawDbg)+'">'+esc(rawDbg)+'</td></tr>';
   }).join('');
+  /* 缺名记录异步补拉名称（腾讯行情），写入缓存与记录后重渲染；防抖避免重复请求 */
+  try{
+    const need=[...new Set(rows.filter(r=>!(r.name)&&!zaoNameCache[r.sym]&&!(quotes[r.sym]&&quotes[r.sym].name)).map(r=>r.sym))];
+    if(need.length){
+      clearTimeout(zaoNameFillTimer);
+      zaoNameFillTimer=setTimeout(async()=>{
+        try{
+          const qs=await fetchQuotes(need.slice(0,40));
+          let changed=false;
+          for(const s in qs){ const nm=qs[s]&&qs[s].name; if(nm&&!zaoNameCache[s]){ zaoNameCache[s]=nm; changed=true; } }
+          if(zaoStat.pending){ for(const p of zaoStat.pending){ if(!p.name&&zaoNameCache[p.sym]){ p.name=zaoNameCache[p.sym]; changed=true; } } }
+          if(changed){ saveZaoNameCache(); saveZaoStat(); renderZaoStatDetail(); }
+        }catch(e){}
+      },300);
+    }
+  }catch(e){}
 }
 document.getElementById('zaoStatClose').addEventListener('click',zaoCloseStat);
 document.getElementById('zaoStatClear').addEventListener('click',()=>{ if(confirm('确认清空全部早选统计与历史候选？不可恢复。')) zaoClearStat(); });
@@ -10535,7 +10557,7 @@ document.getElementById('kmRemindClear').addEventListener('click',()=>{
     _cloudKmPushOverwrite([], clr);
   }
 });
-loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000); loadZaoStat(); zaoBackfillAuto(); setInterval(zaoBackfillAuto,5*60*1000); loadSignalsStat(); sigBackfillAuto(); setInterval(sigBackfillAuto,5*60*1000);
+loadKmReminds(); kmUpdCnt(); loadKmStat(); kmBackfillAuto(); setInterval(kmBackfillAuto,5*60*1000); loadZaoNameCache(); loadZaoStat(); zaoBackfillAuto(); setInterval(zaoBackfillAuto,5*60*1000); loadSignalsStat(); sigBackfillAuto(); setInterval(sigBackfillAuto,5*60*1000);
 /* 页面重新可见/切回时立即补一次早选回填（避免跨天打开明细时次日涨跌仍显示未回填） */
 window.addEventListener('focus',()=>{ try{ zaoBackfillAuto(); }catch(e){} });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ try{ zaoBackfillAuto(); }catch(e){} } });
