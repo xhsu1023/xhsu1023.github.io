@@ -1099,11 +1099,11 @@ function sinaJsonpKline(sym, scale=240, count=70){
     const tm=setTimeout(()=>{ if(done) return; done=true; cleanup(); res(null); },15000);
     st.onload=()=>{ if(done) return; done=true; const d=window[vn]; cleanup(); res(Array.isArray(d)?d:null); };
     st.onerror=()=>{ if(done) return; done=true; cleanup(); res(null); };
-    st.src='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20'+vn+'=/CN_MarketDataService.getKLineData?symbol='+sym+'&scale='+scale+'&ma=no&datalen='+count;
+    st.src='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20'+vn+'=/CN_MarketDataService.getKLineData?symbol='+sym+'&scale='+scale+'&ma=no&datalen='+count+'&_='+Date.now();
     document.head.appendChild(st);
   });
 }
-/* K线数据源：新浪JSONP（全周期统一，无CORS问题） */
+/* K线数据源：新浪JSONP（全周期统一，无CORS问题，附缓存破坏参数保证拿到最新K） */
 async function getKlines(sym, period='day', count=250){
   /* ---- 15分钟K ---- */
   if(period==='m15'){
@@ -4169,20 +4169,29 @@ function zaoBackfillRec(rec){
 let zaoBackfillBusy=false;
 async function zaoBackfillStats(){
   if(zaoBackfillBusy) return;
-  const pending=zaoStat.pending.filter(r=>!r.backfilled);
-  if(!pending.length) return;
   zaoBackfillBusy=true;
-  let done=0, ok=0, touched=0;
-  for(const rec of pending.slice(0,80)){
-    const bKey=(rec.backfilled?1:0)+'|'+(rec.gapDrop!=null?1:0)+'|'+(rec.nextRet!=null?1:0);
-    const r=await zaoBackfillRec(rec);
-    if(r) ok++;
-    const aKey=(rec.backfilled?1:0)+'|'+(rec.gapDrop!=null?1:0)+'|'+(rec.nextRet!=null?1:0);
-    if(bKey!==aKey) touched++;          // 部分回填（仅当日收/开）也算状态变化，需保存
-    if((++done)%10===0) await new Promise(res=>setTimeout(res,150));
-  }
+  try{
+    let ok=0, touched=0, done=0;
+    /* 串行循环直到所有未回填处理完（或一轮无进展防止死循环） */
+    for(let round=0; round<10; round++){
+      const pending=zaoStat.pending.filter(r=>!r.backfilled);
+      if(!pending.length) break;
+      const batch=pending.slice(0,80);
+      let changedInBatch=false;
+      for(const rec of batch){
+        const bKey=(rec.backfilled?1:0)+'|'+(rec.gapDrop!=null?1:0)+'|'+(rec.nextRet!=null?1:0);
+        const r=await zaoBackfillRec(rec);
+        if(r) ok++;
+        const aKey=(rec.backfilled?1:0)+'|'+(rec.gapDrop!=null?1:0)+'|'+(rec.nextRet!=null?1:0);
+        if(bKey!==aKey){ touched++; changedInBatch=true; }   // 部分回填也算状态变化，需保存
+        if((++done)%8===0) await new Promise(res=>setTimeout(res,120));
+      }
+      if(!changedInBatch) break;                             // 该批无任何进展 → 其余已被网络失败阻塞，停止本轮
+      if(zaoStat.pending.some(r=>!r.backfilled) && batch.length>=80){ await new Promise(res=>setTimeout(res,200)); }  // 还有下一批
+    }
+    if(ok||touched){ saveZaoStat(); renderZaoStats(); renderZaoStatDetail(); }
+  }catch(e){}
   zaoBackfillBusy=false;
-  if(ok||touched){ saveZaoStat(); renderZaoStats(); renderZaoStatDetail(); }
 }
 /* 自动回填触发：北京 15:05 后每轮检查 */
 function zaoBackfillAuto(){
