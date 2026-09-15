@@ -4624,6 +4624,7 @@ async function runZaoScan(force){
       }catch(e){}
     }
     zaoTS=Date.now(); zaoBusy=false;
+    if(wantToast) _zaoAutoMark();    // 自动触发成功后才标记当日已触发；失败不标记，时窗内可重试
     if(st) st.textContent=zaoResults.length?('早选完成：命中 '+zaoResults.length+' 只（候选 '+pool.length+'，否决 '+zaoFatalN+'：高开低走/冲高回落/炸板/高位/退潮）'):'竞价候选均未达到 50 分门槛'+(zaoFatalN?('（否决 '+zaoFatalN+' 只）'):'');
     renderZao();
   }catch(e){
@@ -4661,18 +4662,19 @@ function _zaoAutoFiredToday(){ try{ return localStorage.getItem(ZAO_AUTO_KEY)===
 function _zaoAutoMark(){ try{ localStorage.setItem(ZAO_AUTO_KEY, _zaoBjKey(_zaoBjNow())); }catch(e){} }
 function zaoStartAuto(){
   if(zaoAutoTimer) return;
-  zaoAutoTimer=setInterval(()=>{
+  const tick=()=>{
     if(zaoBusy) return;
     const d=_zaoBjNow();
     if(d.getDay()===0||d.getDay()===6) return;            // 周末不触发
     const mm=d.getHours()*60+d.getMinutes();
     if(mm<565||mm>610) return;                            // 9:25(565) ~ 10:10(610)
     if(_zaoAutoFiredToday()) return;                      // 当日已自动触发
-    _zaoAutoMark();
     zaoAutoToast=true;                                    // 本次结果弹"早选"卡片
     recView='zao'; refreshRecHeader();
     runZaoScan(true);
-  },30000);
+  };
+  tick();                                                   // 页面打开时若已在时窗内立即触发
+  zaoAutoTimer=setInterval(tick,30000);
 }
 function zaoAutoStatus(){
   if(_zaoAutoFiredToday()) return '今日已自动触发';
