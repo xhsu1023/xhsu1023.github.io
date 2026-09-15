@@ -714,6 +714,13 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒（仅弹卡片、不写入本列表）；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
       <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
+      <div id="kmFilterRow" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:0.55rem;flex-wrap:wrap">
+        <span style="color:var(--dim,#7a90a5)">筛选</span>
+        <span id="kmFAll" data-s="all" style="display:inline-flex;align-items:center;padding:1px 9px;border-radius:10px;cursor:pointer;border:1px solid var(--cyan,#00e5ff);color:var(--cyan,#00e5ff);font-weight:700">全部</span>
+        <span id="kmFBuy" data-s="B" style="display:inline-flex;align-items:center;padding:1px 9px;border-radius:10px;cursor:pointer;border:1px solid rgba(255,51,85,0.5);color:var(--red,#ff3355)">买入</span>
+        <span id="kmFSell" data-s="S" style="display:inline-flex;align-items:center;padding:1px 9px;border-radius:10px;cursor:pointer;border:1px solid rgba(0,255,136,0.45);color:var(--green,#00ff88)">卖出</span>
+        <span style="color:var(--dim,#7a90a5);flex:1;min-width:0" id="kmFilterCnt"></span>
+      </div>
       <table>
         <thead><tr>
           <th>#</th><th>提醒时间</th><th>股票名称</th><th>代码</th><th title="买入/卖出与理由">提醒</th><th title="次日收盘/提醒日收盘-1（15:05 后自动回填）">次日表现</th><th>操作</th>
@@ -10339,14 +10346,13 @@ function kmUpdCnt(){
 /* 右下角卡片：标题=买入/卖出/异动（红/绿/黄标签），内容=名称/代码+理由；2 分钟自动关闭 */
 function kmShowToast(rec){
   const wrap=document.getElementById('kmToastWrap'); if(!wrap) return;
-  /* 异动卡片折叠：同屏展示的独立异动卡 ≥3 时，后续异动聚合进「折叠卡片」，点击展开查看被折叠信息 */
+  /* 异动/卖出卡片折叠：同屏保留 ≤3 张同类型独立卡（alert/sell 分开计数），超出的聚合进「折叠卡片」，点击展开查看 */
   if(rec.side==='A'){
-    const alertEls=wrap.querySelectorAll('.km-toast.alert');
-    if(alertEls.length>=3){
-      _kmToastAbnFold(wrap, rec);
-      wrap.style.display='flex';
-      return;
-    }
+    const n=wrap.querySelectorAll('.km-toast.alert').length;
+    if(n>=3){ _kmToastFold(wrap, rec, '异动'); wrap.style.display='flex'; return; }
+  } else if(rec.side==='S'){
+    const n=wrap.querySelectorAll('.km-toast.sell').length;
+    if(n>=3){ _kmToastFold(wrap, rec, '卖出'); wrap.style.display='flex'; return; }
   }
   const el=document.createElement('div');
   const isZao=rec.side==='Z';
@@ -10369,14 +10375,14 @@ function kmShowToast(rec){
   /* 进度条 120s */
   const bar=el.querySelector('.kt-timer'); if(bar){ bar.style.transition='width '+KM_TOAST_MS+'ms linear'; requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ bar.style.width='100%'; }); }); }
 }
-/* 异动折叠卡：把超出的异动聚合进一张"折叠卡片"，点击展开收起显示被折叠的异动列表 */
+/* 异动/卖出折叠卡：把超出的卡片聚合进一张"折叠卡片"，点击展开收起显示被折叠的列表 */
 let _kmAbnMoreTimer=null;
-function _kmToastAbnFold(wrap, rec){
+function _kmToastFold(wrap, rec, label){
   let more=wrap.querySelector('.km-more');
   if(!more){
     more=document.createElement('div');
     more.className='km-more';
-    more.innerHTML='<div class="km-more-hd">🗂 <span class="km-more-cnt">1</span> 条异动已折叠 <span style="margin-left:auto;color:var(--dim,#7a90a5)">点击展开 ▾</span></div><div class="km-more-list"></div>';
+    more.innerHTML='<div class="km-more-hd">🗂 <span class="km-more-cnt">1</span> 条已折叠 <span style="margin-left:auto;color:var(--dim,#7a90a5)">点击展开 ▾</span></div><div class="km-more-list"></div>';
     more.querySelector('.km-more-hd').addEventListener('click',(e)=>{ e.stopPropagation(); more.classList.toggle('open'); });
     wrap.appendChild(more);
     setTimeout(()=>more.classList.add('show'),10);
@@ -10384,12 +10390,15 @@ function _kmToastAbnFold(wrap, rec){
     const close=()=>{ if(more){ more.classList.remove('show'); setTimeout(()=>{ if(more&&more.parentNode) more.remove(); if(wrap&&!wrap.children.length) wrap.style.display='none'; },350); } };
     clearTimeout(_kmAbnMoreTimer); _kmAbnMoreTimer=setTimeout(close, KM_TOAST_MS);
   }
-  /* 加一条异动信息 */
+  /* 加一条异动/卖出信息 */
   const list=more.querySelector('.km-more-list');
   const nm=rec.name||rec.code||rec.sym||'';
+  const tag=label||(rec.side==='A'?'异动':(rec.side==='S'?'卖出':'提醒'));
   const it=document.createElement('div');
   it.className='km-more-item';
-  it.innerHTML='<span class="km-tag">异动</span><span class="km-more-txt">'+esc(nm)+' '+esc(rec.code||'')+' · '+esc(rec.reason||'')+'</span>';
+  it.style.borderLeft='3px solid '+(rec.side==='S'?'var(--green,#00ff88)':'var(--gold,#ffbf47)');
+  it.style.paddingLeft='6px';
+  it.innerHTML='<span class="km-tag">'+tag+'</span><span class="km-more-txt">'+esc(nm)+' '+esc(rec.code||'')+' · '+esc(rec.reason||'')+'</span>';
   it.addEventListener('click',()=>{ try{ more.classList.remove('open'); openKmModal(rec.sym); }catch(e){} });
   list.appendChild(it);
   more.querySelector('.km-more-cnt').textContent=list.children.length;
@@ -10645,10 +10654,26 @@ function kmRemindTimeStr(r){
   }
   return (dte?dte+(t?' ':'') :'')+t;
 }
+/* 买卖提醒列表 · 买/卖筛选（all=B+S 全部 / B 买入 / S 卖出） */
+let kmRemindSide='all';
+function kmRemindSetFilter(s){
+  kmRemindSide=s||'all';
+  renderKmRemindList();
+}
 function renderKmRemindList(){
   const tb=document.getElementById('kmRemindList'); if(!tb) return;
-  const list=(kmReminds||[]).filter(r=>r&&r.side!=='A');   // 列表仅保留买入/卖出，过滤异动
-  if(!list.length){ tb.innerHTML='<tr><td colspan="7" class="emptys" style="padding:20px">暂无提醒记录（交易时段 K线买入/卖出自动写入）</td></tr>'; return; }
+  const all=(kmReminds||[]).filter(r=>r&&r.side!=='A');   // 列表仅保留买入/卖出，过滤异动
+  /* 买/卖筛选（kmRemindSide 取值 all/B/S） */
+  const side=kmRemindSide;
+  const list=side==='all'?all:all.filter(r=>r.side===side);
+  /* 刷新筛选 chips 高亮与计数 */
+  try{
+    const cntAll=all.length, cntB=all.filter(r=>r.side==='B').length, cntS=all.filter(r=>r.side==='S').length;
+    const setChip=(id,cnt,on)=>{ const el=document.getElementById(id); if(el){ el.style.backgroundColor=on?'rgba(255,255,255,0.08)':'transparent'; el.style.fontWeight=on?'700':'400'; } };
+    setChip('kmFAll',cntAll,side==='all'); setChip('kmFBuy',cntB,side==='B'); setChip('kmFSell',cntS,side==='S');
+    const cc=document.getElementById('kmFilterCnt'); if(cc) cc.textContent='共 '+list.length+' 条'+(side!=='all'?(' / '+all.length):'');
+  }catch(e){}
+  if(!list.length){ tb.innerHTML='<tr><td colspan="7" class="emptys" style="padding:20px">'+(all.length?'当前筛选无记录':'暂无提醒记录（交易时段 K线买入/卖出自动写入）')+'</td></tr>'; return; }
   tb.innerHTML=list.map((r,i)=>{
     const isBuy=r.side!=='S'&&r.side!=='A';
     const tag=r.side==='A'?'异动':(isBuy?'买入':'卖出');
@@ -10685,6 +10710,7 @@ function renderKmRemindList(){
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
 document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmStats(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); kmBackfillStats(); });
+['kmFAll','kmFBuy','kmFSell'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('click',()=>{ kmRemindSetFilter(el.dataset.s||'all'); }); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 document.getElementById('kmRemindZoom').addEventListener('click',()=>{
   const box=document.getElementById('kmRemindModal').querySelector('.modal-box');
