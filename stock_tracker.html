@@ -2456,23 +2456,27 @@ function renderKmFund(sym, mode){
    push2his 返回完整多日历史（正确计算）；push2delay 仅返回单日（作为连通性兜底）。 */
 async function fetchFundDays(sym){
   const secid=emSecid(sym);
+  /* 每日主力净流入历史：优先 kline/get(klt=101 日线, f52=主力净流入)，push2his 含多日(不稳定→多host+重试)，
+     push2delay 仅当日作兜底 */
   const hosts=['push2his.eastmoney.com','push2delay.eastmoney.com'];
   for(const host of hosts){
-    try{
-      const url='https://'+host+'/api/qt/stock/fflow/daykline/get?lmt=30&klt=101&secid='+secid+'&fields1=f1,f2,f3,f7&fields2=f51,f52&ut=b2884a393a59ad64002292a3e90d46a5';
-      const res=await fetch(url);
-      const j=await res.json();
-      const kl=(j&&j.data&&j.data.klines)||[];      // 每行 "日期,主力净流入"
-      if(!kl.length) continue;
-      const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], in:+p[1]}; });
-      _fundHistAdd(sym, days.map(d=>({date:d.date, main:d.in})));
-      const today=days[days.length-1];
-      /* 单日（push2delay 兜底）时：用近一月归档补齐历史后再精确推算持续流入天数 */
-      const series=(days.length>=2)? days : _fundDaySeries(sym, today, days);
-      return {n:_fundSustainDays(series), date:today.date, ts:Date.now(), host};
-    }catch(e){ /* 尝试下一个 host */ }
+    for(let attempt=0; attempt<3; attempt++){
+      try{
+        const url='https://'+host+'/api/qt/stock/fflow/kline/get?lmt=30&klt=101&secid='+secid
+          +'&fields1=f1,f2,f3,f7&fields2=f51,f52,f53,f54,f55,f56&ut=b2884a393a59ad64002292a3e90d46a5&_='+Date.now()+attempt;
+        const res=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64)','Referer':'https://quote.eastmoney.com/'}});
+        const j=await res.json();
+        const kl=(j&&j.data&&j.data.klines)||[];
+        if(!kl.length){ if(attempt<2) await new Promise(r=>setTimeout(r,200)); continue; }
+        const days=kl.map(r=>{ const p=r.split(','); return {date:p[0], in:+p[1]}; });
+        _fundHistAdd(sym, days.map(d=>({date:d.date, main:d.in})));
+        const today=days[days.length-1];
+        const series=(days.length>=2)? days : _fundDaySeries(sym, today, days);
+        return {n:_fundSustainDays(series), date:today.date, ts:Date.now(), host};
+      }catch(e){ if(attempt<2) await new Promise(r=>setTimeout(r,200)); }
+    }
   }
-  /* 双 host 均失败：归档里有今日则直接用归档推算（离线可用） */
+  /* 双 host 均失败：归档里有数据则直接用归档推算（离线可用） */
   const arch=(_fundHistDays(sym)||[]).filter(d=>Number.isFinite(+d.main));
   if(arch.length){
     return {n:_fundSustainDays(arch), date:arch[arch.length-1].date, ts:Date.now(), host:'archive'};
