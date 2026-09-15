@@ -272,6 +272,15 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .km-toast .kt-code{color:var(--dim,#7a90a5)}
 .km-toast .kt-reason{margin-top:2px;color:var(--gold,#ffbf47);line-height:1.5}
 .km-toast .kt-timer{position:absolute;left:0;bottom:0;height:2px;background:rgba(255,255,255,0.25)}
+/* 异动折叠卡片：>3 条异动时聚合展示，点击展开列出被折叠的异动 */
+.km-more{background:linear-gradient(135deg,#1a1f2e,#0f1520);border:1px dashed rgba(247,201,72,0.6);border-radius:8px;padding:8px 12px;font-size:0.58rem;color:var(--gold,#ffbf47);cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,0.4);position:relative;overflow:hidden;transform:translateX(110%);transition:transform 0.35s ease}
+.km-more.show{transform:translateX(0)}
+.km-more .km-more-hd{display:flex;align-items:center;gap:6px;font-weight:700}
+.km-more .km-more-list{display:none;margin-top:6px;border-top:1px dashed rgba(247,201,72,0.35);padding-top:6px;max-height:260px;overflow-y:auto}
+.km-more.open .km-more-list{display:block}
+.km-more .km-more-item{display:flex;gap:6px;padding:3px 0;color:var(--text,#cdd9e5);line-height:1.5;border-bottom:1px solid rgba(255,255,255,0.05)}
+.km-more .km-more-item:last-child{border-bottom:none}
+.km-more .km-more-item .km-tag{font-weight:700;color:var(--gold,#ffbf47)}
 #kmRemindBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--gold,#ffbf47);color:var(--gold,#ffbf47);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
 #usPageBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--cyan,#00e5ff);color:var(--cyan,#00e5ff);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;text-decoration:none;transition:all 0.2s}
 #usPageBtn:hover{background:rgba(0,229,255,0.1)}
@@ -10308,6 +10317,15 @@ function kmUpdCnt(){
 /* 右下角卡片：标题=买入/卖出/异动（红/绿/黄标签），内容=名称/代码+理由；2 分钟自动关闭 */
 function kmShowToast(rec){
   const wrap=document.getElementById('kmToastWrap'); if(!wrap) return;
+  /* 异动卡片折叠：同屏展示的独立异动卡 ≥3 时，后续异动聚合进「折叠卡片」，点击展开查看被折叠信息 */
+  if(rec.side==='A'){
+    const alertEls=wrap.querySelectorAll('.km-toast.alert');
+    if(alertEls.length>=3){
+      _kmToastAbnFold(wrap, rec);
+      wrap.style.display='flex';
+      return;
+    }
+  }
   const el=document.createElement('div');
   const isZao=rec.side==='Z';
   el.className='km-toast '+(rec.side==='S'?'sell':(rec.side==='A'?'alert':(isZao?'zao':'buy')));
@@ -10328,6 +10346,31 @@ function kmShowToast(rec){
   setTimeout(close, KM_TOAST_MS);                  // 1 分钟后自动关闭
   /* 进度条 120s */
   const bar=el.querySelector('.kt-timer'); if(bar){ bar.style.transition='width '+KM_TOAST_MS+'ms linear'; requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ bar.style.width='100%'; }); }); }
+}
+/* 异动折叠卡：把超出的异动聚合进一张"折叠卡片"，点击展开收起显示被折叠的异动列表 */
+let _kmAbnMoreTimer=null;
+function _kmToastAbnFold(wrap, rec){
+  let more=wrap.querySelector('.km-more');
+  if(!more){
+    more=document.createElement('div');
+    more.className='km-more';
+    more.innerHTML='<div class="km-more-hd">🗂 <span class="km-more-cnt">1</span> 条异动已折叠 <span style="margin-left:auto;color:var(--dim,#7a90a5)">点击展开 ▾</span></div><div class="km-more-list"></div>';
+    more.querySelector('.km-more-hd').addEventListener('click',(e)=>{ e.stopPropagation(); more.classList.toggle('open'); });
+    wrap.appendChild(more);
+    setTimeout(()=>more.classList.add('show'),10);
+    /* 折叠卡也 1 分钟自动关闭 */
+    const close=()=>{ if(more){ more.classList.remove('show'); setTimeout(()=>{ if(more&&more.parentNode) more.remove(); if(wrap&&!wrap.children.length) wrap.style.display='none'; },350); } };
+    clearTimeout(_kmAbnMoreTimer); _kmAbnMoreTimer=setTimeout(close, KM_TOAST_MS);
+  }
+  /* 加一条异动信息 */
+  const list=more.querySelector('.km-more-list');
+  const nm=rec.name||rec.code||rec.sym||'';
+  const it=document.createElement('div');
+  it.className='km-more-item';
+  it.innerHTML='<span class="km-tag">异动</span><span class="km-more-txt">'+esc(nm)+' '+esc(rec.code||'')+' · '+esc(rec.reason||'')+'</span>';
+  it.addEventListener('click',()=>{ try{ more.classList.remove('open'); openKmModal(rec.sym); }catch(e){} });
+  list.appendChild(it);
+  more.querySelector('.km-more-cnt').textContent=list.children.length;
 }
 /* 交易时段轮询：对已加载K线的股票（自选/备选 + 当前池）用实时价注入后跑 _kmSignals，触发即提醒 */
 let kmRemindLastCheck=0;
