@@ -3029,6 +3029,8 @@ async function fetchAllMarket(progress){
         const rows=await fetchMarketPage('f3',pn,100);
         for(const x of rows){
           if(!x.sym||seen.has(x.sym)) continue;
+          const code6=String(x.sym).replace(/^(sh|sz|bj)/i,'');
+          if(/^(30|68)/.test(code6)) continue;             // 屏蔽创业板(30)/科创板(68)
           seen.add(x.sym);
           out.push({sym:x.sym,name:x.name,pct:x.pct,lb:x.lb,turn:x.turn,amt:x.amount,mcap:x.mcap,fmcap:x.fmcap,pe:x.pe,pb:x.pb});
         }
@@ -4533,6 +4535,7 @@ async function runZaoScan(force){
        涨幅榜只拉 4 页 1000 只，pct 1.5~3% 的弱转强/首板常被截断漏掉；量比榜按量比排序恰好补上这一档。 */
     for(const x of rawUp){
       if(!x.sym||seen.has(x.sym)) continue; seen.add(x.sym);
+      if(/^(30|68)/.test(String(x.sym).replace(/^(sh|sz|bj)/i,''))) continue;   // 屏蔽创业板(30)/科创板(68)
       const pct=typeof x.pct==='number'?x.pct:null, turn=typeof x.turn==='number'?x.turn:null, lb=Number(x.lb);
       if(pct==null) continue;
       if(/ST/i.test(x.name||'')) continue;
@@ -4547,6 +4550,7 @@ async function runZaoScan(force){
     }
     for(const x of rawLb){
       if(!x.sym||seen.has(x.sym)) continue; seen.add(x.sym);
+      if(/^(30|68)/.test(String(x.sym).replace(/^(sh|sz|bj)/i,''))) continue;   // 屏蔽创业板(30)/科创板(68)
       const pct=typeof x.pct==='number'?x.pct:null, turn=typeof x.turn==='number'?x.turn:null, lb=Number(x.lb);
       if(pct==null||!(lb>=2)) continue;                       // B通道：需竞价/早盘放量
       if(/ST/i.test(x.name||'')) continue;
@@ -5054,7 +5058,7 @@ function applyQfEvents(results, events){
 async function qfBoardStocksPure(code, n){
   const url='https://push2delay.eastmoney.com/api/qt/clist/get?pn=1&pz='+(n||5)+'&po=1&np=1&fltt=2&invt=2&fid=f6&fs=b:'+code+'&fields=f2,f3,f6,f12,f13,f14';
   const j=await (await fetch(url)).json();
-  return ((j&&j.data&&j.data.diff)||[]).map(x=>{ const sym=emCode(x.f13+':'+x.f12); if(!sym||sym.slice(0,2)==='bj') return null; if(x.f6!=null&&+x.f6>2.5e11) return null; return {sym, name:x.f14||'', price:(x.f2!=null)?+x.f2:null, pct:(x.f3!=null)?+x.f3:null}; }).filter(Boolean);
+  return ((j&&j.data&&j.data.diff)||[]).map(x=>{ const sym=emCode(x.f13+':'+x.f12); if(!sym||sym.slice(0,2)==='bj') return null; if(/^(30|68)/.test(String(sym).replace(/^(sh|sz|bj)/i,''))) return null; if(x.f6!=null&&+x.f6>2.5e11) return null; return {sym, name:x.f14||'', price:(x.f2!=null)?+x.f2:null, pct:(x.f3!=null)?+x.f3:null}; }).filter(Boolean);
 }
 /* 东财概念+行业板块全量（name→code，10 分钟缓存）；供事件受益股补入用，不依赖当日热门榜 */
 let qfBoardPoolCache={ts:0, arr:[]};
@@ -10616,6 +10620,7 @@ async function kmRemindCheck(){
   // 板块成分池长时间未刷新则后台重建（非交易时段也预取，保证开盘即扫）
   try{ if(kmBoardRefreshing===false) refreshKmBoardPool(); }catch(e){}
   for(const sym of syms){
+    if(/^(30|68)/.test(String(sym).replace(/^(sh|sz|bj)/i,''))) continue;   // 屏蔽创业板(30)/科创板(68)买卖提醒
     let base=klineCache[sym]&&Array.isArray(klineCache[sym].day)?klineCache[sym].day:null;
     if(!base||base.length<35) base=rowKline[sym]||dipCache[sym];
     if(!base||base.length<35) continue;
@@ -10778,7 +10783,7 @@ async function _kmFetchBoardStocks(code, n){
   const res=await fetch(url); const j=await res.json();
   const arr=(j&&j.data&&j.data.diff)||[];
   const out=[];
-  for(const x of arr){ const sym=emCode(x.f13+':'+x.f12); if(!sym||sym.slice(0,2)==='bj') continue; out.push({sym, name:x.f14||''}); }
+  for(const x of arr){ const sym=emCode(x.f13+':'+x.f12); if(!sym||sym.slice(0,2)==='bj') continue; const code6=String(sym).replace(/^(sh|sz|bj)/i,''); if(/^(30|68)/.test(code6)) continue; out.push({sym, name:x.f14||''}); }
   return out;
 }
 /* 预热板块池：批量拉日K入 klineCache（无缓存或过旧才拉，分批发避免限流） */
