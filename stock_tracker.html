@@ -10534,8 +10534,16 @@ async function kmBuyGate(sym, q, k, sig){
   const factors=[], warns=[];
   let pass=true;
   const isFb=sig&&sig.buyKeys&&sig.buyKeys.includes('首板突破');   // 首板突破启动：豁免高位/中性市补偿
-  const qi=quotes['sh000001'];
-  const shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+  let qi=quotes['sh000001'];
+  let shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+  if(shpct==null){
+    /* 大盘数据缺失：现场补拉上证指数（腾讯），避免误判为中性/缺失而影响买点质量门 */
+    try{
+      const qidx=await fetchQuotes(['sh000001']);
+      if(qidx&&qidx['sh000001']){ qi=qidx['sh000001']; quotes['sh000001']=qidx['sh000001']; }
+      shpct=qi&&typeof qi.pct==='number'?qi.pct:null;
+    }catch(e){}
+  }
   let weak=false;   // 弱市 -3%~-1.5%：走 G6 逆势识别（不直接拦）
   if(shpct==null){ factors.push('大盘数据缺失'); }
   else if(shpct>=0.5){ factors.push('上证'+(shpct>=0?'+':'')+shpct.toFixed(1)+'%强'); }
