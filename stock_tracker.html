@@ -4308,15 +4308,23 @@ function renderZaoStatHead(){
 /* 形态筛选 tags（点击筛选明细） */
 function renderZaoStatMorphTags(){
   const tg=document.getElementById('zaoStatMorphTags'); if(!tg) return;
-  const keys=Object.keys(zaoStat.byMorph).filter(k=>zaoStat.byMorph[k]&&zaoStat.byMorph[k].n>0)
-    .sort((a,b)=>zaoStat.byMorph[b].n-zaoStat.byMorph[a].n);
+  /* 形态标签聚合自 pending 记录（无论次日涨跌是否回填都显示，保证可筛选）；
+     计数口径：nextRet 已回填的用于胜率，未回填只显示形态 */
+  const cnt={}, winN={}, winSum={};
+  for(const p of (zaoStat.pending||[])){
+    const k=p.morph||'未分类'; if(!k) continue;
+    cnt[k]=(cnt[k]||0)+1;
+    if(p.nextRet!=null){ winN[k]=(winN[k]||0)+1; winSum[k]=(winSum[k]||0)+p.nextRet; }
+  }
+  const keys=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
   const allOn=!zaoStatFilter;
   let html='<span style="padding:2px 9px;border-radius:10px;cursor:pointer;border:1px solid '+(allOn?'var(--cyan,#00e5ff)':'rgba(0,0,0,0.2)')+';color:'+(allOn?'var(--cyan,#00e5ff)':'var(--dim,#7a90a5)')+'" onclick="zaoStatSetFilter(\'\')">全部</span>';
   keys.forEach(k=>{
-    const s=zaoStat.byMorph[k]; const p=Math.round(s.win/s.n*100);
-    const c=p>=55?'var(--green,#00ff88)':(p>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)');
+    const n=cnt[k];
+    const p=(winN[k]&&winN[k]>0)?Math.round(winSum[k]/winN[k]*100):null;
+    const c=p==null?'var(--dim,#7a90a5)':(p>=55?'var(--green,#00ff88)':(p>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)'));
     const on=zaoStatFilter===k;
-    html+='<span style="padding:2px 9px;border-radius:10px;cursor:pointer;border:1px solid '+(on?'var(--cyan,#00e5ff)':c)+';color:'+(on?'var(--cyan,#00e5ff)':c)+'" onclick="zaoStatSetFilter(\''+esc(k).replace(/'/g,"\\'")+'\')">'+esc(k)+' <b>'+p+'%</b>('+s.n+')</span>';
+    html+='<span style="padding:2px 9px;border-radius:10px;cursor:pointer;border:1px solid '+(on?'var(--cyan,#00e5ff)':c)+';color:'+(on?'var(--cyan,#00e5ff)':c)+';white-space:nowrap" onclick="zaoStatSetFilter(\''+esc(k).replace(/'/g,"\\'")+'\')">'+esc(k)+' <b>'+n+'</b>'+(p!=null?(' '+p+'%'):'')+'</span>';
   });
   tg.innerHTML=html;
 }
