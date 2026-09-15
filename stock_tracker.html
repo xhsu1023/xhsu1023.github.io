@@ -10234,9 +10234,13 @@ function kmKeysFromReason(reason){
   const out=[];
   try{
     const m=/K线买入信号：(.+)/.exec(reason||'');
-    if(m) m[1].split(/[+＋、,，]/).forEach(x=>{ const t=(x||'').trim(); if(t) out.push(t); });
+    if(m){
+      /* 截取质量门/事件/位置等辅助信息之前的【核心买点】；多个买点用 + 分隔 */
+      const core=String(m[1]).split(/[｜|]/)[0]||'';
+      core.split(/[+＋、,，]/).forEach(x=>{ const t=(x||'').trim(); if(t) out.push(t); });
+    }
   }catch(e){}
-  return out.length?out:['未知'];
+  return out.length?[...new Set(out)]:['未知'];
 }
 /* 回填单条提醒：返回 true=已完结（不再重试），false=数据未齐（稍后重试） */
 function kmBackfillRec(rec){
@@ -10308,33 +10312,52 @@ function kmBackfillAuto(){
   const mm=d.getHours()*60+d.getMinutes();
   if(mm>=905) kmBackfillStats();
 }
-/* 统计面板渲染（提醒弹窗顶部）：总胜率 + 按买点类型胜率 chips */
+/* 统计面板渲染（独立弹窗）：按【提醒内容(核心买点)】汇总列表 —— 提醒内容 / 个股数量 / 次日上涨概率。
+   提示内容将供后续 AI 自动分析，优化买点到"当日买入次日继续上涨"的准确性 */
 function renderKmStats(){
   const box=document.getElementById('kmStatsBox'); if(!box) return;
   const tot=kmStat.total;
   const buyN=kmReminds.filter(r=>r.side!=='S'&&r.side!=='A').length;
   const backfilled=kmReminds.filter(r=>r.side!=='S'&&r.side!=='A'&&r.backfilled).length;
-  if(!tot.n){
+  if(!tot.n && !Object.keys(kmStat.byKey).length){
     box.style.display='block';
     box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计</div>'+
-      '<div style="color:var(--dim,#7a90a5)">暂无已回填数据：买入提醒会在收盘后（15:05 起）自动回填次日涨跌，按信号类型统计真实胜率，用于砍掉低胜率买点。</div>';
+      '<div style="color:var(--dim,#7a90a5)">暂无已回填数据：买入提醒会在收盘后（15:05 起）自动回填次日涨跌，按买点类型统计真实胜率，用于优化买卖逻辑。</div>';
     return;
   }
-  const winPct=Math.round(tot.win/tot.n*100);
-  const avg=(tot.sum/tot.n*100).toFixed(2);
+  const winPct=Math.round(tot.n?tot.win/tot.n*100:0);
+  const avg=(tot.n?tot.sum/tot.n*100:0).toFixed(2);
   const wCol=winPct>=55?'var(--green,#00ff88)':(winPct>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)');
-  const keys=Object.keys(kmStat.byKey).filter(k=>kmStat.byKey[k]&&kmStat.byKey[k].n>0)
-    .sort((a,b)=>kmStat.byKey[b].n-kmStat.byKey[a].n);
-  const chips=keys.map(k=>{
-    const s=kmStat.byKey[k]; const p=Math.round(s.win/s.n*100);
+  /* 归并历史 byKey：去质量门后缀（｜...）统一核心买点 */
+  const merged={};
+  for(const k in kmStat.byKey){
+    const kk=(k||'').split(/[｜|]/)[0].trim()||k;
+    const s=kmStat.byKey[k];
+    const m=merged[kk]||(merged[kk]={n:0,win:0,sum:0});
+    m.n+=s.n||0; m.win+=s.win||0; m.sum+=s.sum||0;
+  }
+  const keys=Object.keys(merged).filter(k=>merged[k]&&merged[k].n>0)
+    .sort((a,b)=>merged[b].n-merged[a].n);
+  const rowsHtml=keys.map(k=>{
+    const s=merged[k];
+    const p=Math.round(s.win/s.n*100);
     const c=p>=55?'var(--green,#00ff88)':(p>=45?'var(--gold,#f7c948)':'var(--red,#ff3355)');
-    return '<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:10px;border:1px solid '+c+';color:'+c+'" title="口径：次日收盘/提醒日收盘-1">'+esc(k)+' <b>'+p+'%</b><span style="opacity:.65">('+s.n+')</span></span>';
+    return '<tr>'+
+      '<td style="font-size:0.6rem;color:var(--text-bright,#cfe5f5);word-break:break-word">'+esc(k)+'</td>'+
+      '<td style="font-size:0.62rem;text-align:center">'+s.n+'</td>'+
+      '<td style="font-size:0.65rem;font-weight:700;text-align:center;color:'+c+'">'+p+'%</td></tr>';
   }).join('');
   box.style.display='block';
-  box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计 <span style="font-weight:400;color:var(--dim,#7a90a5)">（口径：次日收盘/提醒日收盘-1 · 回填 '+backfilled+'/'+buyN+' 条）</span></div>'+
+  box.innerHTML='<div style="font-weight:600;color:var(--text-bright,#cfe5f5)">📊 买点次日表现统计 <span style="font-weight:400;color:var(--dim,#7a90a5)">（口径：次日收盘/提醒日收盘-1 · 回填 '+backfilled+'/'+buyN+' 条</span> · 汇总于核心买点）</div>'+
     '<div>次日上涨 <b style="color:'+wCol+'">'+winPct+'%</b>（'+tot.win+'/'+tot.n+'）· 平均 '+avg+'%'+
-    (winPct<50?' · <span style="color:var(--red,#ff3355)">低于 50%，优先关闭红色低胜率信号</span>':'')+'</div>'+
-    (chips?'<div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-top:4px">'+chips+'</div>':'');
+    (winPct<50?' · <span style="color:var(--red,#ff3355)">低于 50%，低胜率买点将被降权/关闭</span>':'')+'</div>'+
+    '<table style="width:100%;border-collapse:collapse;margin-top:6px">'+
+    '<thead><tr style="border-bottom:1px solid var(--border,#272b38)">'+
+    '<th style="text-align:left;font-size:0.55rem;color:var(--dim,#7a90a5);padding:4px 6px">提醒内容</th>'+
+    '<th style="text-align:center;font-size:0.55rem;color:var(--dim,#7a90a5);padding:4px 6px">个股数量</th>'+
+    '<th style="text-align:center;font-size:0.55rem;color:var(--dim,#7a90a5);padding:4px 6px">次日上涨概率</th>'+
+    '</tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+    '<div style="color:var(--dim,#7a90a5);margin-top:6px;font-size:0.5rem">按提醒内容（核心买点）汇总，供 AI 分析优化：低胜率买点自动降权，提升"当日买入、次日继续上涨"的准确性。</div>';
 }
 function _kmDayKey(){ const d=new Date(); return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2); }
 /* 名称兜底：优先实时行情，其次热门池/板块池，最后才是代码 */
