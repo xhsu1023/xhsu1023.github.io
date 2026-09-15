@@ -315,7 +315,8 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 #kmRemindModal .modal-box.full .modal-body{padding:14px 18px;overflow:auto}
 #kmRemindModal .modal-box.full table{min-width:720px;font-size:0.7rem}
 #kmRemindModal .modal-box.full th,#kmRemindModal .modal-box.full td{padding:10px 14px}
-#kmRemindModal .modal-box.full #kmStatsBox,#kmRemindModal .modal-box.full #kmScanScope,#kmRemindModal .modal-box.full #kmBoardTags{font-size:0.62rem}
+#kmRemindModal .modal-box.full #kmScanScope,#kmRemindModal .modal-box.full #kmBoardTags{font-size:0.62rem}
+#kmStatModal .modal-box.full #kmStatsBox{font-size:0.62rem}
 /* 早选次日表现 · 放大视图：全屏弹窗 + 表格缩放 */
 #zaoStatModal .modal-box.full{width:100vw!important;height:100vh!important;max-width:none!important;border:none;border-radius:0;box-shadow:none}
 #zaoStatModal .modal-box.full .modal-head{padding:12px 18px}
@@ -706,13 +707,13 @@ tr:hover td{background:rgba(0,240,255,0.025)}
   <div class="modal-box" style="max-width:860px;height:80vh">
     <div class="modal-head">
       <h2>🔔 买卖提醒列表</h2>
+      <button class="modal-close" id="kmStatBtn" style="border-color:var(--gold,#ffbf47);color:var(--gold,#ffbf47)">📊 统计</button>
       <button class="modal-close" id="kmRemindClear" style="border-color:var(--red,#ff3355);color:var(--red,#ff3355)">🗑 一键清空</button>
       <button class="modal-close" id="kmRemindZoom" style="border-color:var(--cyan,#00e5ff);color:var(--cyan,#00e5ff)">⛶ 放大</button>
       <button class="modal-close" id="kmRemindClose">✕ 关闭</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒（仅弹卡片、不写入本列表）；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。</div>
-      <div id="kmStatsBox" style="display:none;margin-bottom:8px;border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
+      <div style="font-size:0.52rem;color:var(--dim,#7a90a5);margin-bottom:6px" id="kmScanScope">交易时段 K线触发买入/卖出 自动记录；买点盘中即时提醒（🔒质量门：大盘/热门板块/未来事件/位置/量能/冲高回落 过滤次日下跌，弱市-3%~-1.5%逆势强势可放行），上证跌超 3% 自动静默；盘中异动（急拉/跳水/放量/新高/炸板）黄色提醒（仅弹卡片、不写入本列表）；卖出盘中即时；卡片 2 分钟后自动关闭，列表永久保留。<span style="color:var(--gold,#ffbf47);margin-left:6px">统计结果见「📊 统计」按钮</span></div>
       <div id="kmBoardTags" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;font-size:0.5rem"></div>
       <div id="kmFilterRow" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:0.55rem;flex-wrap:wrap">
         <span style="color:var(--dim,#7a90a5)">筛选</span>
@@ -727,6 +728,19 @@ tr:hover td{background:rgba(0,240,255,0.025)}
         </tr></thead>
         <tbody id="kmRemindList"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 买点次日表现统计（独立弹窗） ============ -->
+<div class="modal-overlay" id="kmStatModal">
+  <div class="modal-box" style="max-width:760px;height:75vh">
+    <div class="modal-head">
+      <h2>📊 买点次日表现统计</h2>
+      <button class="modal-close" id="kmStatModalClose">✕ 关闭</button>
+    </div>
+    <div class="modal-body" style="overflow:auto">
+      <div id="kmStatsBox" style="border:1px solid rgba(0,240,255,0.15);background:rgba(0,240,255,0.04);border-radius:6px;padding:6px 10px;font-size:0.55rem;line-height:1.8"></div>
     </div>
   </div>
 </div>
@@ -10739,7 +10753,10 @@ function renderKmRemindList(){
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
-document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmStats(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); kmBackfillStats(); });
+document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); kmBackfillStats(); });
+document.getElementById('kmStatBtn').addEventListener('click',()=>{ renderKmStats(); document.getElementById('kmStatModal').classList.add('show'); });
+document.getElementById('kmStatModalClose').addEventListener('click',()=>{ document.getElementById('kmStatModal').classList.remove('show'); });
+document.getElementById('kmStatModal').addEventListener('click',(e)=>{ if(e.target==document.getElementById('kmStatModal')) document.getElementById('kmStatModal').classList.remove('show'); });
 ['kmFAll','kmFBuy','kmFSell'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('click',()=>{ kmRemindSetFilter(el.dataset.s||'all'); }); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 document.getElementById('kmRemindZoom').addEventListener('click',()=>{
