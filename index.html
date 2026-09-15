@@ -2477,7 +2477,12 @@ async function fetchFundDays(sym){
     }
   }
   /* 双 host 均失败：归档里有数据则直接用归档推算（离线可用） */
-  const arch=(_fundHistDays(sym)||[]).filter(d=>Number.isFinite(+d.main));
+  let arch=(_fundHistDays(sym)||[]).filter(d=>Number.isFinite(+d.main));
+  if(!arch.length && typeof _cloudFundPull==='function' && _cloudEnabled()){
+    /* 东财获取失败 + 本地归档为空 → 从云端拉取归档后重算（自选/备选历史云端共享） */
+    try{ await _cloudFundPull(true); }catch(e){}
+    arch=(_fundHistDays(sym)||[]).filter(d=>Number.isFinite(+d.main));
+  }
   if(arch.length){
     return {n:_fundSustainDays(arch), date:arch[arch.length-1].date, ts:Date.now(), host:'archive'};
   }
