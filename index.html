@@ -10207,8 +10207,30 @@ function kmBackfillRec(rec){
     const dk=(x)=>String(x.date||x.dt||'').replace(/[-/T ]/g,'').slice(0,8);
     const idx=k.findIndex(x=>dk(x)===dayKey);
     if(idx<0) return true;              // 数据窗口内无该日（如历史过远/清缓存）→ 不再重试
-    if(idx+1>=k.length) return false;   // 次日数据未到（今日提醒/数据未更新）→ 稍后重试
-    const c0=k[idx].c, c1=k[idx+1].c;
+    const c0=idx<k.length?k[idx].c:null;
+    if(!c0) return true;
+    if(idx+1>=k.length){
+      /* 次日K未到位：新浪日K当日bar延迟；收盘后（15:05起）用腾讯实时收盘价兜底，
+         盘中不兜底（避免用瞬时价污染次日涨跌统计） */
+      let d=new Date(); try{ d=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
+      const beijingMM=d.getHours()*60+d.getMinutes();
+      const q=quotes[rec.sym];
+      if(beijingMM>=905 && q&&typeof q.price==='number'&&isFinite(q.price)&&q.price>0&&q.time){
+        const qt=(q.time||'').slice(0,8);
+        const today=_kmDayKey();
+        if(qt===today){
+          const c1=q.price;
+          rec.backfilled=true; rec.nextRet=+(c1/c0-1).toFixed(4);
+          const keys=kmKeysFromReason(rec.reason);
+          keys.forEach(key=>{ const s=kmStat.byKey[key]||(kmStat.byKey[key]={n:0,win:0,sum:0}); s.n++; s.sum+=rec.nextRet; if(rec.nextRet>0) s.win++; });
+          kmStat.total.n++; if(rec.nextRet>0) kmStat.total.win++; kmStat.total.sum+=rec.nextRet;
+          kmStat.updated=Date.now();
+          return true;
+        }
+      }
+      return false;                      // 当日数据未到 → 稍后重试
+    }
+    const c1=k[idx+1].c;
     if(!c0||!c1) return true;
     rec.backfilled=true; rec.nextRet=+(c1/c0-1).toFixed(4);
     const keys=kmKeysFromReason(rec.reason);
@@ -10662,7 +10684,7 @@ function renderKmRemindList(){
   }));
   tb.querySelectorAll('tr[data-sym]').forEach(tr=>tr.addEventListener('dblclick',()=>{ const s=tr.dataset.sym; if(s) openKmModal(s); }));
 }
-document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmStats(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); });
+document.getElementById('kmRemindBtn').addEventListener('click',()=>{ kmUnread=0; kmUpdCnt(); renderKmRemindList(); renderKmStats(); renderKmScanScope(); document.getElementById('kmRemindModal').classList.add('show'); kmBackfillStats(); });
 document.getElementById('kmRemindClose').addEventListener('click',()=>{ document.getElementById('kmRemindModal').classList.remove('show'); });
 document.getElementById('kmRemindZoom').addEventListener('click',()=>{
   const box=document.getElementById('kmRemindModal').querySelector('.modal-box');
