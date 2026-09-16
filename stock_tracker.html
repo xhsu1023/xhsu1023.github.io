@@ -4839,13 +4839,14 @@ async function runDixiScan(force){
         if(p==null) continue;
         if(!x.amt||x.amt<5e7) continue;                 // 成交额>5000万
         if(p<=-4 || p>=-1){
-          /* 底部反转 or 通道：今日放量上涨（爆量）纳入，由 qfStartupBottom 独立判定 */
-          if(p>=3.1 && p<=9.8) outB.push({sym:x.sym,name:x.name,pct:p,amount:x.amt,bottomRev:true});
+          /* 底部反转 or 通道：持续下跌40-60% + 主力流入 + 爆量3倍 独立判定，不限制今日涨幅 */
+          outB.push({sym:x.sym,name:x.name,pct:p,amount:x.amt,bottomRev:true});
           continue;
         }
         out.push({sym:x.sym,name:x.name,pct:p,amount:x.amt});
         if(out.length>=40) break;
       }
+      outB.sort((a,b)=>(b.amount||0)-(a.amount||0));   // 底部反转通道：按成交额降序优先
       pool=out.concat(outB.slice(0,40));
     }catch(e){}
     if(!pool.length){
@@ -5262,13 +5263,14 @@ function runQianfuScan(force){
           if(p==null) continue;
           if(!x.amt||x.amt<8e7) continue;               // 有资金关注：成交额>8000万
           if(p<-4 || p>3){
-            /* 底部反转通道：今日放量上涨(>3%)或深跌(-4%~) 也纳入池，由 qfStartupBottom 独立判定 */
-            if(p>=3.1 && p<=9.8) poolB.push({sym:x.sym,name:x.name,pct:p,amt:x.amt,bottomRev:true});   // 爆量上涨
+            /* 底部反转通道：持续下跌40-60% + 主力流入 + 爆量3倍 独立判定，不限制今日涨幅 */
+            poolB.push({sym:x.sym,name:x.name,pct:p,amt:x.amt,bottomRev:true});
             continue;
           }
           poolA.push({sym:x.sym,name:x.name,pct:p,amt:x.amt});
         }
         poolA.sort((a,b)=>Math.abs(a.pct)-Math.abs(b.pct));
+        poolB.sort((a,b)=>b.amt-a.amt);   // 底部反转通道：按成交额降序取前N（资金关注优先）
         pool=poolA.slice(0,80).concat(poolB.slice(0,40));
       }catch(e){}
       if(!pool.length){
