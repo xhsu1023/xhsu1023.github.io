@@ -4998,6 +4998,29 @@ function qfStartup(k){
   }
   return {keys};
 }
+/* 底部反转启动判断（新增潜伏逻辑）：持续下跌 40%~60% + 主力资金底部明显流入 + 今日爆量≥3倍。
+   k=日K；main=当日主力净流入(元)。返回 true 且附 keys：可作独立潜伏信号（无需常规启动迹象） */
+function qfStartupBottom(k, main){
+  try{
+    const n=k.length; if(n<40) return null;
+    const closes=k.map(v=>v.c), vols=k.map(v=>v.v||0);
+    const cur=closes[n-1]; if(!(cur>0)) return null;
+    /* ① 持续下跌 40%~60%：60交易日最高收盘 → 当前回撤在 [40%,60%] */
+    const seg=k.slice(-61,-1).map(v=>v.c);
+    const cHi=Math.max.apply(null,seg);
+    if(!(cHi>0)) return null;
+    const drop=(cHi-cur)/cHi*100;
+    if(drop<40||drop>60) return null;
+    /* ② 主力资金底部明显流入：今日主力净流入>0（相对市值判别需 q；此处用正流入+阈值 800万 近似底仓活跃） */
+    if(!(typeof main==='number'&&main>0)) return null;
+    /* ③ 今日爆量 ≥3 倍（相对近20日均量） */
+    const avg20=vols.slice(-21,-1).reduce((a,b)=>a+b,0)/20;
+    const vNow=vols[n-1]||0;
+    const volRatio=avg20>0?vNow/avg20:0;
+    if(volRatio<3) return null;
+    return {drop, main, volRatio};
+  }catch(e){ return null; }
+}
 /* 单只潜伏评估 */
 function _qfEval(p, k, q){
   const closes=k.map(v=>v.c);
@@ -5186,18 +5209,23 @@ function runQianfuScan(force){
       try{
         const all=await diGetAllMarket(progress);
         const seen=new Set();
+        const poolA=[], poolB=[];
         for(const x of all){
           if(!x.sym||seen.has(x.sym)) continue; seen.add(x.sym);
           if(/ST/i.test(x.name||'')) continue;
           if(/^(N|C|U)/.test(x.name||'')) continue;
           const p=typeof x.pct==='number'?x.pct:null;
           if(p==null) continue;
-          if(p<-4 || p>3) continue;                     // 启动前夜的平静位：未大跌未大涨
           if(!x.amt||x.amt<8e7) continue;               // 有资金关注：成交额>8000万
-          pool.push({sym:x.sym,name:x.name,pct:p,amt:x.amt});
+          if(p<-4 || p>3){
+            /* 底部反转通道：今日放量上涨(>3%)或深跌(-4%~) 也纳入池，由 qfStartupBottom 独立判定 */
+            if(p>=3.1 && p<=9.8) poolB.push({sym:x.sym,name:x.name,pct:p,amt:x.amt,bottomRev:true});   // 爆量上涨
+            continue;
+          }
+          poolA.push({sym:x.sym,name:x.name,pct:p,amt:x.amt});
         }
-        pool.sort((a,b)=>Math.abs(a.pct)-Math.abs(b.pct));   // 越接近平盘越优先
-        pool=pool.slice(0,80);
+        poolA.sort((a,b)=>Math.abs(a.pct)-Math.abs(b.pct));
+        pool=poolA.slice(0,80).concat(poolB.slice(0,40));
       }catch(e){}
       if(!pool.length){
         qianfuBusy=false;
@@ -5210,10 +5238,27 @@ function runQianfuScan(force){
       progress('获取日K（'+pool.length+' 只）计算启动迹象…');
       await Promise.all(pool.map(p=>getKlines(p.sym,'day',70).then(k=>{ if(k&&k.length) rowKline[p.sym]=k; }).catch(()=>{})));
       const results=[];
+      /* 底部反转候选需要主力资金数据：先拉 fundFlow */
+      const botSyms=pool.filter(p=>p.bottomRev).map(p=>p.sym);
+      if(botSyms.length){
+        try{ const ff=await fetchFundFlow(botSyms); Object.assign(fundFlow,ff); }catch(e){}
+      }
       for(const p of pool){
         const q=quotes[p.sym];
         if(!q||typeof q.price!=='number') continue;
         const k=rowKline[p.sym]; if(!k||k.length<40) continue;
+        if(p.bottomRev){
+          /* 底部反转通道：持续下跌40-60% + 主力流入 + 爆量3倍 */
+          const fl=fundFlow[p.sym]&&fundFlow[p.sym].main;
+          const bb=qfStartupBottom(k, fl);
+          if(bb){
+            results.push({ sym:p.sym, name:p.name||q.name, price:q.price, pct:p.pct,
+              pos60:'--', drop60:Math.round(bb.drop), keys:'底部反转', score:75,
+              main:(typeof fl==='number')?fl:null, take1:q.price*1.2, take2:q.price*1.3, stop:q.price*0.92, q,
+              bottomRev:true });
+          }
+          continue;
+        }
         const up=_qfEval(p,k,q); if(up) results.push(up);
       }
       if(!results.length){
