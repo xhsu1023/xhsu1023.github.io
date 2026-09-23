@@ -281,6 +281,8 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .km-more .km-more-item{display:flex;gap:6px;padding:3px 0;color:var(--text,#cdd9e5);line-height:1.5;border-bottom:1px solid rgba(255,255,255,0.05)}
 .km-more .km-more-item:last-child{border-bottom:none}
 .km-more .km-more-item .km-tag{font-weight:700;color:var(--gold,#ffbf47)}
+.km-more .km-more-close:hover{color:var(--red,#ff3355)}
+.km-more .km-more-hd .km-more-count{color:var(--text-bright,#cfe5f5)}
 #kmRemindBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--gold,#ffbf47);color:var(--gold,#ffbf47);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;cursor:pointer;transition:all 0.2s}
 #usPageBtn{display:inline-flex;align-items:center;gap:3px;background:transparent;border:1px solid var(--cyan,#00e5ff);color:var(--cyan,#00e5ff);border-radius:4px;padding:2px 8px;font-family:var(--font-display);font-size:0.55rem;letter-spacing:1px;text-decoration:none;transition:all 0.2s}
 #usPageBtn:hover{background:rgba(0,229,255,0.1)}
@@ -10511,16 +10513,28 @@ function kmUpdCnt(){
   el.textContent=kmReminds.length;
   el.classList.toggle('new', kmUnread>0);
 }
-/* 右下角卡片：标题=买入/卖出/异动（红/绿/黄标签），内容=名称/代码+理由；2 分钟自动关闭 */
+/* 移动端判定：手机/窄屏 → 卡片折叠更激进（每种类型 1 分钟内 >2 张即折叠） */
+function kmIsMobile(){
+  try{
+    if(/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent||'')) return true;
+    return window.innerWidth<768;
+  }catch(e){ return false; }
+}
+/* 右下角卡片：标题=买入/卖出/异动（红/绿/黄标签），内容=名称/代码+理由；1 分钟自动关闭 */
 function kmShowToast(rec){
   const wrap=document.getElementById('kmToastWrap'); if(!wrap) return;
-  /* 异动/卖出卡片折叠：同屏保留 ≤3 张同类型独立卡（alert/sell 分开计数），超出的聚合进「折叠卡片」，点击展开查看 */
-  if(rec.side==='A'){
-    const n=wrap.querySelectorAll('.km-toast.alert').length;
-    if(n>=3){ _kmToastFold(wrap, rec, '异动'); wrap.style.display='flex'; return; }
-  } else if(rec.side==='S'){
-    const n=wrap.querySelectorAll('.km-toast.sell').length;
-    if(n>=3){ _kmToastFold(wrap, rec, '卖出'); wrap.style.display='flex'; return; }
+  const m=kmIsMobile();
+  /* 折叠判断：1 分钟内同类型累计卡片（独立卡+同类折叠卡内）>2 张 → 该类型新卡折叠。
+     桌面端仅异动/卖出折叠（≥3）；手机端买入/卖出/异动均折叠（>2）。 */
+  if(rec.side==='A'||rec.side==='S'||(m&&rec.side==='B')){
+    const cls=rec.side==='A'?'alert':(rec.side==='S'?'sell':'buy');
+    const threshold=m?2:3;
+    const label=rec.side==='A'?'异动':(rec.side==='S'?'卖出':'买入');
+    const key=rec.side==='A'?'A':(rec.side==='S'?'S':'B');
+    const indep=wrap.querySelectorAll('.km-toast.'+cls).length;
+    const more=wrap.querySelector('.km-more[data-lab="'+key+'"]');
+    const folded=more?parseInt(more.dataset.cnt||'0',10):0;
+    if(indep+folded>=threshold){ _kmToastFold(wrap, rec, label, key, m); wrap.style.display='flex'; return; }
   }
   const el=document.createElement('div');
   const isZao=rec.side==='Z';
@@ -10540,36 +10554,58 @@ function kmShowToast(rec){
   el.querySelector('.kt-close').addEventListener('click',close);
   el.querySelector('.kt-name').addEventListener('click',()=>{ close(); try{ openKmModal(rec.sym); }catch(e){} });
   setTimeout(close, KM_TOAST_MS);                  // 1 分钟后自动关闭
-  /* 进度条 120s */
   const bar=el.querySelector('.kt-timer'); if(bar){ bar.style.transition='width '+KM_TOAST_MS+'ms linear'; requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ bar.style.width='100%'; }); }); }
 }
-/* 异动/卖出折叠卡：把超出的卡片聚合进一张"折叠卡片"，点击展开收起显示被折叠的列表 */
+/* 按类型折叠卡：每类型一张独立折叠卡（买/卖/异动 分开），点击展开收起、可关闭、1 分钟自动关 */
 let _kmAbnMoreTimer=null;
-function _kmToastFold(wrap, rec, label){
-  let more=wrap.querySelector('.km-more');
+function _kmToastFold(wrap, rec, label, key, mobile){
+  key=key||(rec.side==='A'?'A':(rec.side==='S'?'S':'B'));
+  const fmt=(x)=>{ try{ return typeof x==='number'?(x>0?'+':'')+x.toFixed(2):''; }catch(e){ return ''; } };
+  let more=wrap.querySelector('.km-more[data-lab="'+key+'"]');
+  const resetTimer=(el)=>{
+    clearTimeout(_kmAbnMoreTimer);
+    if(el&&el._close){ clearTimeout(el._close); el._close=setTimeout(()=>{ _kmCloseFold(wrap, el); }, KM_TOAST_MS); }
+  };
   if(!more){
     more=document.createElement('div');
     more.className='km-more';
-    more.innerHTML='<div class="km-more-hd">🗂 <span class="km-more-cnt">1</span> 条已折叠 <span style="margin-left:auto;color:var(--dim,#7a90a5)">点击展开 ▾</span></div><div class="km-more-list"></div>';
-    more.querySelector('.km-more-hd').addEventListener('click',(e)=>{ e.stopPropagation(); more.classList.toggle('open'); });
+    more.dataset.lab=key; more.dataset.cnt=0;
+    const color=key==='B'?'var(--red,#ff3355)':(key==='S'?'var(--green,#00ff88)':'var(--gold,#ffbf47)');
+    more.style.borderColor=color;
+    more.innerHTML='<div class="km-more-hd">🗂 '+label+' <span class="km-more-cnt">0</span> 条已折叠'+
+      '<button class="km-more-close" title="关闭折叠卡" style="margin-left:auto;background:none;border:none;color:var(--dim,#7a90a5);cursor:pointer;font-size:0.62rem;line-height:1">✕</button>'+
+      '<span class="km-more-arrow" style="margin-left:2px;color:var(--dim,#7a90a5)">▾</span></div>'+
+      '<div class="km-more-list"></div>';
+    more.querySelector('.km-more-hd').addEventListener('click',(e)=>{
+      if(e.target.closest('.km-more-close')) return;
+      e.stopPropagation(); more.classList.toggle('open');
+      more.querySelector('.km-more-arrow').textContent=more.classList.contains('open')?'▴':'▾';
+    });
+    more.querySelector('.km-more-close').addEventListener('click',(e)=>{ e.stopPropagation(); _kmCloseFold(wrap, more); });
     wrap.appendChild(more);
     setTimeout(()=>more.classList.add('show'),10);
-    /* 折叠卡也 1 分钟自动关闭 */
-    const close=()=>{ if(more){ more.classList.remove('show'); setTimeout(()=>{ if(more&&more.parentNode) more.remove(); if(wrap&&!wrap.children.length) wrap.style.display='none'; },350); } };
-    clearTimeout(_kmAbnMoreTimer); _kmAbnMoreTimer=setTimeout(close, KM_TOAST_MS);
-  }
-  /* 加一条异动/卖出信息 */
+    resetTimer(more);
+  } else resetTimer(more);
+  /* 加一条卡片信息 */
   const list=more.querySelector('.km-more-list');
   const nm=rec.name||rec.code||rec.sym||'';
-  const tag=label||(rec.side==='A'?'异动':(rec.side==='S'?'卖出':'提醒'));
+  const tag=label||(rec.side==='A'?'异动':(rec.side==='S'?'卖出':(rec.side==='B'?'买入':'提醒')));
+  const priceTxt=rec.price!=null?(' @'+rec.price.toFixed(2)):'';
   const it=document.createElement('div');
   it.className='km-more-item';
-  it.style.borderLeft='3px solid '+(rec.side==='S'?'var(--green,#00ff88)':'var(--gold,#ffbf47)');
+  it.style.borderLeft='3px solid '+((rec.side==='S'||key==='S')?'var(--green,#00ff88)':(rec.side==='A'||key==='A')?'var(--gold,#ffbf47)':'var(--red,#ff3355)');
   it.style.paddingLeft='6px';
-  it.innerHTML='<span class="km-tag">'+tag+'</span><span class="km-more-txt">'+esc(nm)+' '+esc(rec.code||'')+' · '+esc(rec.reason||'')+'</span>';
+  it.innerHTML='<span class="km-tag">'+tag+'</span><span class="km-more-txt">'+esc(nm)+' '+esc(rec.code||'')+priceTxt+' · '+esc(rec.reason||'')+'</span>';
   it.addEventListener('click',()=>{ try{ more.classList.remove('open'); openKmModal(rec.sym); }catch(e){} });
   list.appendChild(it);
-  more.querySelector('.km-more-cnt').textContent=list.children.length;
+  more.dataset.cnt=(parseInt(more.dataset.cnt||'0',10)+1);
+  more.querySelector('.km-more-cnt').textContent=more.dataset.cnt;
+}
+/* 关闭折叠卡（仅清该类型折叠卡，不动其它） */
+function _kmCloseFold(wrap, el){
+  if(!el||!el.classList) return;
+  el.classList.remove('show'); el.classList.remove('open');
+  setTimeout(()=>{ if(el&&el.parentNode) el.remove(); if(wrap&&!wrap.children.length) wrap.style.display='none'; },350);
 }
 /* 交易时段轮询：对已加载K线的股票（自选/备选 + 当前池）用实时价注入后跑 _kmSignals，触发即提醒 */
 let kmRemindLastCheck=0;
