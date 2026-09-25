@@ -2,6 +2,7 @@ const CACHE = 'stockpulse-v1';
 const CORE = [
   './stock_tracker.html',
   './us_sector_page.html',
+  './fupan.html',
   './manifest.json',
   './manifest-us.json',
   './icons/icon-152.png',
@@ -11,7 +12,7 @@ const CORE = [
   './icons/icon-512.png'
 ];
 // HTML 文档走网络优先（始终拿最新版本）；其余静态资源缓存优先
-const HTML_DOCS = ['./stock_tracker.html','./index.html','./us_sector_page.html','./zcwhF.html'];
+const HTML_DOCS = ['./stock_tracker.html','./index.html','./us_sector_page.html','./fupan.html'];
 function isHtmlDoc(u){
   const path = u.pathname.replace(/^\//,'') || 'index.html';
   return /\.html$/.test(path) || HTML_DOCS.some(h=>path===h.replace(/^\.\//,''));
