@@ -76,6 +76,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
       <span><span class="lbl">下跌</span><span class="green" id="hDn">--</span></span>
       <span><span class="lbl">涨停</span><span class="red" id="hZt">--</span></span>
       <span><span class="lbl">跌停</span><span class="green" id="hDt">--</span></span>
+      <button class="btn" id="backBtn" style="border-color:var(--green);color:var(--green)">← 返回主站</button>
       <button class="btn btn-cyan" id="rfBtn">⟳ 刷新</button>
     </div>
   </header>
@@ -465,6 +466,11 @@ async function refresh(force){
   busy=false;
 }
 $('rfBtn').addEventListener('click',()=>refresh(true));
+/* 返回主站（点击返回按钮 / Esc 键） */
+$('backBtn').addEventListener('click',()=>{ location.href='stock_tracker.html'; });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ location.href='stock_tracker.html'; }
+});
 refresh();
 setInterval(()=>refresh(false), 180000);
 </script>
