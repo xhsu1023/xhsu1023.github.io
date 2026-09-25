@@ -137,7 +137,7 @@ const $=id=>document.getElementById(id);
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
 function money(v){ if(v==null||!isFinite(v)) return '--'; const a=Math.abs(v); if(a>=1e8) return (v/1e8).toFixed(1)+'亿'; if(a>=1e4) return (v/1e4).toFixed(0)+'万'; return v.toFixed(0); }
 function priceV(p){ return (p==null||!isFinite(p))?'--':p.toFixed(2); }
-async function jget(url){ const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Referer':'https://quote.eastmoney.com/'}}); return JSON.parse(await r.text()); }
+async function jget(url){ const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Referer':'https://quote.eastmoney.com/','Accept':'*/*'}}); return JSON.parse(await r.text()); }
 function pctClass(v){ return v>0?'red':(v<0?'green':'') }
 function pctHtml(v){ if(v==null||!isFinite(v)) return '<span class="cyan">--</span>'; return '<span class="'+(v>0?'red':(v<0?'green':''))+'">'+(v>0?'+':'')+v.toFixed(2)+'%</span>'; }
 // 代码 → 市场类别/涨跌幅限制
@@ -194,7 +194,7 @@ async function boardPage(fid,pn,pz,po,fs,fields){
     for(let a=0;a<3;a++){
       try{
         const url='https://'+host+'/api/qt/clist/get?pn='+pn+'&pz='+pz+'&po='+po+'&np=1&fltt=2&invt=2&fid='+fid+'&fs='+fs+'&fields='+fields+'&_='+Date.now()+a;
-        const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Referer':'https://quote.eastmoney.com/'}});
+        const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0','Referer':'https://quote.eastmoney.com/','Accept':'*/*'}});
         const j=await r.json();
         const arr=(j&&j.data&&j.data.diff)||[]; if(arr.length) return arr;
         await new Promise(r=>setTimeout(r,150));
@@ -226,9 +226,10 @@ async function fetchIndex(){
     const d=(j&&j.data&&j.data.diff&&j.data.diff[0])||{};
     let pos=null;
     try{
-      const cb='_idp'+Math.floor(Math.random()*1e9);
-      const url='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20'+cb+'=/CN_MarketDataService.getKLineData?symbol=sh000001&scale=240&ma=no&datalen=30&_='+Date.now();
-      const ks=await new Promise(res=>{ const s=document.createElement('script'); s.src=url; window[cb]=v=>{res(Array.isArray(v)?v:null); delete window[cb]; s.remove();}; s.onerror=()=>{res(null);s.remove();}; document.head.appendChild(s); setTimeout(()=>{ if(window[cb]){res(null);delete window[cb];} },7000); });
+      const url='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20x=/CN_MarketDataService.getKLineData?symbol=sh000001&scale=240&ma=no&datalen=30&_='+Date.now();
+      const txt=await (await fetch(url)).text();
+      const a=txt.indexOf('('), b=txt.lastIndexOf(')');
+      const ks=JSON.parse(a>=0&&b>a?txt.slice(a+1,b):'[]');
       if(ks&&ks.length){
         const cs=ks.map(x=>+x.close).filter(v=>isFinite(v)&&v>0);
         const cur=cs[cs.length-1], hi=Math.max.apply(null,cs.slice(-20)), lo=Math.min.apply(null,cs.slice(-20));
@@ -265,9 +266,11 @@ function calcSentiment(m, idx){
 // ============ 连板估算（用日K判昨日/前日涨停） ============
 async function klines(sym,count){
   try{
-    const cb='_k'+Math.floor(Math.random()*1e9);
-    const url='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20'+cb+'=/CN_MarketDataService.getKLineData?symbol='+sym+'&scale=240&ma=no&datalen='+count+'&_='+Date.now();
-    return await new Promise(res=>{ const s=document.createElement('script'); s.src=url; window[cb]=d=>{res(Array.isArray(d)?d:null); delete window[cb]; s.remove();}; s.onerror=()=>{res(null);s.remove();}; document.head.appendChild(s); setTimeout(()=>{ if(window[cb]){res(null);delete window[cb];} },8000); });
+    const url='https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20x=/CN_MarketDataService.getKLineData?symbol='+sym+'&scale=240&ma=no&datalen='+count+'&_='+Date.now();
+    const txt=await (await fetch(url)).text();
+    const a=txt.indexOf('('), b=txt.lastIndexOf(')');
+    const j=JSON.parse(a>=0&&b>a?txt.slice(a+1,b):'[]');
+    return Array.isArray(j)?j:null;
   }catch(e){ return null; }
 }
 async function calcBoards(list){
