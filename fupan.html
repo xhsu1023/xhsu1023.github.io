@@ -356,6 +356,7 @@ function renderIce(s){
   if(ring) ring.style.setProperty('--p', s.score);
   if(rv){ rv.innerHTML='<span id="iceN">'+s.score+'</span><small>情绪分 /100<br>冰点'+(100-s.score)+'%</small>'; }
   const ztR=(s.ztRatio*100).toFixed(1);
+  const upR=(s.upRatio*100).toFixed(1);
   const icePct=100-s.score;   // 冰点百分比 = 100 - 情绪分
   const shTxt=s.shPct!=null?(s.shPct>=0?'+':'')+s.shPct.toFixed(2)+'%':'--';
   const posTxt=s.shPos!=null?s.shPos.toFixed(0)+'%':'--';
