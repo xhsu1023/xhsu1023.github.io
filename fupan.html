@@ -112,7 +112,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 
     <!-- 模块E：板块涨幅TOP / 跌幅TOP -->
     <div class="card span3">
-      <div class="card-title"><h2>板块涨幅 TOP10 / 跌幅 TOP10</h2><span class="badge">BOARD</span></div>
+      <div class="card-title"><h2>板块涨幅 TOP10 / 跌幅 TOP10</h2><span class="badge" id="boardBadge">BOARD</span></div>
       <div class="row" style="align-items:flex-start">
         <div style="flex:1;min-width:280px">
           <div style="font-size:0.55rem;color:var(--red);margin-bottom:4px">▲ 涨幅 TOP10（概念+行业）</div>
@@ -230,31 +230,49 @@ async function fetchMarket(force){
         for(const x of arr){ const code=String(x.f12||''); if(!code||seen.has(code)) continue; seen.add(code); out.list.push({sym:(x.f13===1?'sh':(x.f13===0?'sz':'bj'))+code,code,name:x.f14||'',pct:x.f3,price:x.f2,amt:x.f6||0,turn:x.f8,cap:x.f20||0,main:x.f62||0}); }
         if(arr.length<500) break;
       }
+      /* 跌幅通道（排序po=0，跌幅前几页覆盖跌停）— 多host+重试，失败静默 */
+      for(let pn=1;pn<=2;pn++){
+        let got=false;
+        for(const host of ['push2delay.eastmoney.com','push2.eastmoney.com']){
+          for(let a=0;a<2 && !got;a++){
+            try{
+              const j=await jget('https://'+host+'/api/qt/clist/get?pn='+pn+'&pz=500&po=0&np=1&fltt=2&invt=2&fid=f3&fs='+fs+'&fields='+F+'&_='+Date.now()+pn+a);
+              const arr=(j&&j.data&&j.data.diff)||[]; if(!arr.length) break;
+              for(const x of arr){ const code=String(x.f12||''); if(!code||seen.has(code)) continue; seen.add(code); out.list.push({sym:(x.f13===1?'sh':(x.f13===0?'sz':'bj'))+code,code,name:x.f14||'',pct:x.f3,price:x.f2,amt:x.f6||0,turn:x.f8,cap:x.f20||0,main:x.f62||0}); }
+              got=true; if(arr.length<500) break;
+            }catch(e){ await new Promise(r=>setTimeout(r,300)); }
+          }
+          if(got) break;
+        }
+      }
       okEm=out.list.length>100;
     }catch(e){ okEm=false; }
   }
   if(!okEm){
-    // 2) 新浪全市场分页（涨幅排序，涨停在头部）：安全兜底（若浏览器 CORS 允许）
+    // 2) 新浪全市场分页：涨幅降序前若干页 + 跌幅降序前若干页（双通道覆盖涨停/跌停）
     srcUsed='sina';
-    out.list=[];
-    const got={};
-    for(let p=1;p<=140;p++){
-      let arr=[];
-      try{
-        const t=await (await fetch('https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?page='+p+'&num=100&sort=changepercent&asc=0&node=hs_a&_='+Date.now())).text();
-        arr=JSON.parse(t);
-      }catch(e){ break; }
-      if(!arr||!arr.length) break;
-      let any=false;
-      for(const x of arr){
-        const sym=String(x.symbol||''); const code=String(x.code||'');
-        if(!sym||!code||got[sym]) continue; got[sym]=1; any=true;
-        out.list.push({sym,code,name:x.name||'',pct:x.changepercent,price:parseFloat(x.trade)||null,
-          amt:x.amount||0, turn:parseFloat(x.turnoverratio)||null, cap:parseFloat(x.nmc)||0, main:0});
+    out.list=[]; const got={};
+    const sinaPages=async(asc,pages)=>{
+      for(let p=1;p<=pages;p++){
+        let arr=[];
+        try{
+          const t=await (await fetch('https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?page='+p+'&num=100&sort=changepercent&asc='+asc+'&node=hs_a&_='+Date.now())).text();
+          arr=JSON.parse(t);
+        }catch(e){ break; }
+        if(!arr||!arr.length) break;
+        let any=false;
+        for(const x of arr){
+          const sym=String(x.symbol||''); const code=String(x.code||'');
+          if(!sym||!code||got[sym]) continue; got[sym]=1; any=true;
+          out.list.push({sym,code,name:x.name||'',pct:x.changepercent,price:parseFloat(x.trade)||null,
+            amt:x.amount||0, turn:parseFloat(x.turnoverratio)||null, cap:parseFloat(x.nmc)||0, main:0});
+        }
+        if(!any) break;
+        if(out.list.length>=5200) break;
       }
-      if(!any) break;
-      if(out.list.length>=5200) break;
-    }
+    };
+    await sinaPages(0, 30);   // 涨幅降序（涨停头部）
+    await sinaPages(1, 12);   // 跌幅降序（跌停头部）
   }
   if(!okEm && !out.list.length) return null;   // 东财+新浪均失败 → null（触发冰点降级）
   // 分类
@@ -456,6 +474,8 @@ function renderDt(list){
 }
 async function renderBoards(){
   const b=await fetchBoards();
+  const bb=$('boardBadge');
+  if(bb) bb.textContent=new Date().toLocaleDateString('zh-CN')+' '+new Date().toTimeString().slice(0,5)+' 采集';
   if(!b.up.length && !b.dn.length){
     $('bUpBody').innerHTML='<tr><td colspan="4" style="color:var(--orange)">板块接口暂不可用（东财限流），请稍后刷新重试</td></tr>';
     $('bDnBody').innerHTML='';
