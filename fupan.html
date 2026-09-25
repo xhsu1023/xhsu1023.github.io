@@ -49,6 +49,10 @@ tr:hover td{background:rgba(0,240,255,0.025)}
 .tg-o{background:rgba(255,136,0,0.1);color:var(--orange)}
 .ice{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
 .ice-chart{width:210px;height:210px;flex-shrink:0}
+.ring{width:190px;height:190px;border-radius:50%;background:conic-gradient(var(--gold) calc(var(--p)*1%),rgba(30,34,56,0.7) 0);display:flex;align-items:center;justify-content:center;position:relative;margin:4px auto}
+.ring::before{content:'';position:absolute;inset:16px;border-radius:50%;background:var(--bg-card)}
+.ring-center{position:relative;z-index:1;font-size:1.6rem;font-weight:700;color:var(--tb)}
+.ring-center small{font-size:0.5rem;color:var(--text);display:block;text-align:center;letter-spacing:1px}
 .ice-info{flex:1;min-width:220px}
 .ice-bar{height:8px;border-radius:4px;background:rgba(30,34,56,0.7);overflow:hidden;position:relative;margin:4px 0}
 .ice-bar i{display:block;height:100%;border-radius:4px;transition:width .5s}
@@ -88,7 +92,7 @@ tr:hover td{background:rgba(0,240,255,0.025)}
     <div class="card span3">
       <div class="card-title"><h2>市场情绪 · 冰点雷达</h2><span class="badge">SENTIMENT</span></div>
       <div class="ice">
-        <div class="ice-chart" id="iceChart"></div>
+        <div class="ice-chart"><div class="ring" id="iceRing"><div class="ring-center" id="iceRingVal">--</div></div></div>
         <div class="ice-info" id="iceInfo"></div>
       </div>
     </div>
@@ -130,7 +134,6 @@ tr:hover td{background:rgba(0,240,255,0.025)}
   <div class="foot">数据来源：东方财富 push2delay 实时行情。涨停判定按板块涨跌幅限制（主板≈10%/创业≈20%/科创≈20%/北交≈30%），连板数由近几日涨停估算；「冰点」为情绪温度计（上涨占比+涨停强度+大盘位置 综合），仅供研究参考。</div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>
 // ============ 工具 ============
 const $=id=>document.getElementById(id);
@@ -150,37 +153,61 @@ function limOf(code){ // code 6位
 const isLimitUp=(c,p)=>{ const L=limOf(c); return p!=null && p>=L-0.5 && p<=L+1.5; };
 const isLimitDn=(c,p)=>{ const L=limOf(c); return p!=null && p<=-(L-0.5) && p>=-(L+1.5); };
 
-// ============ 数据拉取：全市场 ============
-let MARKET=null, marketTS=0;
+// ============ 数据拉取：全市场（东财优先，失败自动切新浪） ============
+let MARKET=null, marketTS=0, srcUsed='em';
 async function fetchMarket(force){
   const now=Date.now();
   if(MARKET && now-marketTS<120000 && !force) return MARKET;
   const out={list:[], free:0, main500:[], cap500:[], zt:[], dt:[], up:0, dn:0, flat:0};
-  const fs='m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-  const F='f2,f3,f5,f6,f8,f12,f13,f14,f20,f62';
-  // 涨跌幅排序：正向前6页(覆盖涨停/涨幅侧)，负向前2页(覆盖跌停)
-  for(let pn=1;pn<=6;pn++){
-    const j=await jget('https://push2delay.eastmoney.com/api/qt/clist/get?pn='+pn+'&pz=500&po=1&np=1&fltt=2&invt=2&fid=f3&fs='+fs+'&fields='+F);
-    const arr=(j&&j.data&&j.data.diff)||[]; if(!arr.length) break;
-    for(const x of arr){ const code=String(x.f12||''); const sym=(x.f13===1?'sh':(x.f13===0?'sz':'bj'))+code; out.list.push({sym,code,name:x.f14||'',pct:x.f3,price:x.f2,amt:x.f6||0,turn:x.f8,cap:x.f20||0,main:x.f62||0}); }
-    if(arr.length<500) break;
+  // 1) 东财 push2delay（本机/常规可用）— 加重试
+  let okEm=false;
+  for(let emTry=0; emTry<3 && !okEm; emTry++){
+    try{
+      if(emTry>0){ await new Promise(r=>setTimeout(r,400)); }
+      const fs='m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
+      const F='f2,f3,f5,f6,f8,f12,f13,f14,f20,f62';
+      const seen=new Set(); out.list=[];
+      for(let pn=1;pn<=6;pn++){
+        const j=await jget('https://push2delay.eastmoney.com/api/qt/clist/get?pn='+pn+'&pz=500&po=1&np=1&fltt=2&invt=2&fid=f3&fs='+fs+'&fields='+F+'&_='+Date.now());
+        const arr=(j&&j.data&&j.data.diff)||[]; if(!arr.length) break;
+        for(const x of arr){ const code=String(x.f12||''); if(!code||seen.has(code)) continue; seen.add(code); out.list.push({sym:(x.f13===1?'sh':(x.f13===0?'sz':'bj'))+code,code,name:x.f14||'',pct:x.f3,price:x.f2,amt:x.f6||0,turn:x.f8,cap:x.f20||0,main:x.f62||0}); }
+        if(arr.length<500) break;
+      }
+      okEm=out.list.length>100;
+    }catch(e){ okEm=false; }
   }
-  for(let pn=1;pn<=2;pn++){
-    const j=await jget('https://push2delay.eastmoney.com/api/qt/clist/get?pn='+pn+'&pz=500&po=0&np=1&fltt=2&invt=2&fid=f3&fs='+fs+'&fields='+F);
-    const arr=(j&&j.data&&j.data.diff)||[]; if(!arr.length) break;
-    for(const x of arr){ if(out.list.some(s=>s.code===String(x.f12))) continue; const code=String(x.f12||''); out.list.push({sym:(x.f13===1?'sh':(x.f13===0?'sz':'bj'))+code,code,name:x.f14||'',pct:x.f3,price:x.f2,amt:x.f6||0,turn:x.f8,cap:x.f20||0,main:x.f62||0}); }
-    if(arr.length<500) break;
+  if(!okEm){
+    // 2) 新浪全市场分页（涨幅排序，涨停在头部）：安全兜底
+    srcUsed='sina';
+    out.list=[];
+    const got={};
+    for(let p=1;p<=140;p++){
+      let arr=[];
+      try{
+        const t=await (await fetch('https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?page='+p+'&num=100&sort=changepercent&asc=0&node=hs_a&_='+Date.now())).text();
+        arr=JSON.parse(t);
+      }catch(e){ break; }
+      if(!arr||!arr.length) break;
+      let any=false;
+      for(const x of arr){
+        const sym=String(x.symbol||''); const code=String(x.code||'');
+        if(!sym||!code||got[sym]) continue; got[sym]=1; any=true;
+        out.list.push({sym,code,name:x.name||'',pct:x.changepercent,price:parseFloat(x.trade)||null,
+          amt:x.amount||0, turn:parseFloat(x.turnoverratio)||null, cap:parseFloat(x.nmc)||0, main:0});
+      }
+      if(!any) break;
+      if(out.list.length>=5200) break;
+    }
   }
   // 分类
   const seen=new Set();
   for(const s of out.list){
     if(!s.code||seen.has(s.code)) continue; seen.add(s.code);
     if(/^(N|C|U)/.test(s.name||'')) continue;
-    if(s.pct==null) continue;
+    if(s.pct==null||!isFinite(s.pct)) continue;
     if(isLimitUp(s.code,s.pct)) out.zt.push(s);
     else if(isLimitDn(s.code,s.pct)) out.dt.push(s);
     if(s.pct>0) out.up++; else if(s.pct<0) out.dn++; else out.flat++;
-    out.main500.push(s); 
   }
   out.list=out.list.filter(s=>seen.has(s.code));
   MARKET=out; marketTS=now;
@@ -297,7 +324,6 @@ async function fetchLeaderInBoard(bk){
 }
 
 // ============ 渲染 ============
-let iceChart=null; try{ iceChart=window.echarts?echarts.init($('iceChart')):null; }catch(e){ iceChart=null; }
 let lastSent={};
 function renderMo(m){
   $('hUp').textContent=m.up; $('hDn').textContent=m.dn;
@@ -324,25 +350,11 @@ function renderMo(m){
 }
 function renderIce(s){
   lastSent=s;
-  if(!iceChart){ try{ const el=$('iceChart'); if(el&&window.echarts) iceChart=echarts.init(el); }catch(e){} }
-  if(iceChart){
-    const color = s.score>=55?'#ff3355':(s.score>=35?'#f7c948':'#00ff88');
-    iceChart.setOption({
-      series:[{
-        type:'gauge', startAngle:90,endAngle:-270,min:0,max:100,
-        radius:'95%', center:['50%','55%'],
-        progress:{show:true,width:16,itemStyle:{color}},
-        axisLine:{lineStyle:{width:16,color:[[1,'rgba(30,34,56,0.9)']]}},
-        pointer:{show:false},
-        axisTick:{show:false},splitLine:{show:false},axisLabel:{show:false},
-        title:{show:true,offsetCenter:[0,'38%'],color:color,fontSize:11},
-        detail:{valueAnimation:true,offsetCenter:[0,'0%'],formatter:'{value}',color:'#e0e4f0',fontSize:20,fontWeight:700},
-        data:[{value:s.score,name:s.label}]
-      }]
-    },true);
-  }
+  const ring=document.getElementById('iceRing');
+  const rv=document.getElementById('iceRingVal');
+  if(ring) ring.style.setProperty('--p', s.score);
+  if(rv){ rv.innerHTML='<span id="iceN">'+s.score+'</span><small>情绪分 /100<br>冰点'+(100-s.score)+'%</small>'; }
   const ztR=(s.ztRatio*100).toFixed(1);
-  const upR=(s.upRatio*100).toFixed(1);
   const icePct=100-s.score;   // 冰点百分比 = 100 - 情绪分
   const shTxt=s.shPct!=null?(s.shPct>=0?'+':'')+s.shPct.toFixed(2)+'%':'--';
   const posTxt=s.shPos!=null?s.shPos.toFixed(0)+'%':'--';
@@ -431,9 +443,11 @@ async function refresh(force){
     let m=null;
     try{ m=await fetchMarket(force); }catch(e){ m=null; }
     if(!m){
-      try{ iceChart&&iceChart.setOption({series:[{data:[{value:0,name:'数据不足'}]}]},true); }catch(e){}
-      $('iceInfo').innerHTML='<div style="font-size:0.72rem;color:var(--orange)">市场数据暂不可用（东财接口限流）</div>'+
-        '<div style="margin-top:6px;font-size:0.56rem;color:var(--text)">请稍候点击「⟳ 刷新」重试，涨跌家数/涨停数据到位后自动计算冰点温度。</div>';
+      const ring=document.getElementById('iceRing'); const rv=document.getElementById('iceRingVal');
+      if(ring) ring.style.setProperty('--p',0);
+      if(rv) rv.innerHTML='--<small>数据不足</small>';
+      $('iceInfo').innerHTML='<div style="font-size:0.72rem;color:var(--orange)">市场数据暂不可用（东财接口限流/Tracking拦截）</div>'+
+        '<div style="margin-top:6px;font-size:0.56rem;color:var(--text)">请稍候点击「⟳ 刷新」重试，涨跌家数/涨停数据到位后自动计算冰点温度。手机端请在浏览器「设置-网站数据」清除本站点缓存后重开。</div>';
       $('hUp').textContent='--'; $('hDn').textContent='--'; $('hZt').textContent='--'; $('hDt').textContent='--';
       return;   // 全市场不可用：仅渲染冰点空态
     }
