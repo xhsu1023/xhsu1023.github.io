@@ -177,7 +177,7 @@ async function fetchMarket(force){
     }catch(e){ okEm=false; }
   }
   if(!okEm){
-    // 2) 新浪全市场分页（涨幅排序，涨停在头部）：安全兜底
+    // 2) 新浪全市场分页（涨幅排序，涨停在头部）：安全兜底（若浏览器 CORS 允许）
     srcUsed='sina';
     out.list=[];
     const got={};
@@ -199,6 +199,7 @@ async function fetchMarket(force){
       if(out.list.length>=5200) break;
     }
   }
+  if(!okEm && !out.list.length) return null;   // 东财+新浪均失败 → null（触发冰点降级）
   // 分类
   const seen=new Set();
   for(const s of out.list){
