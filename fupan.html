@@ -154,6 +154,62 @@ function limOf(code){ // code 6位
 const isLimitUp=(c,p)=>{ const L=limOf(c); return p!=null && p>=L-0.5 && p<=L+1.5; };
 const isLimitDn=(c,p)=>{ const L=limOf(c); return p!=null && p<=-(L-0.5) && p>=-(L+1.5); };
 
+// ============ 数据缓存：本地(localStorage) + 云端(GitHub puppet 复用 stock_pulse_cloud_v1 配置) ============
+const FP_CACHE_KEY='stock_pulse_fupan_snap_v1';
+const FP_CLOUD_FILE='fupan_data.json';
+// 云同步配置与 stock_tracker 共享（同源 localStorage 同名 key）
+function fpCloudCfg(){
+  try{ const r=localStorage.getItem('stock_pulse_cloud_v1'); if(r){ const c=JSON.parse(r); if(c&&c.token&&c.repo) return Object.assign({owner:'xhsu1023'},c); } }catch(e){}
+  return null;
+}
+async function fpCloudApi(method, path, body){
+  const c=fpCloudCfg(); if(!c) return Promise.reject(new Error('no-cloud'));
+  const url='https://api.github.com/repos/'+(c.owner||'xhsu1023')+'/'+c.repo+path;
+  const opt={method,headers:{'Authorization':'token '+c.token,'Accept':'application/vnd.github+json'}};
+  if(body){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+  const r=await fetch(url,opt);
+  const j=await r.json().catch(()=>null);
+  if(!r.ok){ const e=new Error('HTTP '+r.status); e.code=r.status; e.detail=j; throw e; }
+  return {status:r.status, json:j};
+}
+async function fpCloudPull(){
+  if(!fpCloudCfg()) return null;
+  try{ const r=await fpCloudApi('GET','/contents/'+FP_CLOUD_FILE); const c=r.json&&r.json.content; if(!c) return null;
+    let raw; try{ raw=decodeURIComponent(escape(atob(c))); }catch(e){ try{ raw=atob(c); }catch(e2){ return null; } }
+    return JSON.parse(raw); }catch(e){ return null; }
+}
+async function fpCloudPush(snap){
+  if(!fpCloudCfg()) return;
+  const payload=btoa(unescape(encodeURIComponent(JSON.stringify(snap))));
+  try{
+    let sha=null;
+    try{ const r=await fpCloudApi('GET','/contents/'+FP_CLOUD_FILE); sha=r.json&&r.json.sha; }catch(e){}
+    const p={message:'fupan-snap', content:payload}; if(sha) p.sha=sha;
+    await fpCloudApi('PUT','/contents/'+FP_CLOUD_FILE, p);
+  }catch(e){ /* 云写失败静默 */ }
+}
+function fpLoadLocal(){
+  try{ const r=localStorage.getItem(FP_CACHE_KEY); if(r){ const j=JSON.parse(r); if(j&&j.m&&j.ts) return j; } }catch(e){}
+  return null;
+}
+function fpSaveLocal(snap){ try{ localStorage.setItem(FP_CACHE_KEY, JSON.stringify(snap)); }catch(e){} }
+function fpIsTradeTime(){
+  let d=new Date(); try{ d=new Date(d.toLocaleString('en-US',{timeZone:'Asia/Shanghai'})); }catch(e){}
+  if(d.getDay()===0||d.getDay()===6) return false;
+  const mm=d.getHours()*60+d.getMinutes();
+  return (mm>=570&&mm<=690)||(mm>=780&&mm<=900);   // 9:30-11:30 / 13:00-15:00
+}
+function fpRenderSnap(snap){
+  if(!snap||!snap.m) return;
+  const m=snap.m, idx=snap.idx||{};
+  renderMo(m);
+  renderIce(calcSentiment(m, idx));
+  renderLb(m.zt||[]);
+  renderDt(m.dt||[]);
+  renderLadder(m.zt||[]);
+  $('hDate').textContent=(snap.date||new Date().toLocaleDateString('zh-CN'))+(fpIsTradeTime()?'':' ·缓存');
+}
+
 // ============ 数据拉取：全市场（东财优先，失败自动切新浪） ============
 let MARKET=null, marketTS=0, srcUsed='em';
 async function fetchMarket(force){
@@ -439,20 +495,31 @@ async function refresh(force){
   if(busy) return; busy=true;
   try{
     $('hDate').textContent=new Date().toLocaleDateString('zh-CN');
+    const trade=fpIsTradeTime();
+    const local=fpLoadLocal();
+    // 非交易时段 + 缓存新鲜(<5min) + 非强制 → 直接用缓存，不拉网
+    if(!trade && local && (Date.now()-local.ts<300000) && !force){
+      fpRenderSnap(local);
+      busy=false; return;
+    }
     // 冰点不依赖全市场：即使东财限流也渲染（缺省值），避免整页空白
     let idx=null; try{ idx=await fetchIndex(); }catch(e){ idx=null; }
     let ice=calcSentiment({up:0,dn:0,flat:0,zt:[],dt:[],list:[]}, idx);
-    // 全市场（可能限流）
     let m=null;
     try{ m=await fetchMarket(force); }catch(e){ m=null; }
     if(!m){
-      const ring=document.getElementById('iceRing'); const rv=document.getElementById('iceRingVal');
-      if(ring) ring.style.setProperty('--p',0);
-      if(rv) rv.innerHTML='--<small>数据不足</small>';
-      $('iceInfo').innerHTML='<div style="font-size:0.72rem;color:var(--orange)">市场数据暂不可用（东财接口限流/Tracking拦截）</div>'+
-        '<div style="margin-top:6px;font-size:0.56rem;color:var(--text)">请稍候点击「⟳ 刷新」重试，涨跌家数/涨停数据到位后自动计算冰点温度。手机端请在浏览器「设置-网站数据」清除本站点缓存后重开。</div>';
-      $('hUp').textContent='--'; $('hDn').textContent='--'; $('hZt').textContent='--'; $('hDt').textContent='--';
-      return;   // 全市场不可用：仅渲染冰点空态
+      // 实时失败 → 本地缓存兜底；再云兜底
+      if(local){ fpRenderSnap(local); }
+      else{ const cloud=await fpCloudPull(); if(cloud&&cloud.m){ fpRenderSnap(cloud); fpSaveLocal(cloud); }
+        else{
+          const ring=document.getElementById('iceRing'); const rv=document.getElementById('iceRingVal');
+          if(ring) ring.style.setProperty('--p',0); if(rv) rv.innerHTML='--<small>数据不足</small>';
+          $('iceInfo').innerHTML='<div style="font-size:0.72rem;color:var(--orange)">市场数据暂不可用（东财接口限流/Tracking拦截）</div>'+
+            '<div style="margin-top:6px;font-size:0.56rem;color:var(--text)">请稍候点击「⟳ 刷新」重试，涨跌家数/涨停数据到位后自动计算冰点温度。手机端请在浏览器「设置-网站数据」清除本站点缓存后重开。</div>';
+          $('hUp').textContent='--'; $('hDn').textContent='--'; $('hZt').textContent='--'; $('hDt').textContent='--';
+        }
+      }
+      busy=false; return;
     }
     renderMo(m);
     ice=calcSentiment(m, idx);
@@ -462,6 +529,10 @@ async function refresh(force){
     renderLadder(m.zt);
     try{ await calcBoards(m.zt.slice(0,40)); renderLb(m.zt); renderLadder(m.zt); }catch(e){}
     try{ await renderBoards(); }catch(e){}
+    // 写缓存：本地 + 云（交易时段更勤快）
+    const snap={ts:Date.now(), date:new Date().toLocaleDateString('zh-CN'), m, idx};
+    fpSaveLocal(snap);
+    try{ fpCloudPush(snap); }catch(e){}
   }catch(e){ console.error(e); }
   busy=false;
 }
@@ -471,8 +542,10 @@ $('backBtn').addEventListener('click',()=>{ location.href='stock_tracker.html'; 
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){ location.href='stock_tracker.html'; }
 });
+/* 启动：先显示本地缓存（秒开），再后台拉取实时/云恢复 */
+(()=>{ const l=fpLoadLocal(); if(l) fpRenderSnap(l); })();
 refresh();
-setInterval(()=>refresh(false), 180000);
+setInterval(()=>{ refresh(fpIsTradeTime()); }, 180000);
 </script>
 </body>
 </html>
